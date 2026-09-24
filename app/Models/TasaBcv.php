@@ -1,0 +1,32 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class TasaBcv extends Model
+{
+    protected $table = 'tasas_bcv';
+
+    protected $fillable = [
+        'fecha',
+        'tasa_usd',
+        'fuente',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'fecha'    => 'date',
+            'tasa_usd' => 'decimal:6',
+        ];
+    }
+
+    public function __toString(): string
+    {
+        return (string) $this->tasa_usd;
+    }
+}

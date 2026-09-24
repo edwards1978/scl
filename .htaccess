@@ -1,0 +1,11 @@
+RewriteEngine On
+
+# Serve existing files from public/ directly
+RewriteCond %{DOCUMENT_ROOT}/scl/public/$1 -f [OR]
+RewriteCond %{DOCUMENT_ROOT}/scl/public/$1 -d
+RewriteRule ^(.*)$ public/$1 [L]
+
+# Route everything else through Laravel
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule . public/index.php [L]

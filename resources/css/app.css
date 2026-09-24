@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Tailwind v4 pone appearance:none + un chevron propio (background-image) en los
+   <select>, con padding-right:2.5rem. Las utilidades px-* sobreescriben ese padding,
+   dejando el chevron sobre el texto del valor seleccionado. Restauramos el aspecto
+   nativo (igual que contabilidad): la flecha nativa nunca se superpone al texto. */
+select {
+    -webkit-appearance: auto;
+    -moz-appearance: auto;
+    appearance: auto;
+    background-image: none;
+}
+
+select option {
+    background-color: #ffffff;
+    color: #111827;
+}
