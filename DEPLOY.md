@@ -80,12 +80,20 @@ php artisan db:seed --force
 
 ## 4. Permisos
 
+Ejecutar como root (ajusta la ruta si es distinta):
+
 ```bash
-sudo chown -R www-data:www-data storage bootstrap/cache
-sudo find storage bootstrap/cache -type d -exec chmod 775 {} \;
-sudo find storage bootstrap/cache -type f -exec chmod 664 {} \;
+sudo bash deploy/fix-permissions.sh /var/www/html/scl
 php artisan storage:link
 ```
+
+El script hace:
+
+- `.env` legible por `www-data` (`root:www-data`, `640`).
+- `storage/framework`, `storage/logs`, `storage/app/public` y
+  `bootstrap/cache` escribibles por `www-data`.
+- `storage/app/private` restringido (respaldos y scripts legados).
+- No usa ACL: si el filesystem no las soporta, los permisos POSIX bastan.
 
 ## 5. Apache (obligatorio)
 
@@ -140,7 +148,9 @@ cada cambio en `.env` o en rutas.
 
 ## 7. Seguridad obligatoria antes de publicar
 
-1. **Cambiar la contraseña del admin** (la del seeder es `admin123`):
+1. **Contraseña del admin**: el seeder ya no usa una clave fija. Si
+   `ADMIN_PASSWORD` está definido en `.env`, la usa; si no, genera una clave
+   aleatoria y la muestra una sola vez. Para cambiarla manualmente:
 
    ```bash
    php artisan tinker --execute="\App\Models\User::where('email','admin@scl.local')->update(['password'=>bcrypt('CLAVE_FUERTE_AQUI')]);"

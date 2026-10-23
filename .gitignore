@@ -7,6 +7,9 @@
 /%CK%
 /scl
 /stubs_cookie.txt
+/_*.php
+/stubs_routes.txt
+/database_scl_backup.sql
 /storage/*.key
 /storage/pail
 /vendor

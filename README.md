@@ -81,7 +81,8 @@ php artisan serve
 
 Tras ejecutar el seeder `DefaultAdminSeeder`:
 - **Email**: admin@scl.local
-- **Password**: admin123
+- **Password**: se genera una clave aleatoria y se muestra **una sola vez** en
+  la salida del seeder; también se puede fijar con `ADMIN_PASSWORD` en `.env`.
 
 > Cambiar esta contraseña inmediatamente después del despliegue (ver `DEPLOY.md`).
 
