@@ -43,7 +43,13 @@ return new class extends Migration
             $table->string('concepto')->nullable();
             $table->timestamps();
 
-            $table->foreign('movimiento_prestacion_id', 'mpi_movimiento_fk')
+            // El nombre de una FK es único por base de datos, no por tabla.
+            // Se prefija para que el esquema de pruebas (test_) no choque con
+            // la FK real de producción.
+            $table->foreign(
+                'movimiento_prestacion_id',
+                \Illuminate\Support\Facades\DB::getTablePrefix().'mpi_movimiento_fk'
+            )
                 ->references('id')->on('movimientos_prestaciones')
                 ->cascadeOnDelete();
         });
