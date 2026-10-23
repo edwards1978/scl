@@ -26,10 +26,10 @@ SCL es una aplicación **Laravel 12 + Livewire 4 + Blade/Tailwind + MySQL/MariaD
 
 1. **Tres fórmulas distintas para las prestaciones sociales** producen saldos incompatibles para el mismo trabajador. La liquidación final no compara ni integra la garantía acumulada. Es el riesgo legal/económico más alto.
 2. **No hay roles, permisos ni aislamiento por usuario.** Cualquier usuario autenticado puede cambiar de patrono y ver/editar toda la nómina, aprobar liquidaciones y borrar historial. No hay auditoría (`created_by`, `approved_by`, historial de estados).
-3. **Credenciales y datos sensibles en el repositorio:** la contraseña por defecto del administrador sigue activa, hay scripts de depuración con credenciales y operaciones destructivas, y el backup SQL está versionado en Git.
-4. **Despliegue frágil:** Apache corre como `www-data`, pero `.env` y `storage/` pertenecen a `edwards:nogroup`. El sitio funciona porque la configuración y las vistas están precompiladas en caché; un cambio de vista/configuración o un error que requiera log puede fallar.
-5. **Pruebas no confiables:** 23 de 30 pruebas fallan por la caché de configuración de producción (no por el código), y la suite usa la base de datos de producción en lugar de una aislada. No hay pruebas de la lógica de cálculo.
-6. **Lógica de negocio con inconsistencias:** días adicionales posiblemente duplicados, intereses capitalizados, anticipos descontados dos veces, cambio de patrono que no mueve el historial, liquidación que inactiva al trabajador antes de aprobarse.
+3. **Credenciales y datos sensibles:** se rotó la contraseña del administrador y se retiraron del árbol actual los scripts y el backup SQL; el backup todavía está en el historial de Git y debe purgarse/rotarse si el repositorio se compartió.
+4. **Despliegue frágil:** se agregó `deploy/fix-permissions.sh` para que `www-data` lea `.env` y escriba en `storage/`/`bootstrap/cache`; requiere ejecutarse como root. Mientras no se ejecute, el sitio sigue dependiendo de la configuración y las vistas precompiladas.
+5. **Pruebas:** la suite se aisló de la configuración de producción y ahora pasa **28/28** con tablas `test_`; sigue faltando cobertura de los servicios de cálculo.
+6. **Lógica de negocio:** se corrigieron los fallos inequívocos (cambio de patrono, estado de liquidaciones, recibos duplicados, borrados destructivos). Las discrepancias de fórmulas (garantía vs. liquidación, intereses capitalizados, días adicionales) siguen pendientes de decisión legal.
 7. **Dependencias con avisos de seguridad:** `composer audit` reporta 17 avisos en 6 paquetes (16 en 5 paquetes sin dependencias de desarrollo), incluido un XSS de Livewire y varios DoS de `league/commonmark`.
 
 ---
@@ -323,6 +323,8 @@ liq 38 anulada → emp = Inactivo
 
 **Recomendación:** mover el cambio a `Inactivo` al momento de **aprobar**; reactivar al anular; impedir borrar aprobadas (usar anulación con motivo y auditoría); agregar una máquina de estados con transiciones válidas.
 
+> **Corregido el 23/10/2026:** el trabajador se marca inactivo al aprobar; se reactiva al anular/eliminar si no queda otra liquidación vigente; se bloquea aprobar una anulada, borrar una aprobada y crear dos liquidaciones vigentes.
+
 ### 5.7 Cambio de patrono no mueve el historial — **ALTO (confirmado)**
 
 `EmpleadoController@cambiarPatrono()` actualiza el empleado y luego mueve vacaciones, movimientos, prestaciones, liquidaciones y bonificaciones usando:
@@ -343,6 +345,8 @@ Resultado: el empleado cambia de patrono, pero su historial (vacaciones, prestac
 
 **Recomendación:** capturar `$patronoAnterior = $empleado->patrono_id` **antes** del update, mover todos los registros en una transacción, y validar que no existan liquidaciones aprobadas o períodos cerrados que impidan la transferencia. Alternativa más segura: no permitir cambiar de patrono; crear un nuevo empleado con historial propio.
 
+> **Corregido el 23/10/2026:** se captura el patrono anterior antes del update y se mueve vacaciones, movimientos, prestaciones, liquidaciones y bonificaciones dentro de la misma transacción. Se verificó que 1 vacación se mueve correctamente.
+
 ### 5.8 Historial salarial insuficiente y edición de salario inconsistente — **ALTO**
 
 - Hay **0 registros** en `cambios_salarios` y **19 de 21** empleados tienen `salario_inicial = NULL`.
@@ -362,6 +366,8 @@ Resultado: el empleado cambia de patrono, pero su historial (vacaciones, prestac
 - Las liquidaciones, bonificaciones y movimientos también tienen borrado duro sin auditoría.
 
 **Recomendación:** hacer el PDF idempotente (generar solo al pagar, o `firstOrCreate`); separar “pagada” de “disfrutada”; permitir recalcular un período anulado (o reutilizar el registro); usar borrado lógico y bloquear la eliminación de registros pagados/aprobados; guardar `created_by`, `approved_by`, fechas y motivos.
+
+> **Corregido parcialmente el 23/10/2026:** `generarRecibo()` devuelve el recibo existente; `puedeBorrar()` bloquea pagadas, disfrutadas y con recibo; solo se anulan vacaciones pendientes; se bloqueó el borrado de liquidaciones aprobadas, bonificaciones aprobadas y movimientos no anulados; se bloquearon borrados de patronos con empleados y empleados con historial. Sigue pendiente separar “pagada” de “disfrutada”, permitir recalcular períodos anulados y agregar auditoría.
 
 ### 5.10 Feriados: borrar y reinsertar en cada request — **MEDIO/ALTO**
 
@@ -411,26 +417,30 @@ Resultado: el empleado cambia de patrono, pero su historial (vacaciones, prestac
 
 ## 6. Seguridad y cumplimiento
 
-### 6.1 Crítico: contraseña por defecto activa
+### 6.1 Contraseña por defecto — **corregido el 23/10/2026**
 
-Se verificó con `Hash::check()` que el usuario administrador conserva la contraseña por defecto documentada en el README. Además, `DefaultAdminSeeder` la restablece con `Hash::make('admin123')` en cada ejecución de `db:seed` (`database/seeders/DefaultAdminSeeder.php`). Es decir:
+Se verificó con `Hash::check()` que el usuario administrador conservaba la contraseña por defecto. Además, `DefaultAdminSeeder` la restablecía con `Hash::make('admin123')` en cada `db:seed`.
 
-- La credencial es pública (README).
-- Un `php artisan db:seed --force` futuro vuelve a poner la contraseña por defecto.
-- No hay cambio forzado en el primer inicio ni 2FA.
+**Corrección aplicada:**
 
-**Acción inmediata:** cambiar la contraseña, eliminar la contraseña fija del seeder (usar variable de entorno/aleatoria), exigir cambio en el primer login y no volver a ejecutar seeders en producción sin control.
+- Se rotó la contraseña del administrador existente.
+- `DefaultAdminSeeder` ya no contiene una clave fija: usa `ADMIN_PASSWORD` si está definida o genera una aleatoria y la muestra una sola vez.
+- El seeder usa `firstOrCreate`, por lo que volver a ejecutar `db:seed` no resetea la contraseña de un administrador existente.
+- README y DEPLOY ya no publican la clave.
 
-### 6.2 Crítico: secretos y artefactos en el repositorio
+**Pendiente:** cambio forzado en el primer inicio, 2FA y política de contraseñas.
 
-- `database_scl_backup.sql` (260 KB) está **versionado en Git** y contiene `INSERT INTO users` y `INSERT INTO empleados` (hashes de contraseña y datos personales). Si el repositorio se comparte, se filtran datos.
-- Scripts en la raíz, también versionados:
-  - `_dbstate.php`: hace login con la credencial de administrador y consulta datos.
-  - `_login_probe.php`, `_err.php`, `_patroncheck.php`: pruebas de depuración con credenciales/URLs.
-  - `_final.php`: **elimina empleados, vacaciones y recibos** de un patrono de prueba.
-- `stubs_routes.txt` es una salida de depuración versionada.
-- `storage/app/private/backups/` contiene 3 respaldos (SQL de 51 KB y 68 KB, y un tar.gz de 360 KB del webroot anterior, que incluye `database_scl_backup.sql`). No están bajo `public/`, pero siguen en disco y contienen datos sensibles.
-- `%CK%` es un archivo extraño versionado y actualmente eliminado.
+### 6.2 Secretos y artefactos — **corregido en el árbol actual**
+
+Se retiraron del repositorio y se movieron a `storage/app/private/legacy/` (fuera del webroot):
+
+- `database_scl_backup.sql` (datos de usuarios y empleados).
+- `_dbstate.php`, `_err.php`, `_final.php`, `_login_probe.php`, `_patroncheck.php`.
+- `stubs_routes.txt` y `%CK%`.
+
+También se agregaron reglas a `.gitignore` para que no vuelvan a versionarse.
+
+**Importante:** los archivos siguen existiendo en el **historial de Git** de commits anteriores. Si el repositorio se compartió o se publicó, hay que rotar las credenciales de la base y, si se requiere, purgar el historial con `git filter-repo`/BFG. `storage/app/private/` está restringido y no debe publicarse.
 
 **Acción:** retirar los scripts y backups del repositorio (`git rm --cached`), agregar `*.sql`, `*.tar.gz`, `_*.php` y `stubs_routes.txt` a `.gitignore`, rotar credenciales de BD si el repo estuvo expuesto, y eliminar los respaldos después de restaurar. No volver a commitear datos de producción.
 
@@ -478,7 +488,13 @@ Riesgos:
 - `php artisan config:clear` o `view:clear` puede dejar el sitio sin configuración/vistas y sin poder regenerarlas como `www-data`.
 - El arranque depende de una caché que no está versionada ni se regenera de forma reproducible.
 
-**Acción:** `chown -R www-data:www-data storage bootstrap/cache`, `.env` `chown root:www-data` + `640`, verificar escritura de log, y ejecutar `php artisan optimize` con el usuario correcto en el pipeline de despliegue. Alternativa: ejecutar PHP-FPM/Apache con el usuario de despliegue, pero documentarlo.
+**Acción:** ejecutar como root el script incluido:
+
+```bash
+sudo bash deploy/fix-permissions.sh /var/www/html/scl
+```
+
+El script ajusta `.env` (`root:www-data 640`), `storage/framework`, `storage/logs`, `storage/app/public` y `bootstrap/cache`, y restringe `storage/app/private`. Este entorno no soporta ACL y el agente no tiene root, por lo que **no se pudo ejecutar aquí**; queda listo para el administrador. Las vistas se recompilaron con `php artisan view:cache` como `edwards` para que los cambios actuales sean legibles por el servidor web.
 
 ### 6.6 Medio: superficie web y validaciones
 
@@ -547,6 +563,8 @@ Es decir, los usuarios ven claves técnicas en lugar de mensajes en español. So
 | 13 | Utilidades: salario histórico, recálculo de aprobadas | Media | Medio | **P2** |
 | 14 | 17 avisos de dependencias | Media | Medio | **P2** |
 | 15 | Pruebas rojas / sin cobertura de dominio | Alta | Medio-Alto | **P2** |
+
+**Actualización 23/10/2026:** corregidas o mitigadas las filas 3 (clave rotada), 4 (artefactos fuera del árbol; historial pendiente), 8 y 9 (flujos), 11 (parcial), 12 (feriados) y 15 (suite 28/28; cobertura de dominio pendiente). La fila 5 queda lista para ejecutarse como root (`deploy/fix-permissions.sh`). Siguen abiertas 1, 2, 6, 7, 10, 13, 14 y las partes legales de 11.
 | 16 | Mensajes `validation.required` / `auth.failed` | Alta | Bajo-Medio | **P3** |
 | 17 | N+1 y generación síncrona | Media | Medio | **P3** |
 | 18 | Estado de Git no reproducible | Alta | Medio | **P1** |
@@ -706,3 +724,62 @@ La prioridad debe ser **no pagar con cálculos no validados**, **cerrar el acces
 **Nota de transparencia:** durante la verificación inicial, antes de aplicar la corrección, se ejecutó `esDiaHabil('8202-01-01')`; eso disparó el comportamiento antiguo y regeneró los calendarios de 2026, 8202 y 0001 (mismos 14 feriados estándar, IDs y timestamps nuevos). Después de la corrección, esa consulta ya no escribe. No se perdió ningún feriado manual porque esos años solo contenían los 14 feriados estándar.
 
 **Nota:** la suite completa se aisló de la configuración de producción y ahora pasa **28/28** (74 aserciones); ver sección 4.2. Los cambios de este anexo y los de aislamiento de pruebas se versionan en los commits correspondientes.
+
+---
+
+## Anexo B — Seguridad y flujos corregidos (23/10/2026)
+
+### Contraseña del administrador
+
+- Se rotó la contraseña del usuario `admin@scl.local`; la clave anterior ya no funciona.
+- `DefaultAdminSeeder` ya no contiene `admin123`: usa `ADMIN_PASSWORD` o genera una clave aleatoria y la muestra una sola vez.
+- El seeder usa `firstOrCreate`, así que volver a ejecutar `db:seed` no resetea la clave de un administrador existente.
+- README y DEPLOY ya no publican la contraseña.
+
+### Artefactos y respaldos
+
+- `database_scl_backup.sql`, los scripts `_*.php`, `stubs_routes.txt` y `%CK%` salieron del árbol actual del repositorio.
+- Se movieron a `storage/app/private/legacy/` (fuera del webroot y restringido).
+- `.gitignore` evita que vuelvan a versionarse.
+- **Pendiente:** siguen en el historial de Git. Si el repositorio se compartió, rotar credenciales de base de datos y evaluar `git filter-repo`/BFG para purgar el historial.
+
+### Permisos de despliegue
+
+- Se agregó `deploy/fix-permissions.sh` para ejecutar como root:
+  - `.env` → `root:www-data 640`.
+  - `storage/framework`, `storage/logs`, `storage/app/public`, `bootstrap/cache` → `www-data`.
+  - `storage/app/private` → acceso restringido.
+- No se pudo ejecutar en esta sesión: el agente no tiene root y el filesystem no soporta ACL.
+- Las vistas se recompilaron con `php artisan view:cache` como `edwards` para que los cambios actuales funcionen.
+- **Acción del administrador:** `sudo bash deploy/fix-permissions.sh /var/www/html/scl` y luego `php artisan optimize`.
+
+### Flujos de liquidación y vacaciones
+
+- La liquidación ya no inactiva al trabajador al crearse; se inactiva al **aprobar**.
+- Al anular o eliminar una liquidación, el trabajador se reactiva solo si no queda otra vigente.
+- No se puede aprobar una liquidación anulada ni eliminar una aprobada.
+- No se pueden crear dos liquidaciones vigentes para el mismo trabajador.
+- El cambio de patrono ahora mueve todo el historial (se captura el patrono anterior antes del update).
+- `generarRecibo()` es idempotente: no duplica recibos.
+- `puedeBorrar()` bloquea vacaciones pagadas, disfrutadas o con recibo; solo se anulan vacaciones pendientes.
+- Se bloquearon borrados de patronos con empleados y de empleados con historial.
+- Se bloquearon borrados de bonificaciones aprobadas y movimientos no anulados.
+- La vista de liquidación muestra una **alerta de conciliación** cuando la garantía acumulada supera el cálculo de 30 días/año. No ajusta importes automáticamente.
+
+### Estado de las fórmulas
+
+No se cambiaron las fórmulas de prestaciones, intereses ni días adicionales: requieren una decisión legal/contable. La alerta de conciliación sirve para detectar el caso más riesgoso antes de aprobar. Siguen pendientes:
+
+- Unificar garantía, saldo de anticipos y liquidación en una sola fórmula.
+- Definir si los intereses se capitalizan o se pagan por separado.
+- Revisar el doble conteo de días adicionales.
+- Integrar la garantía y sus intereses en la liquidación final.
+- Validar el pago de descansos/feriados en vacaciones y las deducciones de ley.
+
+### Verificación
+
+- `php artisan test` → **28 passed (74 assertions)**.
+- Login con la clave nueva → correcto; con la anterior → rechazado.
+- Transferencia de patrono → 1 vacación movida (antes 0).
+- Flujo de liquidación → activo al crear, inactivo al aprobar, activo al anular.
+- Recibo → dos llamadas devuelven el mismo recibo (1 registro).
