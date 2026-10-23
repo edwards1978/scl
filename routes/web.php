@@ -129,6 +129,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/', [PrestacionesController::class, 'index'])->name('index');
         Route::get('{empleadoId}', [PrestacionesController::class, 'show'])->name('show');
         Route::post('{empleadoId}/recalcular', [PrestacionesController::class, 'recalcular'])->name('recalcular');
+        Route::post('{empleadoId}/intereses', [PrestacionesController::class, 'pagarInteres'])->name('intereses');
+        Route::delete('{empleadoId}/intereses/{pago}', [PrestacionesController::class, 'destroyInteres'])->name('intereses.destroy');
         Route::get('{empleadoId}/pdf', [PrestacionesController::class, 'pdf'])->name('pdf');
     });
 

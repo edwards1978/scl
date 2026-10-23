@@ -13,7 +13,7 @@
 		{{ $empleado->nombre_completo }} · C.I. {{ $empleado->cedula }} · Ingreso {{ $empleado->fecha_ingreso?->format('d/m/Y') }}
 	</p>
 
-	<div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+	<div class="grid grid-cols-2 md:grid-cols-6 gap-3 mb-4">
 		<div class="bg-white border border-gray-200 p-3">
 			<p class="text-xs text-gray-500 mb-1">Saldo actual</p>
 			<p class="text-base font-semibold text-blue-700">{{ $moneda }} {{ formato_monto($saldoActual) }}</p>
@@ -27,8 +27,12 @@
 			<p class="text-base font-semibold">{{ $moneda }} {{ formato_monto($totalAdicionales) }}</p>
 		</div>
 		<div class="bg-white border border-gray-200 p-3">
-			<p class="text-xs text-gray-500 mb-1">Intereses</p>
+			<p class="text-xs text-gray-500 mb-1">Intereses devengados</p>
 			<p class="text-base font-semibold">{{ $moneda }} {{ formato_monto($totalIntereses) }}</p>
+		</div>
+		<div class="bg-white border border-gray-200 p-3">
+			<p class="text-xs text-gray-500 mb-1">Interés pendiente</p>
+			<p class="text-base font-semibold text-amber-700">{{ $moneda }} {{ formato_monto($interesPendiente) }}</p>
 		</div>
 		<div class="bg-white border border-gray-200 p-3">
 			<p class="text-xs text-gray-500 mb-1">Anticipos</p>
@@ -44,9 +48,12 @@
 					<th class="text-left px-3 py-2">Periodo</th>
 					<th class="text-right px-3 py-2">Sal. integral</th>
 					<th class="text-right px-3 py-2">Saldo inicial</th>
+					<th class="text-right px-3 py-2">Capital</th>
 					<th class="text-right px-3 py-2">Depósito trim.</th>
 					<th class="text-right px-3 py-2">Días adic.</th>
 					<th class="text-right px-3 py-2">Interés</th>
+					<th class="text-right px-3 py-2">Int. pend.</th>
+					<th class="text-right px-3 py-2">Int. pag.</th>
 					<th class="text-right px-3 py-2">Anticipos</th>
 					<th class="text-right px-3 py-2">Saldo final</th>
 				</tr>
@@ -58,17 +65,99 @@
 						<td class="px-3 py-2">{{ \Carbon\Carbon::createFromFormat('Y-m', $c->periodo)->format('m/Y') }}</td>
 						<td class="px-3 py-2 text-right text-gray-600">{{ formato_monto((float) $c->salario_integral_diario) }}</td>
 						<td class="px-3 py-2 text-right">{{ formato_monto((float) $c->saldo_inicial) }}</td>
+						<td class="px-3 py-2 text-right">{{ formato_monto((float) ($c->capital_final ?? $c->saldo_final)) }}</td>
 						<td class="px-3 py-2 text-right">{{ $c->deposito_trimestre > 0 ? $c->dias_deposito.' d · '.formato_monto((float) $c->deposito_trimestre) : '—' }}</td>
 						<td class="px-3 py-2 text-right">{{ $c->dias_adicionales > 0 ? $c->dias_adicionales_cont.' d · '.formato_monto((float) $c->dias_adicionales) : '—' }}</td>
-						<td class="px-3 py-2 text-right">{{ $c->interes_mes > 0 ? formato_monto((float) $c->interes_mes) : '—' }}</td>
+						<td class="px-3 py-2 text-right">
+							{{ $c->interes_mes > 0 ? formato_monto((float) $c->interes_mes) : '—' }}
+							@if ((float) ($c->interes_capitalizado ?? 0) > 0)
+								<div class="text-[10px] text-amber-600">cap. {{ formato_monto((float) $c->interes_capitalizado) }}</div>
+							@endif
+						</td>
+						<td class="px-3 py-2 text-right">{{ (float) ($c->interes_pendiente_final ?? 0) > 0 ? formato_monto((float) $c->interes_pendiente_final) : '—' }}</td>
+						<td class="px-3 py-2 text-right">{{ (float) ($c->interes_pagado ?? 0) > 0 ? formato_monto((float) $c->interes_pagado) : '—' }}</td>
 						<td class="px-3 py-2 text-right text-red-600">{{ $c->anticipos > 0 ? '- '.formato_monto((float) $c->anticipos) : '—' }}</td>
 						<td class="px-3 py-2 text-right font-medium">{{ formato_monto((float) $c->saldo_final) }}</td>
 					</tr>
 				@empty
-					<tr><td colspan="9" class="text-center py-8 text-gray-400">Sin periodos calculados.</td></tr>
+					<tr><td colspan="12" class="text-center py-8 text-gray-400">Sin periodos calculados.</td></tr>
 				@endforelse
 			</tbody>
 		</table>
+	</div>
+
+	<div class="bg-white border border-gray-200 p-4 mb-4">
+		<h2 class="text-sm font-semibold text-gray-800 mb-3">Pagos de intereses</h2>
+
+		<form method="POST" action="{{ route('prestaciones.intereses', $empleado->id) }}" class="grid grid-cols-1 md:grid-cols-6 gap-2 items-end">
+			@csrf
+			<div>
+				<label class="block text-xs text-gray-500 mb-1">Fecha</label>
+				<input type="date" name="fecha" value="{{ old('fecha', now()->toDateString()) }}" class="w-full border border-gray-300 px-2 py-1.5 text-sm" required>
+				@error('fecha') <p class="text-xs text-red-500 mt-0.5">{{ $message }}</p> @enderror
+			</div>
+			<div>
+				<label class="block text-xs text-gray-500 mb-1">Monto</label>
+				<input type="text" name="monto" value="{{ old('monto') }}" placeholder="0,00" class="w-full border border-gray-300 px-2 py-1.5 text-sm" required>
+				@error('monto') <p class="text-xs text-red-500 mt-0.5">{{ $message }}</p> @enderror
+			</div>
+			<div>
+				<label class="block text-xs text-gray-500 mb-1">Moneda</label>
+				<select name="moneda" class="w-full border border-gray-300 px-2 py-1.5 text-sm bg-white">
+					<option value="BS" {{ old('moneda', $empleado->moneda) === 'BS' ? 'selected' : '' }}>Bs.</option>
+					<option value="USD" {{ old('moneda', $empleado->moneda) === 'USD' ? 'selected' : '' }}>USD</option>
+				</select>
+			</div>
+			<div>
+				<label class="block text-xs text-gray-500 mb-1">Comprobante</label>
+				<input type="text" name="comprobante" value="{{ old('comprobante') }}" maxlength="100" class="w-full border border-gray-300 px-2 py-1.5 text-sm">
+			</div>
+			<div class="md:col-span-2">
+				<label class="block text-xs text-gray-500 mb-1">Observación</label>
+				<input type="text" name="observacion" value="{{ old('observacion') }}" maxlength="500" class="w-full border border-gray-300 px-2 py-1.5 text-sm">
+			</div>
+			<div class="md:col-span-6">
+				<button class="px-4 py-1.5 text-sm bg-gray-800 text-white hover:bg-gray-900">Registrar pago</button>
+				<span class="text-xs text-gray-500 ml-2">El pago se aplica al interés pendiente; el exceso reduce capital. Se recalcula desde el mes del pago.</span>
+			</div>
+		</form>
+
+		@if ($pagos->isNotEmpty())
+			<div class="overflow-x-auto mt-4">
+				<table class="w-full text-sm">
+					<thead class="bg-gray-50 text-gray-600 text-xs uppercase">
+						<tr>
+							<th class="text-left px-3 py-2">Fecha</th>
+							<th class="text-right px-3 py-2">Monto</th>
+							<th class="text-left px-3 py-2">Moneda</th>
+							<th class="text-right px-3 py-2">Tasa</th>
+							<th class="text-left px-3 py-2">Comprobante</th>
+							<th class="text-left px-3 py-2">Observación</th>
+							<th class="text-right px-3 py-2"></th>
+						</tr>
+					</thead>
+					<tbody class="divide-y divide-gray-100">
+						@foreach ($pagos as $p)
+							<tr>
+								<td class="px-3 py-2">{{ $p->fecha->format('d/m/Y') }}</td>
+								<td class="px-3 py-2 text-right">{{ formato_monto((float) $p->monto) }}</td>
+								<td class="px-3 py-2">{{ $p->moneda }}</td>
+								<td class="px-3 py-2 text-right">{{ $p->tasa_cambio ? formato_monto((float) $p->tasa_cambio, 4) : '—' }}</td>
+								<td class="px-3 py-2">{{ $p->comprobante ?: '—' }}</td>
+								<td class="px-3 py-2">{{ $p->observacion ?: '—' }}</td>
+								<td class="px-3 py-2 text-right">
+									<form method="POST" action="{{ route('prestaciones.intereses.destroy', [$empleado->id, $p->id]) }}" onsubmit="return confirm('¿Eliminar este pago de intereses?')">
+										@csrf
+										@method('DELETE')
+										<button class="text-xs text-red-600 hover:underline">Eliminar</button>
+									</form>
+								</td>
+							</tr>
+						@endforeach
+					</tbody>
+				</table>
+			</div>
+		@endif
 	</div>
 
 	<div class="flex justify-end gap-2">

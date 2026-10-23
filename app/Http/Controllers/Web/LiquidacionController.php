@@ -7,7 +7,6 @@ namespace App\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use App\Models\Liquidacion;
 use App\Models\Patrono;
-use App\Models\PrestacionSocial;
 use App\Services\LiquidacionService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
@@ -84,24 +83,7 @@ class LiquidacionController extends Controller
         $liquidacion->load(['empleado', 'asignaciones', 'deducciones']);
         $empleado = $liquidacion->empleado;
 
-        $garantia = PrestacionSocial::where('empleado_id', $empleado->id)
-            ->where('periodo', '<=', $liquidacion->fecha_egreso->format('Y-m'))
-            ->orderByDesc('periodo')
-            ->value('saldo_final');
-
-        $literalC = (float) ($liquidacion->asignaciones
-            ->firstWhere('concepto', 'Prestaciones sociales')?->importe ?? 0);
-
-        $advertenciaGarantia = null;
-        if ($garantia !== null && $literalC > 0 && (float) $garantia > $literalC) {
-            $advertenciaGarantia = 'La garantía acumulada registrada ('
-                .$liquidacion->moneda.' '.formato_monto((float) $garantia)
-                .') es mayor que el cálculo de 30 días por año ('
-                .$liquidacion->moneda.' '.formato_monto($literalC)
-                .'). El sistema no ajusta automáticamente: revise la conciliación antes de aprobar.';
-        }
-
-        return view('liquidaciones.show', compact('liquidacion', 'empleado', 'advertenciaGarantia'));
+        return view('liquidaciones.show', compact('liquidacion', 'empleado'));
     }
 
     /** Aprueba la liquidación y marca al trabajador como inactivo. */
@@ -250,6 +232,7 @@ class LiquidacionController extends Controller
                 'Utilidades fraccionadas',
             ])
             ->whereNull('salario_diario')
+            ->whereNotNull('dias')
             ->exists();
 
         $indemnizacionMalTipo = $liquidacion->conceptos()

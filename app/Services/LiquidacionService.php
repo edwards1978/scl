@@ -53,6 +53,7 @@ class LiquidacionService
     public function __construct(
         private SalarioIntegralService $salarioIntegral = new SalarioIntegralService,
         private TasasBcvService $tasas = new TasasBcvService,
+        private PrestacionesSocialesService $prestaciones = new PrestacionesSocialesService,
     ) {
     }
 
@@ -153,33 +154,66 @@ class LiquidacionService
 
     /**
      * Deducciones sobre prestaciones: anticipo (saldo), intereses pagados,
-     * préstamos (saldo) y deducciones de ley (0 por defecto).
+     * préstamos (saldo) y deducciones de ley. Los montos se convierten a la
+     * moneda de la liquidación.
      *
      * @return array{anticipos:float, intereses:float, prestamos:float, de_ley:float, total:float}
      */
-    public function deducciones(Empleado $empleado): array
+    public function deducciones(Empleado $empleado, ?CarbonInterface $hasta = null, ?string $moneda = null): array
     {
-        $anticipos = (float) MovimientoPrestaciones::where('empleado_id', $empleado->id)
-            ->where('tipo', MovimientoPrestaciones::TIPO_ANTICIPO)
+        $moneda = $moneda ?: $empleado->moneda;
+
+        $movimientos = MovimientoPrestaciones::where('empleado_id', $empleado->id)
             ->where('estatus', '!=', 'anulado')
-            ->sum('monto');
+            ->when($hasta, fn ($q) => $q->where('fecha', '<=', $hasta->toDateString()))
+            ->get();
 
-        $prestamos = (float) MovimientoPrestaciones::where('empleado_id', $empleado->id)
-            ->where('tipo', MovimientoPrestaciones::TIPO_PRESTAMO)
-            ->where('estatus', 'activo')
-            ->sum('saldo');
+        $anticipos = 0.0;
+        $prestamos = 0.0;
+        foreach ($movimientos as $m) {
+            if ($m->tipo === MovimientoPrestaciones::TIPO_ANTICIPO) {
+                $anticipos += $this->convertir($m, $moneda);
+            } elseif ($m->tipo === MovimientoPrestaciones::TIPO_PRESTAMO && $m->estatus === 'activo') {
+                $prestamos += $this->convertir($m, $moneda, (float) $m->saldo);
+            }
+        }
 
-        $intereses = (float) \App\Models\MovimientoPrestacionInteres::whereHas('movimiento', function ($q) use ($empleado) {
-            $q->where('empleado_id', $empleado->id);
-        })->sum('monto');
+        $intereses = 0.0;
+        $pagosInteres = \App\Models\MovimientoPrestacionInteres::with('movimiento')
+            ->when($hasta, fn ($q) => $q->where('fecha', '<=', $hasta->toDateString()))
+            ->whereHas('movimiento', function ($q) use ($empleado, $hasta) {
+                $q->where('empleado_id', $empleado->id)
+                    ->when($hasta, fn ($qq) => $qq->where('fecha', '<=', $hasta->toDateString()));
+            })->get();
+
+        foreach ($pagosInteres as $p) {
+            $intereses += $this->convertir($p, $moneda);
+        }
 
         return [
-            'anticipos'  => $anticipos,
-            'intereses'  => $intereses,
-            'prestamos'  => $prestamos,
+            'anticipos'  => round($anticipos, 2),
+            'intereses'  => round($intereses, 2),
+            'prestamos'  => round($prestamos, 2),
             'de_ley'     => 0.0,
             'total'      => round($anticipos + $intereses + $prestamos, 2),
         ];
+    }
+
+    /** Convierte un movimiento o pago a la moneda de la liquidación. */
+    private function convertir(object $registro, string $moneda, ?float $monto = null): float
+    {
+        $monto = $monto ?? (float) $registro->monto;
+
+        if ((string) $registro->moneda === $moneda) {
+            return $monto;
+        }
+
+        return $this->prestaciones->convertir(
+            $monto,
+            (string) $registro->moneda,
+            $moneda,
+            $registro->fecha
+        );
     }
 
     /**
@@ -205,7 +239,11 @@ class LiquidacionService
         $moneda = $integral['moneda'];
         $tasa = $integral['tasa'];
 
-        $importePrestaciones = round($diasPrestaciones * $salarioDiarioIntegral, 2);
+        $importeLiteralC = round($diasPrestaciones * $salarioDiarioIntegral, 2);
+        $this->prestaciones->asegurarPeriodos($empleado, $egreso);
+        $garantiaBruta = round($this->prestaciones->garantiaBrutaEn($empleado, $egreso), 2);
+        $usaGarantia = $garantiaBruta > $importeLiteralC;
+        $importePrestaciones = $usaGarantia ? $garantiaBruta : $importeLiteralC;
 
         $fracVac = $this->fraccionVacacional($empleado, $egreso, $mesesFraccion);
         $importeVacaciones = round($fracVac['vacaciones'] * $salarioDiarioNormal, 2);
@@ -218,16 +256,18 @@ class LiquidacionService
             [
                 'orden'         => 10,
                 'concepto'      => 'Prestaciones sociales',
-                'base_legal'    => 'Art. 142 literal C LOTTT',
-                'dias'          => $diasPrestaciones,
-                'salario_diario'=> $salarioDiarioIntegral,
-                'tipo_salario'  => 'integral',
+                'base_legal'    => $usaGarantia
+                    ? 'Art. 142 literal C LOTTT - garantía acumulada (mayor)'
+                    : 'Art. 142 literal C LOTTT - 30 días por año (mayor)',
+                'dias'          => $usaGarantia ? null : $diasPrestaciones,
+                'salario_diario'=> $usaGarantia ? null : $salarioDiarioIntegral,
+                'tipo_salario'  => $usaGarantia ? null : 'integral',
                 'importe'       => $importePrestaciones,
             ],
             [
                 'orden'         => 20,
                 'concepto'      => 'Intereses sobre prestaciones',
-                'base_legal'    => 'Art. 143 LOTTT',
+                'base_legal'    => 'Art. 143 LOTTT - incluidos en la garantía comparada',
                 'dias'          => null,
                 'salario_diario'=> null,
                 'tipo_salario'  => null,
@@ -279,7 +319,7 @@ class LiquidacionService
             ],
         ]);
 
-        $deds = $this->deducciones($empleado);
+        $deds = $this->deducciones($empleado, $egreso, $moneda);
 
         $deducciones = [
             [

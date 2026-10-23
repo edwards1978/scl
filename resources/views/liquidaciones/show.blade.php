@@ -21,11 +21,6 @@
 			Incluye indemnización por terminación (Art. 92 LOTTT) por valor equivalente a las prestaciones sociales.
 		</div>
 	@endif
-	@if (! empty($advertenciaGarantia))
-		<div class="mb-4 p-3 bg-red-50 border border-red-300 text-red-700 text-sm">
-			<strong>Conciliación pendiente:</strong> {{ $advertenciaGarantia }}
-		</div>
-	@endif
 
     @if(session('success'))
         <div class="mx-4 mt-3 p-3 bg-green-100 border border-green-300 text-green-700 text-sm rounded">{{ session('success') }}</div>

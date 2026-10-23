@@ -6,27 +6,27 @@ namespace App\Services;
 
 use App\Models\Empleado;
 use App\Models\MovimientoPrestaciones;
+use App\Models\PagoInteresPrestaciones;
 use App\Models\PrestacionSocial;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 
 /**
- * Servicio de prestaciones sociales (garantía de prestaciones, Art. 142 LOTTT)
- * y sus intereses (Art. 143 LOTTT).
+ * Servicio de prestaciones sociales (garantía Art. 142 LOTTT) e intereses
+ * (Art. 143 LOTTT).
  *
- * Reglas:
- * - Depósito trimestral: 15 días de salario integral por cada trimestre cumplido
- *   desde la fecha de ingreso (ingreso + 3, 6, 9, 12… meses). Se calcula al
- *   último salario integral vigente a la fecha de cierre del trimestre.
- * - Días adicionales: 2 días de salario por cada año cumplido, en el mes del
- *   aniversario, acumulables hasta 30 días.
- * - Intereses: mensual simple sobre el saldo = saldo × (tasa BCV anual / 12 / 100),
- *   capitalizados al cierre de cada mes.
- * - Anticipos y préstamos vigentes del mes se descuentan del saldo.
- * - Moneda: la del sueldo del empleado (USD o Bs).
+ * Reglas vigentes desde el 23/10/2026:
+ * - Depósito trimestral: 15 días de salario integral por cada trimestre.
+ * - Días adicionales: se abona el acumulado completo en cada aniversario
+ *   (2, 4, 6… días), con tope de 30.
+ * - Interés: simple mensual sobre el CAPITAL de la garantía.
+ * - El interés no pagado se capitaliza en el mes del aniversario del ingreso.
+ * - Los anticipos reducen el capital; los préstamos NO reducen la garantía
+ *   (son deuda separada).
+ * - Los pagos de intereses se registran en `pagos_interes_prestaciones`.
  *
- * Se calcula SIEMPRE a mes cerrado, generando un registro por empleado+periodo.
+ * Se calcula siempre a mes cerrado, con un registro por empleado + periodo.
  */
 class PrestacionesSocialesService
 {
@@ -48,14 +48,73 @@ class PrestacionesSocialesService
      */
     public function saldoEn(Empleado $empleado, ?CarbonInterface $fecha = null): float
     {
+        $registro = $this->registroEn($empleado, $fecha);
+
+        return $registro ? (float) $registro->saldo_final : 0.0;
+    }
+
+    /** Último período calculado en o antes de la fecha. */
+    public function registroEn(Empleado $empleado, ?CarbonInterface $fecha = null): ?PrestacionSocial
+    {
         $fecha = $fecha ?: now();
 
-        $registro = PrestacionSocial::where('empleado_id', $empleado->id)
+        return PrestacionSocial::where('empleado_id', $empleado->id)
             ->where('periodo', '<=', $fecha->format('Y-m'))
             ->orderByDesc('periodo')
             ->first();
+    }
 
-        return $registro ? (float) $registro->saldo_final : 0.0;
+    /** Capital de la garantía (sin interés pendiente) a una fecha. */
+    public function capitalEn(Empleado $empleado, ?CarbonInterface $fecha = null): float
+    {
+        $registro = $this->registroEn($empleado, $fecha);
+
+        if (! $registro) {
+            return 0.0;
+        }
+
+        return (float) ($registro->capital_final ?? $registro->saldo_final);
+    }
+
+    /**
+     * Garantía BRUTA a una fecha: saldo neto + anticipos otorgados.
+     * Se usa para comparar con el cálculo de 30 días/año antes de descontar
+     * los anticipos una sola vez.
+     */
+    public function garantiaBrutaEn(Empleado $empleado, ?CarbonInterface $fecha = null): float
+    {
+        $registro = $this->registroEn($empleado, $fecha);
+
+        if (! $registro) {
+            return 0.0;
+        }
+
+        $anticipos = $this->totalAnticipos($empleado, (string) $registro->moneda, $fecha);
+
+        return round((float) $registro->saldo_final + $anticipos, 2);
+    }
+
+    /**
+     * Total de anticipos no anulados hasta una fecha, convertidos a la moneda
+     * de la garantía. Los préstamos no forman parte de este total.
+     */
+    public function totalAnticipos(Empleado $empleado, string $moneda, ?CarbonInterface $hasta = null): float
+    {
+        $movimientos = MovimientoPrestaciones::where('empleado_id', $empleado->id)
+            ->where('tipo', MovimientoPrestaciones::TIPO_ANTICIPO)
+            ->where('estatus', '!=', 'anulado')
+            ->when($hasta, fn ($q) => $q->where('fecha', '<=', $hasta->toDateString()))
+            ->get();
+
+        $total = 0.0;
+        foreach ($movimientos as $m) {
+            $monto = (float) $m->monto;
+            $total += $m->moneda === $moneda
+                ? $monto
+                : $this->convertir($monto, (string) $m->moneda, $moneda, $m->fecha);
+        }
+
+        return round($total, 2);
     }
 
     /**
@@ -108,12 +167,13 @@ class PrestacionesSocialesService
     }
 
     /**
-     * Anticipos y préstamos vigentes registrados dentro de un mes calendario,
+     * Anticipos (no préstamos) registrados dentro de un mes calendario,
      * convertidos a la moneda del sueldo del empleado.
      */
     public function anticiposDelMes(Empleado $empleado, CarbonInterface $inicioMes, CarbonInterface $finMes, string $moneda): float
     {
         $movimientos = MovimientoPrestaciones::where('empleado_id', $empleado->id)
+            ->where('tipo', MovimientoPrestaciones::TIPO_ANTICIPO)
             ->where('estatus', '!=', 'anulado')
             ->whereBetween('fecha', [$inicioMes->toDateString(), $finMes->toDateString()])
             ->get();
@@ -133,13 +193,37 @@ class PrestacionesSocialesService
     }
 
     /**
+     * Pagos de intereses registrados dentro de un mes, convertidos a la
+     * moneda de la garantía.
+     */
+    public function pagosDelMes(Empleado $empleado, CarbonInterface $inicioMes, CarbonInterface $finMes, string $moneda): float
+    {
+        $pagos = PagoInteresPrestaciones::where('empleado_id', $empleado->id)
+            ->whereBetween('fecha', [$inicioMes->toDateString(), $finMes->toDateString()])
+            ->get();
+
+        $total = 0.0;
+        foreach ($pagos as $p) {
+            $monto = (float) $p->monto;
+            $total += $p->moneda === $moneda
+                ? $monto
+                : $this->convertir($monto, (string) $p->moneda, $moneda, $p->fecha);
+        }
+
+        return round($total, 2);
+    }
+
+    /**
      * Calcula los valores de un mes completo.
      *
      * @return array{periodo:string, cierre:Carbon, anios_servicio:int, trimestre:int,
      *               salario_integral_diario:float, moneda:string, tasa_interes:?float,
-     *               saldo_inicial:float, deposito_trimestre:float, dias_deposito:int,
+     *               saldo_inicial:float, capital_inicial:float, capital_final:float,
+     *               interes_pendiente_inicial:float, interes_pendiente_final:float,
+     *               deposito_trimestre:float, dias_deposito:int,
      *               dias_adicionales:float, dias_adicionales_cont:int,
-     *               interes_mes:float, anticipos:float, saldo_final:float}
+     *               interes_mes:float, interes_capitalizado:float, interes_pagado:float,
+     *               anticipos:float, saldo_final:float}
      */
     public function calcularMes(Empleado $empleado, CarbonInterface $fechaDelMes): array
     {
@@ -154,7 +238,14 @@ class PrestacionesSocialesService
         $trimestre = $this->trimestresCumplidos($empleado, $cierre);
         $aniosServicio = $this->aniosServicio($empleado, $cierre);
 
-        $saldoInicial = $this->saldoEn($empleado, $inicio->copy()->subDay());
+        $previo = $this->registroEn($empleado, $inicio->copy()->subDay());
+        $capitalInicial = $previo
+            ? (float) ($previo->capital_final ?? $previo->saldo_final)
+            : 0.0;
+        $interesPendienteInicial = $previo && $previo->interes_pendiente_final !== null
+            ? (float) $previo->interes_pendiente_final
+            : 0.0;
+        $saldoInicial = round($capitalInicial + $interesPendienteInicial, 2);
 
         // Depósito trimestral: 15 días cuando el mes cumple trimestre desde el ingreso.
         $diasDeposito = 0;
@@ -173,36 +264,60 @@ class PrestacionesSocialesService
             $diasAdicionales = round($diasAdicionalesCont * $salarioIntegralDiario, 2);
         }
 
-        // Intereses (Art. 143): mensual simple sobre el saldo, capitalizados.
+        // Interés simple del mes sobre el capital (no sobre el interés pendiente).
         $tasaInteres = $this->tasasInteres->tasaEn($cierre);
         $interesMes = 0.0;
-        if ($tasaInteres !== null && $saldoInicial > 0) {
-            $interesMes = round($saldoInicial * ($tasaInteres / 100 / self::MESES_ANNO), 2);
+        if ($tasaInteres !== null && $capitalInicial > 0) {
+            $interesMes = round($capitalInicial * ($tasaInteres / 100 / self::MESES_ANNO), 2);
         }
 
         $anticipos = $this->anticiposDelMes($empleado, $inicio, $cierre, $moneda);
+        $pagosInteres = $this->pagosDelMes($empleado, $inicio, $cierre, $moneda);
 
-        $saldoFinal = round(
-            $saldoInicial + $depositoTrimestre + $diasAdicionales + $interesMes - $anticipos,
-            2
-        );
+        // Los pagos cubren primero el interés pendiente; el exceso reduce capital.
+        $pendienteAntesPago = round($interesPendienteInicial + $interesMes, 2);
+        $pagoAplicado = min($pagosInteres, max(0.0, $pendienteAntesPago));
+        $pendienteDespuesPago = round($pendienteAntesPago - $pagoAplicado, 2);
+        $excesoPago = round($pagosInteres - $pagoAplicado, 2);
+
+        $capital = $capitalInicial + $depositoTrimestre + $diasAdicionales - $anticipos - $excesoPago;
+        $capital = max(0.0, round($capital, 2));
+
+        // Capitalización del interés vencido y no pagado en el aniversario.
+        $interesCapitalizado = 0.0;
+        $interesPendienteFinal = $pendienteDespuesPago;
+        if ($this->esMesAniversario($empleado, $cierre) && $pendienteDespuesPago > 0) {
+            $interesCapitalizado = $pendienteDespuesPago;
+            $capital = round($capital + $interesCapitalizado, 2);
+            $interesPendienteFinal = 0.0;
+        }
+
+        $capitalFinal = round($capital, 2);
+        $interesPendienteFinal = round($interesPendienteFinal, 2);
+        $saldoFinal = round($capitalFinal + $interesPendienteFinal, 2);
 
         return [
-            'periodo'                 => $periodo,
-            'cierre'                  => $cierre,
-            'anios_servicio'          => $aniosServicio,
-            'trimestre'               => $trimestre,
-            'salario_integral_diario' => $salarioIntegralDiario,
-            'moneda'                  => $moneda,
-            'tasa_interes'            => $tasaInteres,
-            'saldo_inicial'           => $saldoInicial,
-            'deposito_trimestre'      => $depositoTrimestre,
-            'dias_deposito'           => $diasDeposito,
-            'dias_adicionales'        => $diasAdicionales,
-            'dias_adicionales_cont'   => $diasAdicionalesCont,
-            'interes_mes'             => $interesMes,
-            'anticipos'               => $anticipos,
-            'saldo_final'             => $saldoFinal,
+            'periodo'                    => $periodo,
+            'cierre'                     => $cierre,
+            'anios_servicio'             => $aniosServicio,
+            'trimestre'                  => $trimestre,
+            'salario_integral_diario'    => $salarioIntegralDiario,
+            'moneda'                     => $moneda,
+            'tasa_interes'               => $tasaInteres,
+            'saldo_inicial'              => $saldoInicial,
+            'capital_inicial'            => round($capitalInicial, 2),
+            'capital_final'              => $capitalFinal,
+            'interes_pendiente_inicial'  => round($interesPendienteInicial, 2),
+            'interes_pendiente_final'    => $interesPendienteFinal,
+            'deposito_trimestre'         => $depositoTrimestre,
+            'dias_deposito'              => $diasDeposito,
+            'dias_adicionales'           => $diasAdicionales,
+            'dias_adicionales_cont'      => $diasAdicionalesCont,
+            'interes_mes'                => $interesMes,
+            'interes_capitalizado'       => $interesCapitalizado,
+            'interes_pagado'             => $pagosInteres,
+            'anticipos'                  => $anticipos,
+            'saldo_final'                => $saldoFinal,
         ];
     }
 
@@ -245,11 +360,17 @@ class PrestacionesSocialesService
                 'moneda'                  => $data['moneda'],
                 'tasa_interes'            => $data['tasa_interes'],
                 'saldo_inicial'           => $data['saldo_inicial'],
+                'capital_inicial'         => $data['capital_inicial'],
+                'capital_final'           => $data['capital_final'],
+                'interes_pendiente_inicial' => $data['interes_pendiente_inicial'],
+                'interes_pendiente_final' => $data['interes_pendiente_final'],
                 'deposito_trimestre'      => $data['deposito_trimestre'],
                 'dias_deposito'           => $data['dias_deposito'],
                 'dias_adicionales'        => $data['dias_adicionales'],
                 'dias_adicionales_cont'   => $data['dias_adicionales_cont'],
                 'interes_mes'             => $data['interes_mes'],
+                'interes_capitalizado'    => $data['interes_capitalizado'],
+                'interes_pagado'          => $data['interes_pagado'],
                 'anticipos'               => $data['anticipos'],
                 'saldo_final'             => $data['saldo_final'],
             ]
@@ -325,21 +446,23 @@ class PrestacionesSocialesService
         $desde->startOfMonth();
         $hasta = now();
 
-        $eliminados = PrestacionSocial::where('empleado_id', $empleado->id)
-            ->where('periodo', '>=', $desde->format('Y-m'))
-            ->delete();
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($empleado, $desde, $hasta) {
+            PrestacionSocial::where('empleado_id', $empleado->id)
+                ->where('periodo', '>=', $desde->format('Y-m'))
+                ->delete();
 
-        $creados = 0;
-        foreach ($this->periodosRequeridos($empleado, $hasta) as $periodo) {
-            $inicioMes = Carbon::createFromFormat('Y-m', $periodo);
-            if ($inicioMes->lt($desde)) {
-                continue;
+            $creados = 0;
+            foreach ($this->periodosRequeridos($empleado, $hasta) as $periodo) {
+                $inicioMes = Carbon::createFromFormat('Y-m', $periodo);
+                if ($inicioMes->lt($desde)) {
+                    continue;
+                }
+                $this->registrarMes($empleado, $inicioMes);
+                $creados++;
             }
-            $this->registrarMes($empleado, $inicioMes);
-            $creados++;
-        }
 
-        return $creados;
+            return $creados;
+        });
     }
 
     /**

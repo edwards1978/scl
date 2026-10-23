@@ -24,7 +24,7 @@ SCL es una aplicación **Laravel 12 + Livewire 4 + Blade/Tailwind + MySQL/MariaD
 
 **Riesgos principales (en orden de impacto):**
 
-1. **Tres fórmulas distintas para las prestaciones sociales** producen saldos incompatibles para el mismo trabajador. La liquidación final no compara ni integra la garantía acumulada. Es el riesgo legal/económico más alto.
+1. **Fórmulas de prestaciones (corregidas para nuevos cálculos):** el motor v2 usa una sola garantía, interés simple con capitalización en el aniversario y compara garantía bruta vs. 30 días/año, pagando el mayor. Las 7 liquidaciones aprobadas anteriores no se reescribieron. Ver **Anexo C**.
 2. **No hay roles, permisos ni aislamiento por usuario.** Cualquier usuario autenticado puede cambiar de patrono y ver/editar toda la nómina, aprobar liquidaciones y borrar historial. No hay auditoría (`created_by`, `approved_by`, historial de estados).
 3. **Credenciales y datos sensibles:** se rotó la contraseña del administrador y se retiraron del árbol actual los scripts y el backup SQL; el backup todavía está en el historial de Git y debe purgarse/rotarse si el repositorio se compartió.
 4. **Despliegue frágil:** se agregó `deploy/fix-permissions.sh` para que `www-data` lea `.env` y escriba en `storage/`/`bootstrap/cache`; requiere ejecutarse como root. Mientras no se ejecute, el sitio sigue dependiendo de la configuración y las vistas precompiladas.
@@ -64,12 +64,13 @@ SCL es una aplicación **Laravel 12 + Livewire 4 + Blade/Tailwind + MySQL/MariaD
 | `users` | 2 |
 | `vacaciones` / `vacaciones_recibos` | 32 / 14 |
 | `liquidaciones` | 7 (7 aprobadas) |
-| `prestaciones_sociales` | 114 períodos |
+| `prestaciones_sociales` | 435 períodos (13 empleados; respaldo de 433 en `prestaciones_sociales_backup_20261023`) |
+| `pagos_interes_prestaciones` | 0 |
 | `movimientos_prestaciones` | 0 |
 | `sueldos` / `cambios_salarios` | 571 / 0 |
 | `bonificaciones_fin_ano` | 3 |
 | `tasas_bcv` / `tasas_interes_prestaciones` | 622 / 348 |
-| `feriados` / `salarios_minimos` | 266 / 10 |
+| `feriados` / `salarios_minimos` | 84 / 10 |
 
 **Anomalía de datos:** hay 7 liquidaciones aprobadas pero solo 6 empleados inactivos. El empleado 10 tiene una liquidación aprobada y sigue `Activo`, por lo que puede generar nuevos cálculos y otra liquidación. Puede ser una reincorporación no modelada, pero debe revisarse.
 
@@ -258,6 +259,8 @@ La diferencia no es un detalle de redondeo: para el empleado 9, la garantía es 
 
 **Recomendación:** crear un único `PrestacionesCalculator` (o consolidar en un servicio) con una fórmula legal aprobada, casos de prueba firmados y una comparación explícita en la liquidación: “garantía vs. 30 días/año, se paga el mayor, con desglose de capital e intereses”. Bloquear pagos hasta resolverlo.
 
+> **Actualización 23/10/2026:** el motor v2 implementa una sola comparación (garantía bruta vs. 30 días/año, se paga el mayor) y actualiza el saldo de anticipos al capital. Los importes de esta sección son el estado **anterior**; ver **Anexo C**.
+
 ### 5.2 Intereses capitalizados — **ALTO / requiere validación legal**
 
 `PrestacionesSocialesService::calcularMes()` calcula el interés del mes sobre `saldo_inicial` y lo suma a `saldo_final` (`app/Services/PrestacionesSocialesService.php:208` y siguientes). El mes siguiente usa ese `saldo_final` como `saldo_inicial`, por lo que **el interés se capitaliza mensualmente**.
@@ -272,12 +275,16 @@ Datos actuales:
 
 En el empleado 9 los intereses son el **70% del saldo**. Si la norma/interpretación aplicable exige interés simple o pago anual separado sin capitalizar, el saldo está sobrestimado. El propio docblock dice “mensual simple” pero luego “capitalizados”, lo que es contradictorio. Validar con asesoría y, si aplica, separar capital e intereses en el estado de cuenta y en la liquidación.
 
+> **Actualización 23/10/2026:** el motor v2 calcula interés simple sobre el capital y capitaliza solo el interés vencido y no pagado en el aniversario; se agregó el módulo de pagos. Los importes de esta sección son el estado anterior; ver **Anexo C**.
+
 ### 5.3 Días adicionales posiblemente duplicados — **ALTO**
 
 - `diasAdicionalesAcumulados()` devuelve `2 × (años − 1)` con tope 30 (total acumulado) (`app/Services/PrestacionesSocialesService.php:103`).
 - `calcularMes()`, en cada mes de aniversario, suma **el total acumulado completo** (`diasAdicionalesCont`), no el incremento de 2 días (`app/Services/PrestacionesSocialesService.php:144`).
 
 Ejemplo real del empleado 9: en 2024-01 suma 12,06; en 2025-01 suma 24,16; en 2026-01 suma 36,36. Si el derecho es “2 días por año, acumulativos”, al año 4 el total debería ser 6 días y se habrían depositado 12. Si la interpretación correcta es “monto anual creciente”, entonces el nombre y el docblock del método están mal. En cualquier caso, **código y documentación no coinciden** y el saldo se ve afectado. Requiere definición legal y prueba de regresión.
+
+> **Decisión 23/10/2026:** se mantiene el abono del **acumulado completo en cada aniversario** (2, 4, 6…), tal como funciona hoy. No se cambió esta regla; queda documentada como decisión de negocio.
 
 ### 5.4 La liquidación ignora la garantía y los intereses — **CRÍTICO**
 
@@ -293,12 +300,16 @@ Esto puede producir **doble descuento** (el anticipo ya se restó del saldo de p
 
 **Recomendación:** rediseñar la liquidación como un estado de cuenta final: capital garantizado + intereses devengados − anticipos/préstamos con saldo pendiente, comparado con el cálculo de 30 días/año, y pagar el mayor. Cada deducción debe tener trazabilidad y fecha de corte.
 
+> **Corregido el 23/10/2026:** la liquidación compara garantía bruta vs. 30 días/año y reemplaza el importe por el mayor; los anticipos se descuentan una sola vez y los préstamos quedan como deuda separada. Ver **Anexo C**.
+
 ### 5.5 Anticipos y préstamos — **ALTO**
 
 - `saldoPrestaciones()` usa 30/32 días por año y **no descuenta anticipos ni préstamos previos**; `maximoAnticipo()` calcula el porcentaje sobre ese saldo bruto (`app/Services/MovimientosPrestacionesService.php:83` y `:110`). Con dos anticipos permitidos por año, se puede superar el límite real acumulado.
 - `PrestacionesSocialesService::anticiposDelMes()` resta el `monto` completo de anticipos **y préstamos** en el mes en que se otorgan (`app/Services/PrestacionesSocialesService.php:114`). Un préstamo se resta del saldo de prestaciones, pero cuando se paga (`pagarPrestamo()`, `app/Services/MovimientosPrestacionesService.php:236`) **no se repone** ese saldo; el préstamo queda descontado para siempre.
 - Los anticipos no admiten abonos (`MovimientosPrestacionesController@abonar` bloquea anticipos), pero la liquidación descuenta el monto original completo; no hay forma de reflejar devoluciones parciales.
 - `MovimientoPrestaciones` no tiene una tabla de abonos ni historial de pagos; solo `saldo` en el préstamo.
+
+> **Corregido parcialmente el 23/10/2026:** los anticipos reducen el capital de la garantía; los préstamos son deuda separada y no reducen el capital. El saldo para anticipos se toma del capital de la garantía, no de la fórmula 30/32. Ver **Anexo C**.
 
 **Recomendación:** modelar abonos/pagos como movimientos con fecha, calcular el saldo pendiente como `monto − abonos`, y usar ese saldo tanto para el límite como para la liquidación. Separar “garantía”, “intereses” y “préstamos” en el estado de cuenta.
 
@@ -564,7 +575,7 @@ Es decir, los usuarios ven claves técnicas en lugar de mensajes en español. So
 | 14 | 17 avisos de dependencias | Media | Medio | **P2** |
 | 15 | Pruebas rojas / sin cobertura de dominio | Alta | Medio-Alto | **P2** |
 
-**Actualización 23/10/2026:** corregidas o mitigadas las filas 3 (clave rotada), 4 (artefactos fuera del árbol; historial pendiente), 8 y 9 (flujos), 11 (parcial), 12 (feriados) y 15 (suite 28/28; cobertura de dominio pendiente). La fila 5 queda lista para ejecutarse como root (`deploy/fix-permissions.sh`). Siguen abiertas 1, 2, 6, 7, 10, 13, 14 y las partes legales de 11.
+**Actualización 23/10/2026:** corregidas o mitigadas las filas 1 (motor v2; las 7 liquidaciones aprobadas antiguas quedan intactas), 3 (clave rotada), 4 (artefactos fuera del árbol; historial pendiente), 6 (reglas de interés y días adicionales definidas), 7 (anticipos/préstamos), 8 y 9 (flujos), 11 (parcial), 12 (feriados) y 15 (suite 28/28; cobertura de dominio pendiente). La fila 5 queda lista para ejecutarse como root (`deploy/fix-permissions.sh`). Siguen abiertas 2 (roles/auditoría), 10 (historial salarial), 13 (utilidades), 14 (dependencias) y las partes legales/auditoría de 11.
 | 16 | Mensajes `validation.required` / `auth.failed` | Alta | Bajo-Medio | **P3** |
 | 17 | N+1 y generación síncrona | Media | Medio | **P3** |
 | 18 | Estado de Git no reproducible | Alta | Medio | **P1** |
@@ -783,3 +794,69 @@ No se cambiaron las fórmulas de prestaciones, intereses ni días adicionales: r
 - Transferencia de patrono → 1 vacación movida (antes 0).
 - Flujo de liquidación → activo al crear, inactivo al aprobar, activo al anular.
 - Recibo → dos llamadas devuelven el mismo recibo (1 registro).
+
+---
+
+## Anexo C — Motor de prestaciones v2 (23/10/2026)
+
+### Reglas aprobadas por el usuario
+
+1. La liquidación final compara **garantía bruta** contra **30 días por año** y paga el mayor.
+2. Interés **simple mensual** sobre el capital; el interés vencido y no pagado se capitaliza **en el aniversario de ingreso**.
+3. Días adicionales: se mantiene el **abono del acumulado completo** en cada aniversario (2, 4, 6…), como antes.
+4. Vacaciones: se mantiene el pago de descansos y feriados dentro del disfrute.
+5. Deducciones: se mantiene el descuento de IVSS/Paro/FAOV/INCES en el recibo.
+6. Se recalcula **todo el histórico de prestaciones** con backup; no se tocan liquidaciones aprobadas ni vacaciones.
+7. Los **anticipos reducen el capital**; los **préstamos son deuda separada** y no reducen la garantía.
+8. Se agrega un **módulo de pagos de intereses** (fecha, monto, moneda, comprobante, observación).
+9. La comparación se hace con la garantía **bruta**; los anticipos se descuentan **una sola vez** del mayor.
+10. En la liquidación se **reemplaza** el importe de “Prestaciones sociales” por el mayor.
+
+### Cambios técnicos
+
+- `prestaciones_sociales` agrega: `capital_inicial`, `capital_final`, `interes_pendiente_inicial`, `interes_pendiente_final`, `interes_capitalizado`, `interes_pagado`.
+- Nueva tabla `pagos_interes_prestaciones` y modelo `PagoInteresPrestaciones`.
+- `PrestacionesSocialesService` calcula interés simple sobre capital, aplica pagos y capitaliza en el aniversario.
+- `MovimientosPrestacionesService::saldoPrestaciones()` usa el capital de la garantía, no la fórmula 30/32.
+- `LiquidacionService` compara garantía bruta vs. literal C, reemplaza el importe y descuenta anticipos una vez; los préstamos siguen como deducción separada.
+- `PrestacionesController` agrega alta y eliminación de pagos de intereses; cada movimiento recalcula desde el mes del pago.
+- `PrestacionesController@index` ya no genera períodos al listar; solo el detalle los asegura.
+
+### Recalculo histórico
+
+- Respaldo: tabla `prestaciones_sociales_backup_20261023` con **433 filas**.
+- Resultado: **435 períodos** en **13 empleados**.
+- Nota: al momento del respaldo había 433 períodos, no 114, porque las visitas de verificación a `/prestaciones` habían generado los períodos faltantes de los demás empleados activos. Todos se recalcularon.
+- Saldo total de los últimos períodos: **31.949,69 → 29.458,22** (suma de saldos finales por empleado).
+- Intereses devengados totales: **17.508,34 → 14.338,57**; interés capitalizado: **9.478,59**; interés pendiente: **4.859,98**; pagos: **0**.
+- Sin capital negativo ni diferencias entre `capital + pendiente` y `saldo_final`.
+
+| Empleado | Saldo antes | Saldo después |
+|---|---:|---:|
+| 8 | 1.475,07 | 1.370,84 |
+| 9 | 6.053,11 | 4.946,21 |
+| 10 | 11.065,92 | 11.674,95 |
+
+El empleado 10 sube porque el recálculo completó períodos faltantes; no se modificó su liquidación aprobada.
+
+### Liquidación y pagos
+
+- Empleado 8 sin anticipos: garantía bruta `1.370,84` vs. 30 días `361,80`; la línea de prestaciones queda en `1.370,84`.
+- Con un anticipo de prueba de `50`: garantía bruta `1.368,86`, anticipo descontado una vez, saldo neto `1.318,86`.
+- Préstamo de prueba: no redujo el capital de la garantía.
+- Pago de interés de `1 USD`: interés pendiente `217,76 → 216,76`, saldo `1.370,84 → 1.369,84`; al eliminar el pago volvió a `217,76 / 1.370,84`.
+- Crear y eliminar el pago vía HTTP funcionó y el estado de cuenta se recalculó.
+
+### Verificación
+
+- `php artisan test` → **28 passed (74 assertions)**.
+- `/prestaciones`, `/prestaciones/8`, `/liquidaciones/crear` y `/feriados` → `200`.
+- La vista de prestaciones muestra capital, interés pendiente, pagado y el formulario de pagos.
+- Las 7 liquidaciones aprobadas conservan sus importes; las vacaciones no se tocaron.
+
+### Pendiente / advertencias
+
+- Las **7 liquidaciones aprobadas antes del motor v2** no se recalcularon por decisión expresa; siguen con la fórmula anterior.
+- La interpretación legal de las reglas 1–10 debe ser firmada por contador/abogado antes de usarla masivamente en pagos.
+- Siguen pendientes: roles/auditoría, ejecución del script de permisos como root, historial salarial y utilidades.
+- El respaldo `prestaciones_sociales_backup_20261023` se conserva en la base; no eliminar hasta validar los nuevos saldos.

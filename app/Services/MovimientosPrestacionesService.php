@@ -74,8 +74,8 @@ class MovimientosPrestacionesService
     }
 
     /**
-     * Saldo de prestaciones sociales del empleado a una fecha: días acumulados
-     * × salario integral diario (Art. 142 LOTTT). Reutiliza SalarioIntegralService.
+     * Saldo de la garantía (capital, sin interés pendiente) a una fecha.
+     * Los anticipos ya vienen descontados; los préstamos son deuda separada.
      *
      * @return array{anios:int, dias:int, salario_integral_diario:float,
      *               moneda:string, tasa:?float, saldo:float}
@@ -85,14 +85,16 @@ class MovimientosPrestacionesService
         $fecha = $fecha ?: now();
         $integral = app(SalarioIntegralService::class)->diario($empleado, $fecha);
         $anios = app(SalarioIntegralService::class)->aniosServicio($empleado, $fecha);
+        $prestaciones = app(PrestacionesSocialesService::class);
+        $prestaciones->asegurarPeriodos($empleado, $fecha);
+        $registro = $prestaciones->registroEn($empleado, $fecha);
+        $capital = $registro
+            ? (float) ($registro->capital_final ?? $registro->saldo_final)
+            : 0.0;
 
-        // 30 días por año (Art. 142 LOTTT), 2 días adicionales por año después del 1er año.
-        $dias = 0;
-        for ($i = 1; $i <= $anios; $i++) {
-            $dias += ($i === 1) ? 30 : 32;
-        }
-
-        $saldo = $dias * $integral['salario_diario_integral'];
+        $dias = $integral['salario_diario_integral'] > 0
+            ? (int) round($capital / $integral['salario_diario_integral'])
+            : 0;
 
         return [
             'anios'                  => $anios,
@@ -100,7 +102,7 @@ class MovimientosPrestacionesService
             'salario_integral_diario'=> $integral['salario_diario_integral'],
             'moneda'                 => $integral['moneda'],
             'tasa'                   => $integral['tasa'],
-            'saldo'                  => round($saldo, 2),
+            'saldo'                  => round($capital, 2),
         ];
     }
 
