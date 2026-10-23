@@ -46,6 +46,10 @@ class CalendarioLaboral
     {
         $anio = (int) $fecha->format('Y');
 
+        if (! $this->feriados->anioValido($anio)) {
+            return false;
+        }
+
         return in_array($fecha->format('Y-m-d'), $this->feriados->asegurarAnio($anio), true);
     }
 

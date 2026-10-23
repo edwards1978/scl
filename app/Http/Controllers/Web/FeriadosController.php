@@ -24,7 +24,13 @@ class FeriadosController extends Controller
     public function index(): View
     {
         $fijos = FeriadoFijo::query()->orden()->get();
-        $materializados = Feriado::orderByDesc('fecha')->limit(20)->get();
+
+        // Muestra solo el calendario materializado reciente (5 años atrás y
+        // 5 adelante) para no arrastrar años corruptos o de prueba.
+        $materializados = Feriado::whereBetween('fecha', [
+            Carbon::now()->subYears(5)->startOfYear()->toDateString(),
+            Carbon::now()->addYears(5)->endOfYear()->toDateString(),
+        ])->orderByDesc('fecha')->limit(20)->get();
 
         return view('feriados.index', compact('fijos', 'materializados'));
     }

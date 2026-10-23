@@ -35,6 +35,18 @@ class DiasFeriadosService
     ];
 
     /**
+     * Rango de años admitido para materializar el calendario. Evita que una
+     * fecha corrupta (por ejemplo, año 8202) cree feriados absurdos.
+     */
+    public const ANIO_MIN = 2000;
+    public const ANIO_MAX = 2100;
+
+    public function anioValido(int $anio): bool
+    {
+        return $anio >= self::ANIO_MIN && $anio <= self::ANIO_MAX;
+    }
+
+    /**
      * Feriados fijos activos (editables por el usuario).
      */
     public function fijos(): Collection
@@ -99,6 +111,10 @@ class DiasFeriadosService
      */
     public function materializarAnio(int $anio): int
     {
+        if (! $this->anioValido($anio)) {
+            return 0;
+        }
+
         $desde = Carbon::create($anio, 1, 1)->format('Y-m-d');
         $hasta = Carbon::create($anio, 12, 31)->format('Y-m-d');
 
@@ -133,7 +149,15 @@ class DiasFeriadosService
             return $cache[$anio];
         }
 
-        $this->materializarAnio($anio);
+        if (! $this->anioValido($anio)) {
+            return $cache[$anio] = [];
+        }
+
+        // Solo materializa si el año aún no existe. Así una simple consulta
+        // de calendario no borra y reinserta los feriados ya guardados.
+        if (! Feriado::whereYear('fecha', $anio)->exists()) {
+            $this->materializarAnio($anio);
+        }
 
         $cache[$anio] = Feriado::whereYear('fecha', $anio)->pluck('fecha')->map(
             fn (?string $f) => Carbon::parse($f)->format('Y-m-d')

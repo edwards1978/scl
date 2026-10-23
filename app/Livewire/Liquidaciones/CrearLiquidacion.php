@@ -6,6 +6,7 @@ namespace App\Livewire\Liquidaciones;
 
 use App\Models\Empleado;
 use App\Models\Patrono;
+use App\Services\DiasFeriadosService;
 use App\Services\LiquidacionService;
 use Illuminate\View\View;
 use Livewire\Component;
@@ -68,6 +69,10 @@ class CrearLiquidacion extends Component
         $egreso = $this->fecha_egreso ?: now()->toDateString();
         $this->fecha_egreso = $egreso;
 
+        if (! $this->fechaEgresoValida($empleado)) {
+            return;
+        }
+
         $this->preview = $service->calcular(
             $empleado,
             \Carbon\Carbon::parse($egreso),
@@ -96,6 +101,14 @@ class CrearLiquidacion extends Component
             return;
         }
 
+        $this->fecha_egreso = $this->fecha_egreso ?: now()->toDateString();
+
+        if (! $this->fechaEgresoValida($empleado)) {
+            $this->guardando = false;
+
+            return;
+        }
+
         $carga = $this->preview ?? $service->calcular(
             $empleado,
             \Carbon\Carbon::parse($this->fecha_egreso ?: now()->toDateString()),
@@ -117,6 +130,49 @@ class CrearLiquidacion extends Component
         }
 
         $this->guardando = false;
+    }
+
+    /**
+     * Valida que la fecha de egreso sea una fecha real, esté dentro del rango
+     * de calendario admitido y no sea anterior al ingreso del trabajador.
+     */
+    private function fechaEgresoValida(Empleado $empleado): bool
+    {
+        if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $this->fecha_egreso)) {
+            $this->error = 'La fecha de egreso debe tener el formato AAAA-MM-DD.';
+
+            return false;
+        }
+
+        $anio = (int) substr($this->fecha_egreso, 0, 4);
+        $mes = (int) substr($this->fecha_egreso, 5, 2);
+        $dia = (int) substr($this->fecha_egreso, 8, 2);
+
+        if (! checkdate($mes, $dia, $anio)) {
+            $this->error = 'La fecha de egreso no es una fecha válida.';
+
+            return false;
+        }
+
+        $egreso = \Carbon\Carbon::createFromFormat('Y-m-d', $this->fecha_egreso)->startOfDay();
+
+        if ($anio < DiasFeriadosService::ANIO_MIN || $anio > DiasFeriadosService::ANIO_MAX) {
+            $this->error = sprintf(
+                'La fecha de egreso debe estar entre los años %d y %d.',
+                DiasFeriadosService::ANIO_MIN,
+                DiasFeriadosService::ANIO_MAX
+            );
+
+            return false;
+        }
+
+        if ($empleado->fecha_ingreso && $egreso->lt(\Carbon\Carbon::instance($empleado->fecha_ingreso))) {
+            $this->error = 'La fecha de egreso no puede ser anterior a la fecha de ingreso del trabajador.';
+
+            return false;
+        }
+
+        return true;
     }
 
     public function render(): View

@@ -7,6 +7,7 @@ namespace App\Livewire\Vacaciones;
 use App\Models\Empleado;
 use App\Models\Patrono;
 use App\Models\Vacacion;
+use App\Services\DiasFeriadosService;
 use App\Services\VacacionesService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -79,6 +80,10 @@ class CrearVacacion extends Component
             $this->fecha_inicio = $sugerida;
         }
 
+        if (! $this->fechaInicioValida($empleado)) {
+            return;
+        }
+
         $this->preview = $service->calcular($empleado, (int) $service->aniosServicio($empleado), $this->fecha_inicio ?: $sugerida);
     }
 
@@ -98,6 +103,12 @@ class CrearVacacion extends Component
         }
         if (! $empleado->estaActivo()) {
             $this->error = 'El trabajador está inactivo (ya liquidado): no se pueden efectuar nuevos cálculos.';
+            $this->guardando = false;
+
+            return;
+        }
+
+        if ($this->fecha_inicio && ! $this->fechaInicioValida($empleado)) {
             $this->guardando = false;
 
             return;
@@ -162,6 +173,49 @@ class CrearVacacion extends Component
         }
 
         $this->guardando = false;
+    }
+
+    /**
+     * Valida que la fecha de inicio sea una fecha real, esté dentro del rango
+     * de calendario admitido y no sea anterior al ingreso del trabajador.
+     */
+    private function fechaInicioValida(Empleado $empleado): bool
+    {
+        if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $this->fecha_inicio)) {
+            $this->error = 'La fecha de inicio debe tener el formato AAAA-MM-DD.';
+
+            return false;
+        }
+
+        $anio = (int) substr($this->fecha_inicio, 0, 4);
+        $mes = (int) substr($this->fecha_inicio, 5, 2);
+        $dia = (int) substr($this->fecha_inicio, 8, 2);
+
+        if (! checkdate($mes, $dia, $anio)) {
+            $this->error = 'La fecha de inicio no es una fecha válida.';
+
+            return false;
+        }
+
+        $inicio = Carbon::createFromFormat('Y-m-d', $this->fecha_inicio)->startOfDay();
+
+        if ($anio < DiasFeriadosService::ANIO_MIN || $anio > DiasFeriadosService::ANIO_MAX) {
+            $this->error = sprintf(
+                'La fecha de inicio debe estar entre los años %d y %d.',
+                DiasFeriadosService::ANIO_MIN,
+                DiasFeriadosService::ANIO_MAX
+            );
+
+            return false;
+        }
+
+        if ($empleado->fecha_ingreso && $inicio->lt(Carbon::instance($empleado->fecha_ingreso))) {
+            $this->error = 'La fecha de inicio no puede ser anterior a la fecha de ingreso del trabajador.';
+
+            return false;
+        }
+
+        return true;
     }
 
     public function render(): View
