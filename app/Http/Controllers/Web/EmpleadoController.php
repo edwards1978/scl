@@ -8,12 +8,14 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreEmpleadoRequest;
 use App\Http\Requests\UpdateEmpleadoRequest;
 use App\Models\BonificacionFinAno;
+use App\Models\CambioSalario;
 use App\Models\Empleado;
 use App\Models\Liquidacion;
 use App\Models\MovimientoPrestaciones;
 use App\Models\Parametro;
 use App\Models\PrestacionSocial;
 use App\Models\Patrono;
+use App\Models\Sueldo;
 use App\Models\Vacacion;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -96,6 +98,19 @@ class EmpleadoController extends Controller
     {
         $this->verificarPertenece($empleado);
 
+        $tieneHistorial = Vacacion::where('empleado_id', $empleado->id)->exists()
+            || Sueldo::where('empleado_id', $empleado->id)->exists()
+            || CambioSalario::where('empleado_id', $empleado->id)->exists()
+            || MovimientoPrestaciones::where('empleado_id', $empleado->id)->exists()
+            || PrestacionSocial::where('empleado_id', $empleado->id)->exists()
+            || Liquidacion::where('empleado_id', $empleado->id)->exists()
+            || BonificacionFinAno::where('empleado_id', $empleado->id)->exists();
+
+        if ($tieneHistorial) {
+            return redirect()->route('empleados.index')
+                ->with('error', 'No se puede eliminar un trabajador con historial laboral. Use el estatus Inactivo.');
+        }
+
         $nombre = $empleado->nombre_completo;
         $empleado->delete();
 
@@ -126,27 +141,29 @@ class EmpleadoController extends Controller
             return back()->withErrors(['nuevo_patrono_id' => "La cédula {$empleado->cedula} ya está registrada en el patrono seleccionado."]);
         }
 
-        DB::transaction(function () use ($empleado, $nuevoPatrono) {
+        $patronoAnterior = (int) $empleado->patrono_id;
+
+        DB::transaction(function () use ($empleado, $nuevoPatrono, $patronoAnterior) {
             $empleado->update(['patrono_id' => $nuevoPatrono->id]);
 
             Vacacion::where('empleado_id', $empleado->id)
-                ->where('patrono_id', $empleado->getOriginal('patrono_id'))
+                ->where('patrono_id', $patronoAnterior)
                 ->update(['patrono_id' => $nuevoPatrono->id]);
 
             MovimientoPrestaciones::where('empleado_id', $empleado->id)
-                ->where('patrono_id', $empleado->getOriginal('patrono_id'))
+                ->where('patrono_id', $patronoAnterior)
                 ->update(['patrono_id' => $nuevoPatrono->id]);
 
             PrestacionSocial::where('empleado_id', $empleado->id)
-                ->where('patrono_id', $empleado->getOriginal('patrono_id'))
+                ->where('patrono_id', $patronoAnterior)
                 ->update(['patrono_id' => $nuevoPatrono->id]);
 
             Liquidacion::where('empleado_id', $empleado->id)
-                ->where('patrono_id', $empleado->getOriginal('patrono_id'))
+                ->where('patrono_id', $patronoAnterior)
                 ->update(['patrono_id' => $nuevoPatrono->id]);
 
             BonificacionFinAno::where('empleado_id', $empleado->id)
-                ->where('patrono_id', $empleado->getOriginal('patrono_id'))
+                ->where('patrono_id', $patronoAnterior)
                 ->update(['patrono_id' => $nuevoPatrono->id]);
         });
 

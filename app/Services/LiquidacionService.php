@@ -410,6 +410,16 @@ class LiquidacionService
      */
     public function crear(Empleado $empleado, CarbonInterface $egreso, string $motivo, ?string $observacion = null): Liquidacion
     {
+        $existe = Liquidacion::where('empleado_id', $empleado->id)
+            ->whereIn('estatus', ['por_aprobar', 'aprobada'])
+            ->exists();
+
+        if ($existe) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'empleado_id' => 'El trabajador ya tiene una liquidación vigente (por aprobar o aprobada).',
+            ]);
+        }
+
         $datos = $this->calcular($empleado, $egreso, $motivo);
 
         return \Illuminate\Support\Facades\DB::transaction(function () use ($empleado, $egreso, $motivo, $observacion, $datos) {
@@ -463,10 +473,8 @@ class LiquidacionService
                 ]);
             }
 
-            // Al liquidar, el trabajador deja de estar activo: no se permiten
-            // nuevos cálculos laborales mientras exista la liquidación.
-            $empleado->update(['estatus' => 'Inactivo']);
-
+            // El trabajador se marca inactivo al aprobar la liquidación, no al
+            // crearla; así una liquidación pendiente o anulada no bloquea la nómina.
             return $liquidacion;
         });
     }

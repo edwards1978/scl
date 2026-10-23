@@ -182,10 +182,15 @@ class MovimientosPrestacionesController extends Controller
         return back()->with('success', 'Movimiento anulado correctamente.');
     }
 
-    /** Elimina definitivamente un movimiento. */
+    /** Elimina definitivamente un movimiento anulado. */
     public function destroy(MovimientoPrestaciones $movimiento): RedirectResponse
     {
         abort_if((int) $movimiento->patrono_id !== (int) session('patrono_id'), 404);
+
+        if ($movimiento->estatus !== 'anulado') {
+            return redirect()->route('movimientos-prestaciones.index')
+                ->with('error', 'Anule el movimiento antes de eliminarlo.');
+        }
 
         $movimiento->delete();
 

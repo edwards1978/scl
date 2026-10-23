@@ -148,12 +148,16 @@ class VacacionesController extends Controller
           ->stream("recibo-vacaciones-{$empleado->nombre_completo}.pdf");
     }
 
-    /** Elimina un periodo y sus recibos asociados. */
+    /** Elimina un periodo pendiente sin recibo. */
     public function destroy(Vacacion $vacacion): RedirectResponse
     {
         abort_if((int) $vacacion->patrono_id !== (int) session('patrono_id'), 404);
 
-        $vacacion->recibos()->delete();
+        if (! $vacacion->puedeBorrar()) {
+            return redirect()->route('vacaciones.index')
+                ->with('error', 'No se puede eliminar una vacación pagada, disfrutada o con recibo emitido.');
+        }
+
         $vacacion->delete();
 
         return redirect()->route('vacaciones.index')
@@ -176,10 +180,14 @@ class VacacionesController extends Controller
     {
         if (! $vacacion->puedeAnular()) {
             throw \Illuminate\Validation\ValidationException::withMessages([
-                'accion' => 'No se puede anular: el periodo ya fue disfrutado.',
+                'accion' => 'No se puede anular: la vacación ya fue pagada o disfrutada.',
             ]);
         }
-        $vacacion->update(['estatus_calculo' => 'no_aprobada']);
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($vacacion) {
+            $vacacion->recibos()->delete();
+            $vacacion->update(['estatus_calculo' => 'no_aprobada']);
+        });
     }
 
     private function accionPagar(Vacacion $vacacion): void

@@ -68,6 +68,11 @@ class PatronoController extends Controller
 
     public function destroy(Patrono $patrono): RedirectResponse
     {
+        if ($patrono->empleados()->exists()) {
+            return redirect()->route('patronos.index')
+                ->with('error', 'No se puede eliminar un patrono con trabajadores registrados. Use el estatus Inactivo.');
+        }
+
         $razon = $patrono->razon_social;
         $patrono->delete();
 

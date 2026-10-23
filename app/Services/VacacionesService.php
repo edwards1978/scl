@@ -455,11 +455,18 @@ class VacacionesService
     }
 
     /**
-     * Genera (o regenera) el recibo de pago, aplicando sólo las deducciones
-     * marcadas en el patrono del empleado.
+     * Devuelve el recibo existente o genera uno nuevo para la vacación,
+     * aplicando solo las deducciones marcadas en el patrono del empleado.
+     * Es idempotente: evita duplicar recibos al abrir/descargar el PDF.
      */
     public function generarRecibo(Vacacion $vacacion): VacacionesRecibo
     {
+        $existente = $vacacion->recibos()->latest('fecha_emision')->first();
+
+        if ($existente) {
+            return $existente;
+        }
+
         $empleado = $vacacion->empleado;
         $patrono = $vacacion->patrono;
 

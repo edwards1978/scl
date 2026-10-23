@@ -167,6 +167,12 @@ class UtilidadesController extends Controller
     {
         $bonificacion = $this->bonificacionDePatrono($id);
         $anio = (int) $bonificacion->anio;
+
+        if ($bonificacion->estatus === 'aprobado') {
+            return redirect()->route('utilidades.index', ['anio' => $anio])
+                ->with('error', 'No se puede eliminar una bonificación aprobada y emitida.');
+        }
+
         $bonificacion->delete();
 
         return redirect()->route('utilidades.index', ['anio' => $anio])

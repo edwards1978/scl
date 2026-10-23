@@ -135,8 +135,8 @@ class Vacacion extends Model
 
     public function puedeAnular(): bool
     {
-        return in_array($this->estatus_vacacion, ['pendiente', 'pagada'], true)
-            && $this->estatus_vacacion !== 'disfrutada';
+        return $this->estatus_vacacion === 'pendiente'
+            && in_array($this->estatus_calculo, ['por_aprobar', 'aprobada'], true);
     }
 
     public function puedePagar(): bool
@@ -147,7 +147,8 @@ class Vacacion extends Model
 
     public function puedeBorrar(): bool
     {
-        return true;
+        return $this->estatus_vacacion === 'pendiente'
+            && $this->recibos()->doesntExist();
     }
 
     public function duracionDias(): int

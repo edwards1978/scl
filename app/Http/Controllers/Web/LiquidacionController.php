@@ -7,11 +7,13 @@ namespace App\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use App\Models\Liquidacion;
 use App\Models\Patrono;
+use App\Models\PrestacionSocial;
 use App\Services\LiquidacionService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class LiquidacionController extends Controller
@@ -82,10 +84,27 @@ class LiquidacionController extends Controller
         $liquidacion->load(['empleado', 'asignaciones', 'deducciones']);
         $empleado = $liquidacion->empleado;
 
-        return view('liquidaciones.show', compact('liquidacion', 'empleado'));
+        $garantia = PrestacionSocial::where('empleado_id', $empleado->id)
+            ->where('periodo', '<=', $liquidacion->fecha_egreso->format('Y-m'))
+            ->orderByDesc('periodo')
+            ->value('saldo_final');
+
+        $literalC = (float) ($liquidacion->asignaciones
+            ->firstWhere('concepto', 'Prestaciones sociales')?->importe ?? 0);
+
+        $advertenciaGarantia = null;
+        if ($garantia !== null && $literalC > 0 && (float) $garantia > $literalC) {
+            $advertenciaGarantia = 'La garantía acumulada registrada ('
+                .$liquidacion->moneda.' '.formato_monto((float) $garantia)
+                .') es mayor que el cálculo de 30 días por año ('
+                .$liquidacion->moneda.' '.formato_monto($literalC)
+                .'). El sistema no ajusta automáticamente: revise la conciliación antes de aprobar.';
+        }
+
+        return view('liquidaciones.show', compact('liquidacion', 'empleado', 'advertenciaGarantia'));
     }
 
-    /** Aprueba la liquidación. */
+    /** Aprueba la liquidación y marca al trabajador como inactivo. */
     public function aprobar(int $id): RedirectResponse
     {
         $liquidacion = $this->liquidacionDePatrono($id);
@@ -94,13 +113,20 @@ class LiquidacionController extends Controller
             return back()->with('info', 'La liquidación ya estaba aprobada.');
         }
 
-        $liquidacion->update(['estatus' => 'aprobada']);
+        if ($liquidacion->estatus === 'anulada') {
+            return back()->with('error', 'No se puede aprobar una liquidación anulada.');
+        }
+
+        DB::transaction(function () use ($liquidacion) {
+            $liquidacion->update(['estatus' => 'aprobada']);
+            $liquidacion->empleado->update(['estatus' => 'Inactivo']);
+        });
 
         return redirect()->route('liquidaciones.show', $liquidacion->id)
-            ->with('success', 'Liquidación aprobada.');
+            ->with('success', 'Liquidación aprobada. El trabajador quedó inactivo.');
     }
 
-    /** Anula la liquidación. */
+    /** Anula la liquidación y reactiva al trabajador si no queda otra vigente. */
     public function anular(int $id): RedirectResponse
     {
         $liquidacion = $this->liquidacionDePatrono($id);
@@ -109,7 +135,10 @@ class LiquidacionController extends Controller
             return back()->with('info', 'La liquidación ya estaba anulada.');
         }
 
-        $liquidacion->update(['estatus' => 'anulada']);
+        DB::transaction(function () use ($liquidacion) {
+            $liquidacion->update(['estatus' => 'anulada']);
+            $this->reactivarSiCorresponde($liquidacion->empleado, $liquidacion->id);
+        });
 
         return redirect()->route('liquidaciones.show', $liquidacion->id)
             ->with('success', 'Liquidación anulada.');
@@ -166,28 +195,52 @@ class LiquidacionController extends Controller
           ->stream("liquidacion-{$empleado->nombre_completo}.pdf");
     }
 
-    /** Elimina una liquidación y restablece al trabajador a Activo. */
+    /** Elimina una liquidación pendiente; las aprobadas deben anularse. */
     public function destroy(int $id): RedirectResponse
     {
         $liquidacion = $this->liquidacionDePatrono($id);
-        $empleado = $liquidacion->empleado;
-        $liquidacion->delete();
 
-        // Restablece el estatus del trabajador para permitir nuevos cálculos.
-        $empleado->update(['estatus' => 'Activo']);
+        if ($liquidacion->estatus === 'aprobada') {
+            return back()->with('error', 'No se puede eliminar una liquidación aprobada. Anúlela primero.');
+        }
+
+        $empleado = $liquidacion->empleado;
+        DB::transaction(function () use ($liquidacion, $empleado) {
+            $liquidacion->delete();
+            $this->reactivarSiCorresponde($empleado);
+        });
 
         return redirect()->route('liquidaciones.index')
-            ->with('success', 'Liquidación eliminada y trabajador restablecido a Activo.');
+            ->with('success', 'Liquidación eliminada.');
+    }
+
+    /**
+     * Reactiva al trabajador solo si no le queda otra liquidación vigente.
+     * Evita reactivarlo cuando existe otra liquidación por aprobar o aprobada.
+     */
+    private function reactivarSiCorresponde(\App\Models\Empleado $empleado, ?int $excluirId = null): void
+    {
+        $otraVigente = Liquidacion::where('empleado_id', $empleado->id)
+            ->when($excluirId, fn ($q) => $q->where('id', '!=', $excluirId))
+            ->whereIn('estatus', ['por_aprobar', 'aprobada'])
+            ->exists();
+
+        if (! $otraVigente && $empleado->estatus === 'Inactivo') {
+            $empleado->update(['estatus' => 'Activo']);
+        }
     }
 
     /**
      * Regenera los conceptos de liquidaciones creadas antes de que existieran
-     * los campos salario_diario / tipo_salario (para que el recibo muestre el
-     * sueldo diario por renglón). Se aplica a cualquier estatus cuando los
-     * conceptos de asignación carecen de esos datos.
+     * los campos salario_diario / tipo_salario. Nunca modifica una liquidación
+     * aprobada: un documento pagado/aprobado debe permanecer inmutable.
      */
     private function repararSiEsNecesario(Liquidacion $liquidacion): void
     {
+        if ($liquidacion->estatus === 'aprobada') {
+            return;
+        }
+
         $faltante = $liquidacion->conceptos()
             ->where('tipo', 'asignacion')
             ->whereIn('concepto', [
