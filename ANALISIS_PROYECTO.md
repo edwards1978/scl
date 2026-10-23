@@ -419,7 +419,7 @@ Resultado: el empleado cambia de patrono, pero su historial (vacaciones, prestac
 
 ### 6.1 Contraseña por defecto — **corregido el 23/10/2026**
 
-Se verificó con `Hash::check()` que el usuario administrador conservaba la contraseña por defecto. Además, `DefaultAdminSeeder` la restablecía con `Hash::make('admin123')` en cada `db:seed`.
+Se verificó con `Hash::check()` que el usuario administrador conservaba la contraseña por defecto. Además, `DefaultAdminSeeder` la restablecía con una clave fija en cada `db:seed`.
 
 **Corrección aplicada:**
 
@@ -732,7 +732,7 @@ La prioridad debe ser **no pagar con cálculos no validados**, **cerrar el acces
 ### Contraseña del administrador
 
 - Se rotó la contraseña del usuario `admin@scl.local`; la clave anterior ya no funciona.
-- `DefaultAdminSeeder` ya no contiene `admin123`: usa `ADMIN_PASSWORD` o genera una clave aleatoria y la muestra una sola vez.
+- `DefaultAdminSeeder` ya no contiene una clave fija: usa `ADMIN_PASSWORD` o genera una clave aleatoria y la muestra una sola vez.
 - El seeder usa `firstOrCreate`, así que volver a ejecutar `db:seed` no resetea la clave de un administrador existente.
 - README y DEPLOY ya no publican la contraseña.
 
