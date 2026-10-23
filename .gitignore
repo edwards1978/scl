@@ -3,6 +3,10 @@
 /public/build
 /public/hot
 /public/storage
+/bootstrap/cache/*.php
+/%CK%
+/scl
+/stubs_cookie.txt
 /storage/*.key
 /storage/pail
 /vendor

@@ -1,7 +1,7 @@
 <?php
 
+use App\Http\Request;
 use Illuminate\Foundation\Application;
-use Illuminate\Http\Request;
 
 define('LARAVEL_START', microtime(true));
 
@@ -13,24 +13,22 @@ if (file_exists($maintenance = __DIR__.'/../storage/framework/maintenance.php'))
 // Register the Composer autoloader...
 require __DIR__.'/../vendor/autoload.php';
 
-// Dynamically set APP_URL before bootstrap so route() generates
-// correct URLs regardless of the domain/IP used to access the app.
+// Soporte para publicar la aplicacion en un subdirectorio (http://host/scl).
+// Con Alias + mod_rewrite, Apache expone SCRIPT_NAME como "/index.php" y
+// Laravel interpretaria la ruta como "/scl/login". Restauramos el nombre
+// real del script para que el path info sea "/login".
 $uri = $_SERVER['REQUEST_URI'] ?? '';
 $isSubdir = str_starts_with($uri, '/scl');
 
 if ($isSubdir) {
     $scheme = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
     $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-    $scriptName = preg_replace('#/public(?=/index\.php)#', '', $_SERVER['SCRIPT_NAME'] ?? $_SERVER['PHP_SELF'] ?? '/scl');
-    $basePath = dirname($scriptName);
-    putenv("APP_URL={$scheme}://{$host}{$basePath}");
+    $basePath = '/scl';
 
-    // Fix server vars for subdirectory routing
-    foreach (['SCRIPT_NAME', 'PHP_SELF', 'ORIG_SCRIPT_NAME'] as $k) {
-        if (isset($_SERVER[$k])) {
-            $_SERVER[$k] = preg_replace('#/public(?=/index\.php)#', '', $_SERVER[$k]);
-        }
-    }
+    $_SERVER['SCRIPT_NAME'] = $basePath.'/index.php';
+    $_SERVER['PHP_SELF'] = $basePath.'/index.php';
+
+    putenv("APP_URL={$scheme}://{$host}{$basePath}");
 }
 
 // Bootstrap Laravel and handle the request...

@@ -56,6 +56,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Registro publico
+    |--------------------------------------------------------------------------
+    |
+    | SCL es un sistema interno de nomina. Por defecto el autorregistro de
+    | usuarios esta deshabilitado; habilitarlo solo si se cuenta con roles
+    | y aprobacion de cuentas.
+    |
+    */
+
+    'registration_enabled' => (bool) env('REGISTRATION_ENABLED', false),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
     |

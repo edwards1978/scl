@@ -45,8 +45,10 @@
         </div>
     </form>
 
-    <p class="mt-6 text-center text-xs text-gray-500">
-        ¿No tienes cuenta?
-        <a href="{{ route('register') }}" class="text-blue-600 hover:text-blue-700">Regístrate</a>
-    </p>
+    @if (Route::has('register'))
+        <p class="mt-6 text-center text-xs text-gray-500">
+            ¿No tienes cuenta?
+            <a href="{{ route('register') }}" class="text-blue-600 hover:text-blue-700">Regístrate</a>
+        </p>
+    @endif
 </x-guest-layout>

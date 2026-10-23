@@ -1,6 +1,6 @@
 # SCL - Sistema de Cálculos Laborales
 
-Sistema web desarrollado en **Laravel 11** para la gestión y cálculo de prestaciones sociales, vacaciones, liquidaciones y sueldos según la legislación laboral venezolana (LOTTT).
+Sistema web desarrollado en **Laravel 12** para la gestión y cálculo de prestaciones sociales, vacaciones, liquidaciones y sueldos según la legislación laboral venezolana (LOTTT).
 
 ## 🚀 Características Principales
 
@@ -31,8 +31,8 @@ Sistema web desarrollado en **Laravel 11** para la gestión y cálculo de presta
   - Recibos de pago
 
 ### Tecnologías
-- **Backend**: Laravel 11, PHP 8.2+
-- **Frontend**: Blade, Tailwind CSS, Alpine.js, Livewire 3
+- **Backend**: Laravel 12, PHP 8.2+
+- **Frontend**: Blade, Tailwind CSS, Alpine.js, Livewire 4
 - **Base de Datos**: MySQL/MariaDB
 - **Autenticación**: Laravel Breeze
 - **Testing**: PHPUnit, Pest
@@ -43,7 +43,7 @@ Sistema web desarrollado en **Laravel 11** para la gestión y cálculo de presta
 - Composer
 - Node.js >= 18 & NPM
 - MySQL/MariaDB 8.0+
-- Extensiones PHP: bcmath, ctype, fileinfo, gd, mbstring, openssl, pdo, tokenizer, xml
+- Extensiones PHP: bcmath, ctype, fileinfo, gd, intl, mbstring, openssl, pdo_mysql, tokenizer, xml, zip
 
 ## 🛠️ Instalación
 
@@ -81,7 +81,9 @@ php artisan serve
 
 Tras ejecutar el seeder `DefaultAdminSeeder`:
 - **Email**: admin@scl.local
-- **Password**: password
+- **Password**: admin123
+
+> Cambiar esta contraseña inmediatamente después del despliegue (ver `DEPLOY.md`).
 
 ## 📁 Estructura del Proyecto
 
@@ -122,21 +124,36 @@ php artisan test
 php artisan test --coverage
 ```
 
+> Las pruebas usan tablas con prefijo `test_` en la misma base de datos y crean
+> el esquema automáticamente en la primera ejecución (`tests/bootstrap.php`).
+> No leen la caché de configuración de producción ni modifican las tablas
+> reales. Si se dispone de otra base para pruebas, configurar `DB_DATABASE` y
+> dejar `DB_PREFIX` vacío en `phpunit.xml`.
+
 ## 📦 Despliegue en Producción
 
+Consultar la guía completa **[DEPLOY.md](DEPLOY.md)** (Apache, permisos,
+seguridad y verificación).
+
 ```bash
+# Dependencias y assets de producción
+composer install --no-dev --optimize-autoloader
+npm ci && npm run build
+
+# Base de datos
+php artisan migrate --force
+php artisan db:seed --force   # solo la primera vez
+
 # Optimizaciones
-php artisan config:cache
-php artisan route:cache
-php artisan view:cache
-php artisan event:cache
+php artisan optimize
 
-# Compilar assets producción
-npm run build
-
-# Permisos storage
+# Permisos storage (ejecutar como root)
+chown -R www-data:www-data storage bootstrap/cache
 chmod -R 775 storage bootstrap/cache
 ```
+
+> El servidor web debe apuntar a la carpeta `public/`, nunca a la raíz del
+> proyecto; de lo contrario `.env`, backups y código quedan expuestos.
 
 ## 📄 Licencia
 
