@@ -79,7 +79,7 @@ class PrestacionesController extends Controller
     /** Estado de cuenta mensual de un empleado, con filtro opcional por período. */
     public function show(Request $request, int $empleadoId): View
     {
-        $empleado = $this->empleadoActivo($empleadoId);
+        $empleado = $this->empleadoDePatrono($empleadoId);
         $filtros = $this->filtrosPeriodo($request);
         $rango = $this->service->estadoDeCuentaEnRango($empleado, $filtros['desde'], $filtros['hasta']);
 
@@ -237,7 +237,7 @@ class PrestacionesController extends Controller
     /** Exporta el estado de cuenta a OpenDocument Spreadsheet (.ods), con el mismo filtro. */
     public function hojaCalculo(Request $request, int $empleadoId)
     {
-        $empleado = $this->empleadoActivo($empleadoId);
+        $empleado = $this->empleadoDePatrono($empleadoId);
         $patrono = $this->patronoActual();
         $filtros = $this->filtrosPeriodo($request);
         $rango = $this->service->estadoDeCuentaEnRango($empleado, $filtros['desde'], $filtros['hasta']);
@@ -516,7 +516,7 @@ class PrestacionesController extends Controller
     /** PDF del estado de cuenta, con el mismo filtro de período. */
     public function pdf(Request $request, int $empleadoId)
     {
-        $empleado = $this->empleadoActivo($empleadoId);
+        $empleado = $this->empleadoDePatrono($empleadoId);
         $patrono = $this->patronoActual();
         $filtros = $this->filtrosPeriodo($request);
         $rango = $this->service->estadoDeCuentaEnRango($empleado, $filtros['desde'], $filtros['hasta']);

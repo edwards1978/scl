@@ -14,6 +14,12 @@
 		{{ $empleado->nombre_completo }} · C.I. {{ $empleado->cedula }} · Ingreso {{ $empleado->fecha_ingreso?->format('d/m/Y') }}
 	</p>
 
+	@if (! $empleado->estaActivo())
+		<div class="mb-4 p-3 bg-amber-50 border border-amber-200 text-amber-800 text-xs">
+			Trabajador inactivo o liquidado: esta pantalla es de consulta histórica. No se permiten nuevos cálculos, pagos de intereses ni anticipos.
+		</div>
+	@endif
+
 	@php
 		$modalidadDeposito = $empleado->patrono?->deposito_tipo ?? 'contabilidad';
 	@endphp
@@ -190,6 +196,7 @@
 	<div class="bg-white border border-gray-200 p-4 mb-4">
 		<h2 class="text-sm font-semibold text-gray-800 mb-3">Pagos de intereses</h2>
 
+		@if ($empleado->estaActivo())
 		<form method="POST" action="{{ route('prestaciones.intereses', $empleado->id) }}" class="grid grid-cols-1 md:grid-cols-6 gap-2 items-end">
 			@csrf
 			<div>
@@ -222,6 +229,7 @@
 				<span class="text-xs text-gray-500 ml-2">El pago se aplica al interés pendiente; el exceso reduce capital. Se recalcula desde el mes del pago.</span>
 			</div>
 		</form>
+		@endif
 
 		@if ($pagos->isNotEmpty())
 			<div class="overflow-x-auto mt-4">
@@ -247,11 +255,13 @@
 								<td class="px-3 py-2">{{ $p->comprobante ?: '—' }}</td>
 								<td class="px-3 py-2">{{ $p->observacion ?: '—' }}</td>
 								<td class="px-3 py-2 text-right">
+									@if ($empleado->estaActivo())
 									<form method="POST" action="{{ route('prestaciones.intereses.destroy', [$empleado->id, $p->id]) }}" onsubmit="return confirm('¿Eliminar este pago de intereses?')">
 										@csrf
 										@method('DELETE')
 										<button class="text-xs text-red-600 hover:underline">Eliminar</button>
 									</form>
+									@endif
 								</td>
 							</tr>
 						@endforeach
@@ -262,10 +272,12 @@
 	</div>
 
 	<div class="flex justify-end gap-2">
+		@if ($empleado->estaActivo())
 		<form method="POST" action="{{ route('prestaciones.recalcular', $empleado->id) }}" onsubmit="return confirm('¿Recalcular el estado de cuenta completo?')">
 			@csrf
 			<button class="px-3 py-1.5 text-sm border border-gray-300 text-gray-600 hover:bg-gray-50">↻ Recalcular</button>
 		</form>
+		@endif
 		<a href="{{ route('prestaciones.pdf', $exportParams) }}" target="_blank" rel="noopener" class="px-4 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700">Descargar PDF</a>
 		<a href="{{ route('prestaciones.hoja-calculo', $exportParams) }}" target="_blank" rel="noopener" class="px-4 py-1.5 text-sm bg-green-600 text-white hover:bg-green-700">Hoja de Cálculo (.ods)</a>
 	</div>
