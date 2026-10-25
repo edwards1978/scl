@@ -100,7 +100,7 @@
 							value="{{ old('hasta', $proyeccionHasta ?? $minProyeccion) }}"
 							class="border border-gray-300 px-2 py-1.5 text-sm">
 					</div>
-					<button class="px-4 py-1.5 text-sm bg-indigo-600 text-white hover:bg-indigo-700">
+					<button class="px-4 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700">
 						{{ $proyeccionHasta ? 'Reproyectar' : 'Proyectar' }}
 					</button>
 				</form>
@@ -120,7 +120,7 @@
 	@endif
 
 	@if ($proyeccionHasta)
-		<div class="mb-3 p-3 bg-indigo-50 border border-indigo-200 text-indigo-800 text-xs">
+		<div class="mb-3 p-3 bg-blue-50 border border-blue-200 text-blue-800 text-xs">
 			Proyección guardada hasta {{ $proyeccionHasta }}. Si el rango la incluye, las filas aparecen marcadas como proyección. Son cifras informativas calculadas con la última tasa y el último salario; no representan un monto causado.
 		</div>
 	@endif
@@ -207,7 +207,7 @@
 						<td class="px-3 py-2">
 							{{ \Carbon\Carbon::createFromFormat('Y-m', $c->periodo)->format('m/Y') }}
 							@if ($c->es_proyeccion)
-								<span class="ml-1 inline-block text-[10px] px-1.5 py-0.5 bg-indigo-100 text-indigo-700">proyección</span>
+								<span class="ml-1 inline-block text-[10px] px-1.5 py-0.5 bg-blue-100 text-blue-700">proyección</span>
 							@endif
 						</td>
 						<td class="px-3 py-2 text-right text-gray-600">{{ formato_monto((float) $c->salario_integral_diario) }}</td>
