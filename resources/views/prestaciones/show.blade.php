@@ -3,6 +3,8 @@
 @section('content')
 @php
 	$moneda = $empleado->moneda;
+	$etiquetaTotales = $soloPeriodo ? 'del período' : ($hayRango ? ($hasta ? 'acumulados hasta '.$hasta : 'acumulados') : 'históricos');
+	$exportParams = array_filter(['empleadoId' => $empleado->id, 'desde' => $desde, 'hasta' => $hasta, 'solo_periodo' => $soloPeriodo ? 1 : 0], fn ($v) => $v !== null);
 @endphp
 <div class="p-4 mx-auto max-w-6xl">
 	<div class="flex items-center justify-between mb-1">
@@ -13,32 +15,83 @@
 		{{ $empleado->nombre_completo }} · C.I. {{ $empleado->cedula }} · Ingreso {{ $empleado->fecha_ingreso?->format('d/m/Y') }}
 	</p>
 
-	<div class="grid grid-cols-2 md:grid-cols-6 gap-3 mb-4">
+	<form method="GET" action="{{ route('prestaciones.show', $empleado->id) }}" class="bg-white border border-gray-200 p-3 mb-4">
+		<div class="flex flex-wrap items-end gap-3">
+			<div>
+				<label class="block text-xs text-gray-500 mb-1">Periodo desde</label>
+				<input type="month" name="desde" value="{{ old('desde', $desde) }}" class="border border-gray-300 px-2 py-1.5 text-sm">
+			</div>
+			<div>
+				<label class="block text-xs text-gray-500 mb-1">Periodo hasta</label>
+				<input type="month" name="hasta" value="{{ old('hasta', $hasta) }}" class="border border-gray-300 px-2 py-1.5 text-sm">
+			</div>
+			<label class="inline-flex items-center gap-2 text-sm text-gray-700 pb-1.5">
+				<input type="hidden" name="solo_periodo" value="0">
+				<input type="checkbox" name="solo_periodo" value="1" @checked($soloPeriodo) class="border-gray-300">
+				Totales solo del período
+			</label>
+			<button class="px-4 py-1.5 text-sm bg-gray-800 text-white hover:bg-gray-900">Filtrar</button>
+			<a href="{{ route('prestaciones.show', $empleado->id) }}" class="px-3 py-1.5 text-sm border border-gray-300 text-gray-600 hover:bg-gray-50">Limpiar</a>
+		</div>
+		@if ($errors->any())
+			<div class="mt-2 text-xs text-red-600">{{ $errors->first() }}</div>
+		@endif
+		<p class="text-xs text-gray-500 mt-2">
+			Mostrando {{ $periodosFiltrados }} de {{ $totalPeriodos }} período(s).
+			@if ($hayRango)
+				Rango: {{ $desde }} a {{ $hasta }} · Totales {{ $etiquetaTotales }}.
+			@else
+				Todo el histórico · Totales históricos.
+			@endif
+		</p>
+	</form>
+
+	<div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 mb-2">
 		<div class="bg-white border border-gray-200 p-3">
-			<p class="text-xs text-gray-500 mb-1">Saldo actual</p>
+			<p class="text-xs text-gray-500 mb-1">Saldo actual global</p>
 			<p class="text-base font-semibold text-blue-700">{{ $moneda }} {{ formato_monto($saldoActual) }}</p>
 		</div>
 		<div class="bg-white border border-gray-200 p-3">
-			<p class="text-xs text-gray-500 mb-1">Depósitos trimestrales</p>
-			<p class="text-base font-semibold">{{ $moneda }} {{ formato_monto($totalDepositos) }}</p>
+			<p class="text-xs text-gray-500 mb-1">Saldo inicial del rango</p>
+			<p class="text-base font-semibold">{{ $moneda }} {{ formato_monto($saldoInicialRango) }}</p>
 		</div>
 		<div class="bg-white border border-gray-200 p-3">
-			<p class="text-xs text-gray-500 mb-1">Días adicionales</p>
-			<p class="text-base font-semibold">{{ $moneda }} {{ formato_monto($totalAdicionales) }}</p>
-		</div>
-		<div class="bg-white border border-gray-200 p-3">
-			<p class="text-xs text-gray-500 mb-1">Intereses devengados</p>
-			<p class="text-base font-semibold">{{ $moneda }} {{ formato_monto($totalIntereses) }}</p>
+			<p class="text-xs text-gray-500 mb-1">Saldo final del rango</p>
+			<p class="text-base font-semibold">{{ $moneda }} {{ formato_monto($saldoFinalRango) }}</p>
 		</div>
 		<div class="bg-white border border-gray-200 p-3">
 			<p class="text-xs text-gray-500 mb-1">Interés pendiente</p>
 			<p class="text-base font-semibold text-amber-700">{{ $moneda }} {{ formato_monto($interesPendiente) }}</p>
 		</div>
 		<div class="bg-white border border-gray-200 p-3">
-			<p class="text-xs text-gray-500 mb-1">Anticipos</p>
+			<p class="text-xs text-gray-500 mb-1">Neto del período</p>
+			<p class="text-base font-semibold text-emerald-700">{{ $moneda }} {{ formato_monto($netoPeriodo) }}</p>
+		</div>
+		<div class="bg-white border border-gray-200 p-3">
+			<p class="text-xs text-gray-500 mb-1">Depósitos {{ $etiquetaTotales }}</p>
+			<p class="text-base font-semibold">{{ $moneda }} {{ formato_monto($totalDepositos) }}</p>
+		</div>
+		<div class="bg-white border border-gray-200 p-3">
+			<p class="text-xs text-gray-500 mb-1">Días adicionales {{ $etiquetaTotales }}</p>
+			<p class="text-base font-semibold">{{ $moneda }} {{ formato_monto($totalAdicionales) }}</p>
+		</div>
+		<div class="bg-white border border-gray-200 p-3">
+			<p class="text-xs text-gray-500 mb-1">Intereses devengados {{ $etiquetaTotales }}</p>
+			<p class="text-base font-semibold">{{ $moneda }} {{ formato_monto($totalIntereses) }}</p>
+		</div>
+		<div class="bg-white border border-gray-200 p-3">
+			<p class="text-xs text-gray-500 mb-1">Anticipos {{ $etiquetaTotales }}</p>
 			<p class="text-base font-semibold text-red-600">{{ $moneda }} {{ formato_monto($totalAnticipos) }}</p>
 		</div>
+		<div class="bg-white border border-gray-200 p-3">
+			<p class="text-xs text-gray-500 mb-1">Interés capitalizado</p>
+			<p class="text-base font-semibold">{{ $moneda }} {{ formato_monto($totalInteresesCapitalizados) }}</p>
+		</div>
 	</div>
+	<p class="text-xs text-gray-500 mb-4">
+		Intereses pagados {{ $etiquetaTotales }}: {{ $moneda }} {{ formato_monto($totalInteresesPagados) }}.
+		El interés capitalizado es informativo y no se suma al neto.
+	</p>
 
 	<div class="bg-white border border-gray-200 overflow-x-auto mb-4">
 		<table class="w-full text-sm">
@@ -80,7 +133,7 @@
 						<td class="px-3 py-2 text-right font-medium">{{ formato_monto((float) $c->saldo_final) }}</td>
 					</tr>
 				@empty
-					<tr><td colspan="12" class="text-center py-8 text-gray-400">Sin periodos calculados.</td></tr>
+					<tr><td colspan="12" class="text-center py-8 text-gray-400">{{ $hayRango ? 'Sin períodos en el rango seleccionado.' : 'Sin periodos calculados.' }}</td></tr>
 				@endforelse
 			</tbody>
 		</table>
@@ -165,8 +218,8 @@
 			@csrf
 			<button class="px-3 py-1.5 text-sm border border-gray-300 text-gray-600 hover:bg-gray-50">↻ Recalcular</button>
 		</form>
-		<a href="{{ route('prestaciones.pdf', $empleado->id) }}" target="_blank" rel="noopener" class="px-4 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700">Descargar PDF</a>
-		<a href="{{ route('prestaciones.excel', $empleado->id) }}" class="px-4 py-1.5 text-sm bg-emerald-600 text-white hover:bg-emerald-700">Descargar Excel</a>
+		<a href="{{ route('prestaciones.pdf', $exportParams) }}" target="_blank" rel="noopener" class="px-4 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700">Descargar PDF</a>
+		<a href="{{ route('prestaciones.excel', $exportParams) }}" target="_blank" rel="noopener" class="px-4 py-1.5 text-sm bg-green-600 text-white hover:bg-green-700">Descargar Excel</a>
 	</div>
 </div>
 @endsection

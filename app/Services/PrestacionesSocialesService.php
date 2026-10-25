@@ -479,6 +479,100 @@ class PrestacionesSocialesService
     }
 
     /**
+     * Estado de cuenta filtrado por período (YYYY-MM), con totales de flujo
+     * del rango y acumulados hasta el cierre del rango.
+     *
+     * No recalcula prestaciones: usa los saldos ya calculados y separa
+     * movimientos (flujos) de saldos (stock).
+     */
+    public function estadoDeCuentaEnRango(Empleado $empleado, ?string $desde = null, ?string $hasta = null): array
+    {
+        $cuenta = $this->estadoDeCuenta($empleado);
+
+        $desde = $this->normalizarPeriodo($desde);
+        $hasta = $this->normalizarPeriodo($hasta);
+
+        $hayRango = $desde !== null || $hasta !== null;
+        $primerPeriodo = $cuenta->first()?->periodo;
+        $ultimoPeriodo = $cuenta->last()?->periodo;
+
+        $desdeEfectivo = $desde ?? $primerPeriodo;
+        $hastaEfectivo = $hasta ?? $ultimoPeriodo;
+
+        $filas = $cuenta->filter(function ($c) use ($desdeEfectivo, $hastaEfectivo) {
+            return ($desdeEfectivo === null || $c->periodo >= $desdeEfectivo)
+                && ($hastaEfectivo === null || $c->periodo <= $hastaEfectivo);
+        })->values();
+
+        // Acumulado desde el inicio de la historia hasta el cierre del rango.
+        $acumuladas = $cuenta->filter(function ($c) use ($hastaEfectivo) {
+            return $hastaEfectivo === null || $c->periodo <= $hastaEfectivo;
+        })->values();
+
+        $primera = $filas->first();
+        $ultima = $filas->last();
+        $ultimoGlobal = $cuenta->last();
+
+        $saldoInicial = $primera ? (float) $primera->saldo_inicial : 0.0;
+        $saldoFinal = $ultima ? (float) $ultima->saldo_final : $saldoInicial;
+        $interesPendiente = $ultima ? (float) ($ultima->interes_pendiente_final ?? 0) : 0.0;
+        $saldoActual = $ultimoGlobal ? (float) $ultimoGlobal->saldo_final : 0.0;
+
+        return [
+            'filas'              => $filas,
+            'desde'              => $desdeEfectivo,
+            'hasta'              => $hastaEfectivo,
+            'hay_rango'          => $hayRango,
+            'saldo_inicial'      => round($saldoInicial, 2),
+            'saldo_final'        => round($saldoFinal, 2),
+            'saldo_actual'       => round($saldoActual, 2),
+            'interes_pendiente'  => round($interesPendiente, 2),
+            'total_periodos'     => $cuenta->count(),
+            'periodos_filtrados' => $filas->count(),
+            'totales_periodo'    => $this->totalesFlujo($filas),
+            'totales_acumulados' => $this->totalesFlujo($acumuladas),
+        ];
+    }
+
+    /**
+     * Totales de movimientos (no de saldos). El interés capitalizado es
+     * informativo y no se suma al neto porque ya está en `interes_mes`.
+     */
+    private function totalesFlujo(Collection $filas): array
+    {
+        $depositos = round((float) $filas->sum('deposito_trimestre'), 2);
+        $adicionales = round((float) $filas->sum('dias_adicionales'), 2);
+        $intereses = round((float) $filas->sum('interes_mes'), 2);
+        $capitalizado = round((float) $filas->sum('interes_capitalizado'), 2);
+        $pagados = round((float) $filas->sum('interes_pagado'), 2);
+        $anticipos = round((float) $filas->sum('anticipos'), 2);
+
+        return [
+            'depositos'        => $depositos,
+            'adicionales'      => $adicionales,
+            'intereses'        => $intereses,
+            'capitalizado'     => $capitalizado,
+            'pagados'          => $pagados,
+            'anticipos'        => $anticipos,
+            'neto'             => round($depositos + $adicionales + $intereses - $anticipos - $pagados, 2),
+            'dias_deposito'    => (int) $filas->sum('dias_deposito'),
+            'dias_adicionales' => (int) $filas->sum('dias_adicionales_cont'),
+        ];
+    }
+
+    /** Normaliza un período YYYY-MM; devuelve null si viene vacío o inválido. */
+    private function normalizarPeriodo(?string $periodo): ?string
+    {
+        $periodo = trim((string) $periodo);
+
+        if ($periodo === '' || ! preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $periodo)) {
+            return null;
+        }
+
+        return $periodo;
+    }
+
+    /**
      * Convierte un monto entre Bs y USD usando la tasa BCV de una fecha.
      */
     public function convertir(float $monto, string $desde, string $hacia, ?CarbonInterface $fecha = null): float

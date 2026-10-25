@@ -76,21 +76,36 @@ class PrestacionesController extends Controller
         return view('prestaciones.index', compact('patrono', 'empleados', 'saldos', 'porPagina'));
     }
 
-    /** Estado de cuenta mensual de un empleado. */
+    /** Estado de cuenta mensual de un empleado, con filtro opcional por período. */
     public function show(Request $request, int $empleadoId): View
     {
         $empleado = $this->empleadoActivo($empleadoId);
+        $filtros = $this->filtrosPeriodo($request);
+        $rango = $this->service->estadoDeCuentaEnRango($empleado, $filtros['desde'], $filtros['hasta']);
 
-        $cuenta = $this->service->estadoDeCuenta($empleado);
+        $cuenta = $rango['filas'];
+        $soloPeriodo = $filtros['solo_periodo'];
+        $totales = $soloPeriodo ? $rango['totales_periodo'] : $rango['totales_acumulados'];
 
-        $saldoActual = $cuenta->last()->saldo_final ?? 0.0;
-        $totalDepositos = (float) $cuenta->sum('deposito_trimestre');
-        $totalAdicionales = (float) $cuenta->sum('dias_adicionales');
-        $totalIntereses = (float) $cuenta->sum('interes_mes');
-        $totalInteresesCapitalizados = (float) $cuenta->sum('interes_capitalizado');
-        $totalInteresesPagados = (float) $cuenta->sum('interes_pagado');
-        $interesPendiente = (float) ($cuenta->last()->interes_pendiente_final ?? 0.0);
-        $totalAnticipos = (float) $cuenta->sum('anticipos');
+        $saldoActual = $rango['saldo_actual'];
+        $saldoInicialRango = $rango['saldo_inicial'];
+        $saldoFinalRango = $rango['saldo_final'];
+        $interesPendiente = $rango['interes_pendiente'];
+        $totalDepositos = $totales['depositos'];
+        $totalAdicionales = $totales['adicionales'];
+        $totalIntereses = $totales['intereses'];
+        $totalInteresesCapitalizados = $totales['capitalizado'];
+        $totalInteresesPagados = $totales['pagados'];
+        $totalAnticipos = $totales['anticipos'];
+        $netoPeriodo = $rango['totales_periodo']['neto'];
+
+        $desde = $filtros['desde'];
+        $hasta = $filtros['hasta'];
+        $hayRango = $rango['hay_rango'];
+        $periodosFiltrados = $rango['periodos_filtrados'];
+        $totalPeriodos = $rango['total_periodos'];
+        $totalesPeriodo = $rango['totales_periodo'];
+        $totalesAcumulados = $rango['totales_acumulados'];
 
         $pagos = PagoInteresPrestaciones::where('empleado_id', $empleado->id)
             ->orderByDesc('fecha')
@@ -98,10 +113,44 @@ class PrestacionesController extends Controller
             ->get();
 
         return view('prestaciones.show', compact(
-            'empleado', 'cuenta', 'saldoActual',
+            'empleado', 'cuenta', 'saldoActual', 'saldoInicialRango', 'saldoFinalRango',
             'totalDepositos', 'totalAdicionales', 'totalIntereses', 'totalAnticipos',
-            'totalInteresesCapitalizados', 'totalInteresesPagados', 'interesPendiente', 'pagos'
+            'totalInteresesCapitalizados', 'totalInteresesPagados', 'interesPendiente', 'netoPeriodo',
+            'pagos', 'desde', 'hasta', 'soloPeriodo', 'hayRango', 'periodosFiltrados', 'totalPeriodos',
+            'totalesPeriodo', 'totalesAcumulados'
         ));
+    }
+
+    /**
+     * Valida y normaliza los filtros de período.
+     *
+     * @return array{desde:?string, hasta:?string, solo_periodo:bool}
+     */
+    private function filtrosPeriodo(Request $request): array
+    {
+        $data = $request->validate([
+            'desde' => ['nullable', 'date_format:Y-m'],
+            'hasta' => ['nullable', 'date_format:Y-m'],
+        ]);
+
+        $desde = $data['desde'] ?? null;
+        $hasta = $data['hasta'] ?? null;
+
+        if ($desde !== null && $hasta !== null && $desde > $hasta) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'hasta' => 'La fecha hasta debe ser igual o posterior a la fecha desde.',
+            ]);
+        }
+
+        $soloPeriodo = $request->has('solo_periodo')
+            ? $request->boolean('solo_periodo')
+            : ($desde !== null || $hasta !== null);
+
+        if ($desde === null && $hasta === null) {
+            $soloPeriodo = false;
+        }
+
+        return ['desde' => $desde, 'hasta' => $hasta, 'solo_periodo' => $soloPeriodo];
     }
 
     /** Recalcula el estado de cuenta completo de un empleado. */
@@ -174,27 +223,34 @@ class PrestacionesController extends Controller
             ->with('success', 'Pago de intereses eliminado y estado de cuenta recalculado.');
     }
 
-    /** Exporta el estado de cuenta a Excel (.xlsx). */
+    /** Exporta el estado de cuenta a Excel (.xlsx), con el mismo filtro. */
     public function excel(Request $request, int $empleadoId)
     {
         $empleado = $this->empleadoActivo($empleadoId);
         $patrono = $this->patronoActual();
-        $cuenta = $this->service->estadoDeCuenta($empleado);
+        $filtros = $this->filtrosPeriodo($request);
+        $rango = $this->service->estadoDeCuentaEnRango($empleado, $filtros['desde'], $filtros['hasta']);
+        $cuenta = $rango['filas'];
+        $soloPeriodo = $filtros['solo_periodo'];
         $pagos = PagoInteresPrestaciones::where('empleado_id', $empleado->id)
             ->orderBy('fecha')
             ->orderBy('id')
             ->get();
 
         $moneda = $empleado->moneda;
-        $ultimo = $cuenta->last();
-        $saldoActual = (float) ($ultimo->saldo_final ?? 0);
-        $interesPendiente = (float) ($ultimo->interes_pendiente_final ?? 0);
-        $totalDepositos = (float) $cuenta->sum('deposito_trimestre');
-        $totalAdicionales = (float) $cuenta->sum('dias_adicionales');
-        $totalIntereses = (float) $cuenta->sum('interes_mes');
-        $totalCapitalizado = (float) $cuenta->sum('interes_capitalizado');
-        $totalPagado = (float) $cuenta->sum('interes_pagado');
-        $totalAnticipos = (float) $cuenta->sum('anticipos');
+        $saldoActual = $rango['saldo_actual'];
+        $saldoInicialRango = $rango['saldo_inicial'];
+        $saldoFinalRango = $rango['saldo_final'];
+        $interesPendiente = $rango['interes_pendiente'];
+        $netoPeriodo = $rango['totales_periodo']['neto'];
+        $totalesPeriodo = $rango['totales_periodo'];
+        $totalesAcumulados = $rango['totales_acumulados'];
+        $desde = $rango['desde'];
+        $hasta = $rango['hasta'];
+        $hayRango = $rango['hay_rango'];
+        $etiquetaTotales = $soloPeriodo
+            ? 'Totales del período'
+            : ($hayRango ? 'Totales acumulados hasta '.$hasta : 'Totales históricos');
 
         $spreadsheet = new Spreadsheet;
         $spreadsheet->getProperties()
@@ -216,6 +272,11 @@ class PrestacionesController extends Controller
         $sheet->mergeCells('A3:P3');
         $sheet->setCellValue('A3', 'Estado de Cuenta de Prestaciones Sociales — Arts. 142 y 143 LOTTT');
         $sheet->getStyle('A3')->getFont()->setItalic(true)->getColor()->setARGB('FF555555');
+
+        $sheet->mergeCells('A4:P4');
+        $sheet->setCellValue('A4', 'Período: '.($desde ?? '—').' a '.($hasta ?? '—')
+            .' · '.$etiquetaTotales.' · '.$rango['periodos_filtrados'].' de '.$rango['total_periodos'].' período(s)');
+        $sheet->getStyle('A4')->getFont()->setItalic(true)->getColor()->setARGB('FF555555');
 
         $sheet->setCellValue('A5', 'Trabajador');
         $sheet->mergeCells('B5:D5');
@@ -242,7 +303,20 @@ class PrestacionesController extends Controller
         $sheet->getStyle('F6')->getNumberFormat()->setFormatCode('#,##0.00');
         $sheet->getStyle('J6')->getNumberFormat()->setFormatCode('#,##0.00');
 
-        foreach (['A5', 'E5', 'I5', 'M5', 'A6', 'E6', 'I6'] as $celda) {
+        $sheet->setCellValue('A7', 'Saldo inicial del rango');
+        $sheet->mergeCells('B7:D7');
+        $sheet->setCellValue('B7', $saldoInicialRango);
+        $sheet->setCellValue('E7', 'Saldo final del rango');
+        $sheet->mergeCells('F7:H7');
+        $sheet->setCellValue('F7', $saldoFinalRango);
+        $sheet->setCellValue('I7', 'Neto del período');
+        $sheet->mergeCells('J7:L7');
+        $sheet->setCellValue('J7', $netoPeriodo);
+        $sheet->getStyle('B7')->getNumberFormat()->setFormatCode('#,##0.00');
+        $sheet->getStyle('F7')->getNumberFormat()->setFormatCode('#,##0.00');
+        $sheet->getStyle('J7')->getNumberFormat()->setFormatCode('#,##0.00;[Red]-#,##0.00');
+
+        foreach (['A5', 'E5', 'I5', 'M5', 'A6', 'E6', 'I6', 'A7', 'E7', 'I7'] as $celda) {
             $sheet->getStyle($celda)->getFont()->setBold(true);
         }
 
@@ -302,29 +376,74 @@ class PrestacionesController extends Controller
         $sheet->freezePane('A'.($headerRow + 1));
 
         $summaryStart = $lastDataRow + 2;
-        $summary = [
-            'Total depósitos trimestrales' => $totalDepositos,
-            'Total monto días adicionales' => $totalAdicionales,
-            'Total intereses devengados' => $totalIntereses,
-            'Total interés capitalizado' => $totalCapitalizado,
-            'Total interés pagado' => $totalPagado,
-            'Interés pendiente' => $interesPendiente,
-            'Total anticipos' => $totalAnticipos,
-            'Saldo actual' => $saldoActual,
+        $sheet->mergeCells('A'.$summaryStart.':H'.$summaryStart);
+        $sheet->setCellValue('A'.$summaryStart, 'Concepto');
+        $sheet->mergeCells('I'.$summaryStart.':L'.$summaryStart);
+        $sheet->setCellValue('I'.$summaryStart, 'Del período '.($desde ?? '—').' a '.($hasta ?? '—'));
+        $sheet->mergeCells('M'.$summaryStart.':P'.$summaryStart);
+        $sheet->setCellValue('M'.$summaryStart, 'Acumulado hasta '.($hasta ?? '—'));
+        $sheet->getStyle('A'.$summaryStart.':P'.$summaryStart)->applyFromArray([
+            'font' => ['bold' => true, 'color' => ['argb' => 'FFFFFFFF']],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FF1F2937']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
+        ]);
+
+        $flows = [
+            'Depósitos trimestrales' => ['depositos', false],
+            'Monto días adicionales' => ['adicionales', false],
+            'Intereses devengados' => ['intereses', false],
+            'Anticipos' => ['anticipos', true],
+            'Intereses pagados' => ['pagados', true],
+            'Neto del período' => ['neto', false],
+            'Interés capitalizado (informativo)' => ['capitalizado', false],
         ];
 
-        $r = $summaryStart;
-        foreach ($summary as $label => $value) {
+        $r = $summaryStart + 1;
+        foreach ($flows as $label => [$key, $negativo]) {
+            $periodo = (float) $totalesPeriodo[$key];
+            $acumulado = (float) $totalesAcumulados[$key];
+            if ($negativo) {
+                $periodo *= -1;
+                $acumulado *= -1;
+            }
+
             $sheet->mergeCells('A'.$r.':H'.$r);
             $sheet->setCellValue('A'.$r, $label);
-            $sheet->setCellValue('I'.$r, $value);
-            $sheet->getStyle('A'.$r.':I'.$r)->applyFromArray([
-                'font' => ['bold' => true],
-                'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFF3F4F6']],
+            $sheet->mergeCells('I'.$r.':L'.$r);
+            $sheet->setCellValue('I'.$r, $periodo);
+            $sheet->mergeCells('M'.$r.':P'.$r);
+            $sheet->setCellValue('M'.$r, $acumulado);
+            $sheet->getStyle('A'.$r.':P'.$r)->applyFromArray([
+                'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFF9FAFB']],
             ]);
+            $sheet->getStyle('I'.$r.':P'.$r)->getNumberFormat()->setFormatCode('#,##0.00;[Red]-#,##0.00');
+            $r++;
+        }
+
+        $stocks = [
+            'Saldo inicial del rango' => $saldoInicialRango,
+            'Saldo final del rango' => $saldoFinalRango,
+            'Saldo actual global' => $saldoActual,
+            'Interés pendiente al cierre' => $interesPendiente,
+        ];
+
+        foreach ($stocks as $label => $value) {
+            $sheet->mergeCells('A'.$r.':H'.$r);
+            $sheet->setCellValue('A'.$r, $label);
+            $sheet->mergeCells('I'.$r.':L'.$r);
+            $sheet->setCellValue('I'.$r, $value);
+            $sheet->mergeCells('M'.$r.':P'.$r);
+            $sheet->setCellValue('M'.$r, '—');
+            $sheet->getStyle('A'.$r.':P'.$r)->getFont()->setBold(true);
             $sheet->getStyle('I'.$r)->getNumberFormat()->setFormatCode('#,##0.00;[Red]-#,##0.00');
             $r++;
         }
+
+        // Resalta la columna de totales seleccionada por el checkbox.
+        $selectedRange = $soloPeriodo ? 'I'.$summaryStart.':L'.$r : 'M'.$summaryStart.':P'.$r;
+        $sheet->getStyle($selectedRange)->getFill()
+            ->setFillType(Fill::FILL_SOLID)
+            ->getStartColor()->setARGB('FFE8F5E9');
 
         $sheet->getStyle('A'.$headerRow.':P'.$r)->applyFromArray([
             'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FFD1D5DB']]],
@@ -381,7 +500,8 @@ class PrestacionesController extends Controller
             $payments->getColumnDimension($col)->setWidth($width);
         }
 
-        $filename = 'estado-cuenta-prestaciones-'.(Str::slug($empleado->nombre_completo) ?: 'empleado').'.xlsx';
+        $sufijo = $hayRango ? '-'.$desde.'-a-'.$hasta : '';
+        $filename = 'estado-cuenta-prestaciones-'.(Str::slug($empleado->nombre_completo) ?: 'empleado').$sufijo.'.xlsx';
         $writer = new Xlsx($spreadsheet);
 
         return response()->streamDownload(function () use ($writer) {
@@ -391,30 +511,59 @@ class PrestacionesController extends Controller
         ]);
     }
 
-    /** PDF del estado de cuenta. */
+    /** PDF del estado de cuenta, con el mismo filtro de período. */
     public function pdf(Request $request, int $empleadoId)
     {
         $empleado = $this->empleadoActivo($empleadoId);
         $patrono = $this->patronoActual();
+        $filtros = $this->filtrosPeriodo($request);
+        $rango = $this->service->estadoDeCuentaEnRango($empleado, $filtros['desde'], $filtros['hasta']);
 
-        $cuenta = $this->service->estadoDeCuenta($empleado);
+        $cuenta = $rango['filas'];
+        $soloPeriodo = $filtros['solo_periodo'];
+        $totales = $soloPeriodo ? $rango['totales_periodo'] : $rango['totales_acumulados'];
 
-        $saldoActual = $cuenta->last()->saldo_final ?? 0.0;
-        $totalDepositos = (float) $cuenta->sum('deposito_trimestre');
-        $totalAdicionales = (float) $cuenta->sum('dias_adicionales');
-        $totalIntereses = (float) $cuenta->sum('interes_mes');
-        $totalAnticipos = (float) $cuenta->sum('anticipos');
+        $saldoActual = $rango['saldo_actual'];
+        $saldoInicialRango = $rango['saldo_inicial'];
+        $saldoFinalRango = $rango['saldo_final'];
+        $interesPendiente = $rango['interes_pendiente'];
+        $totalDepositos = $totales['depositos'];
+        $totalAdicionales = $totales['adicionales'];
+        $totalIntereses = $totales['intereses'];
+        $totalInteresesCapitalizados = $totales['capitalizado'];
+        $totalInteresesPagados = $totales['pagados'];
+        $totalAnticipos = $totales['anticipos'];
+        $netoPeriodo = $rango['totales_periodo']['neto'];
+        $desde = $filtros['desde'];
+        $hasta = $filtros['hasta'];
+        $hayRango = $rango['hay_rango'];
+        $periodosFiltrados = $rango['periodos_filtrados'];
+        $totalPeriodos = $rango['total_periodos'];
+
+        $sufijo = $hayRango ? '-'.$rango['desde'].'-a-'.$rango['hasta'] : '';
 
         return Pdf::loadView('prestaciones.pdf', [
             'empleado'       => $empleado,
             'patrono'        => $patrono,
             'cuenta'         => $cuenta,
             'saldoActual'    => $saldoActual,
+            'saldoInicialRango' => $saldoInicialRango,
+            'saldoFinalRango' => $saldoFinalRango,
+            'interesPendiente' => $interesPendiente,
             'totalDepositos' => $totalDepositos,
             'totalAdicionales' => $totalAdicionales,
             'totalIntereses' => $totalIntereses,
+            'totalInteresesCapitalizados' => $totalInteresesCapitalizados,
+            'totalInteresesPagados' => $totalInteresesPagados,
             'totalAnticipos' => $totalAnticipos,
+            'netoPeriodo'    => $netoPeriodo,
+            'soloPeriodo'    => $soloPeriodo,
+            'desde'          => $desde,
+            'hasta'          => $hasta,
+            'hayRango'       => $hayRango,
+            'periodosFiltrados' => $periodosFiltrados,
+            'totalPeriodos'  => $totalPeriodos,
         ])->setPaper('letter', 'landscape')
-          ->stream("estado-cuenta-prestaciones-{$empleado->nombre_completo}.pdf");
+          ->stream("estado-cuenta-prestaciones-{$empleado->nombre_completo}{$sufijo}.pdf");
     }
 }

@@ -41,6 +41,20 @@
 			<td class="bold">Fecha de ingreso</td><td>{{ $empleado->fecha_ingreso?->format('d/m/Y') }}</td>
 			<td class="bold">Moneda</td><td>{{ $empleado->moneda }}</td>
 		</tr>
+		<tr>
+			<td class="bold">Período</td><td>{{ $desde ?? '—' }} a {{ $hasta ?? '—' }}</td>
+			<td class="bold">Totales</td>
+			<td>
+				@if ($soloPeriodo)
+					Del período
+				@elseif ($hayRango)
+					Acumulados hasta {{ $hasta }}
+				@else
+					Históricos
+				@endif
+				({{ $periodosFiltrados }} de {{ $totalPeriodos }} períodos)
+			</td>
+		</tr>
 	</table>
 
 	<table>
@@ -68,15 +82,22 @@
 				<td class="right bold">{{ $empleado->moneda }} {{ formato_monto((float) $c->saldo_final) }}</td>
 			</tr>
 		@empty
-			<tr><td colspan="9" class="right">Sin periodos calculados.</td></tr>
+			<tr><td colspan="9" class="right">{{ $hayRango ? 'Sin períodos en el rango seleccionado.' : 'Sin periodos calculados.' }}</td></tr>
 		@endforelse
+		@php
+			$etiquetaTotales = $soloPeriodo ? 'del período' : ($hayRango ? 'acumulados hasta '.$hasta : 'históricos');
+		@endphp
 		<tr class="total">
-			<td colspan="8" class="right bold">Total depósitos / adicionales / intereses / anticipos</td>
+			<td colspan="8" class="right bold">Totales {{ $etiquetaTotales }}</td>
 			<td></td>
 		</tr>
 		<tr class="total">
-			<td colspan="8" class="right bold">Saldo actual de prestaciones</td>
-			<td class="right bold">{{ $empleado->moneda }} {{ formato_monto($saldoActual) }}</td>
+			<td colspan="8" class="right bold">Saldo inicial del rango</td>
+			<td class="right bold">{{ $empleado->moneda }} {{ formato_monto($saldoInicialRango) }}</td>
+		</tr>
+		<tr class="total">
+			<td colspan="8" class="right bold">Saldo final del rango</td>
+			<td class="right bold">{{ $empleado->moneda }} {{ formato_monto($saldoFinalRango) }}</td>
 		</tr>
 	</table>
 
@@ -88,6 +109,18 @@
 		<tr class="total">
 			<td class="bold">Intereses generados</td><td class="right">{{ $empleado->moneda }} {{ formato_monto($totalIntereses) }}</td>
 			<td class="bold">Anticipos descontados</td><td class="right">{{ $empleado->moneda }} {{ formato_monto($totalAnticipos) }}</td>
+		</tr>
+		<tr class="total">
+			<td class="bold">Intereses pagados</td><td class="right">{{ $empleado->moneda }} {{ formato_monto($totalInteresesPagados) }}</td>
+			<td class="bold">Interés capitalizado</td><td class="right">{{ $empleado->moneda }} {{ formato_monto($totalInteresesCapitalizados) }}</td>
+		</tr>
+		<tr class="total">
+			<td class="bold">Neto del período</td><td class="right">{{ $empleado->moneda }} {{ formato_monto($netoPeriodo) }}</td>
+			<td class="bold">Saldo actual global</td><td class="right">{{ $empleado->moneda }} {{ formato_monto($saldoActual) }}</td>
+		</tr>
+		<tr class="total">
+			<td class="bold">Interés pendiente al cierre</td><td class="right">{{ $empleado->moneda }} {{ formato_monto($interesPendiente) }}</td>
+			<td class="bold">Períodos mostrados</td><td class="right">{{ $periodosFiltrados }} de {{ $totalPeriodos }}</td>
 		</tr>
 	</table>
 
