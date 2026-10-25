@@ -109,6 +109,9 @@
 						@csrf @method('DELETE')
 						<button class="px-3 py-1.5 text-sm border border-red-300 text-red-600 hover:bg-red-50">Eliminar proyección</button>
 					</form>
+					@if (! $incluyeProyeccion)
+						<a href="{{ route('prestaciones.show', ['empleadoId' => $empleado->id, 'hasta' => $proyeccionHasta, 'incluir_anteriores' => 1]) }}" class="px-3 py-1.5 text-sm border border-blue-300 text-blue-700 hover:bg-blue-50">Ver proyección</a>
+					@endif
 				@endif
 			</div>
 			<p class="text-[11px] text-gray-500 mt-2">
@@ -119,9 +122,9 @@
 		</div>
 	@endif
 
-	@if ($proyeccionHasta)
+	@if ($incluyeProyeccion)
 		<div class="mb-3 p-3 bg-blue-50 border border-blue-200 text-blue-800 text-xs">
-			Proyección guardada hasta {{ $proyeccionHasta }}. Si el rango la incluye, las filas aparecen marcadas como proyección. Son cifras informativas calculadas con la última tasa y el último salario; no representan un monto causado.
+			Incluye períodos proyectados hasta {{ $proyeccionHasta }}. Las filas están marcadas como proyección. Son cifras informativas calculadas con la última tasa y el último salario; no representan un monto causado.
 		</div>
 	@endif
 

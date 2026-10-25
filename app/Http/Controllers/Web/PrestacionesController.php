@@ -66,10 +66,8 @@ class PrestacionesController extends Controller
 
         $saldos = [];
         foreach ($empleados as $empleado) {
-            if (! $empleado->estaActivo()) {
-                $saldos[$empleado->id] = 0.0;
-                continue;
-            }
+            // El saldo histórico también es válido para trabajadores inactivos;
+            // el detalle permite consultarlo. No mostrar 0 solo por el estatus.
             $saldos[$empleado->id] = $this->service->saldoEn($empleado);
         }
 
@@ -81,7 +79,14 @@ class PrestacionesController extends Controller
     {
         $empleado = $this->empleadoDePatrono($empleadoId);
         $filtros = $this->filtrosPeriodo($request);
-        $rango = $this->service->estadoDeCuentaEnRango($empleado, $filtros['desde'], $filtros['hasta']);
+        $hastaConsulta = $filtros['hasta'];
+        if ($hastaConsulta === null) {
+            $hastaConsulta = PrestacionSocial::where('empleado_id', $empleado->id)
+                ->where('es_proyeccion', false)
+                ->max('periodo');
+        }
+        $rango = $this->service->estadoDeCuentaEnRango($empleado, $filtros['desde'], $hastaConsulta);
+        $incluyeProyeccion = $rango['filas']->contains(fn ($c) => (bool) $c->es_proyeccion);
 
         $incluirAnteriores = $filtros['incluir_anteriores'];
         $desde = $filtros['desde'];
@@ -131,7 +136,7 @@ class PrestacionesController extends Controller
             'totalInteresesCapitalizados', 'totalInteresesPagados', 'interesPendiente', 'netoPeriodo',
             'pagos', 'desde', 'hasta', 'incluirAnteriores', 'hayRango', 'periodosFiltrados', 'totalPeriodos',
             'totalesPeriodo', 'periodoDesde', 'periodoHasta',
-            'proyeccionHasta', 'minProyeccion', 'maxProyeccion'
+            'proyeccionHasta', 'minProyeccion', 'maxProyeccion', 'incluyeProyeccion'
         ));
     }
 
@@ -184,8 +189,11 @@ class PrestacionesController extends Controller
             return back()->withErrors($e->errors())->withInput();
         }
 
-        return redirect()->route('prestaciones.show', $empleado->id)
-            ->with('success', "Proyección generada hasta {$data['hasta']} ({$creados} período(s)). Es informativa y usa la última tasa y salario disponibles.");
+        return redirect()->route('prestaciones.show', [
+            'empleadoId' => $empleado->id,
+            'hasta' => $data['hasta'],
+            'incluir_anteriores' => 1,
+        ])->with('success', "Proyección generada hasta {$data['hasta']} ({$creados} período(s)). Es informativa y usa la última tasa y salario disponibles.");
     }
 
     /** Elimina las proyecciones guardadas del empleado. */
@@ -274,7 +282,13 @@ class PrestacionesController extends Controller
         $empleado = $this->empleadoDePatrono($empleadoId);
         $patrono = $this->patronoActual();
         $filtros = $this->filtrosPeriodo($request);
-        $rango = $this->service->estadoDeCuentaEnRango($empleado, $filtros['desde'], $filtros['hasta']);
+        $hastaConsulta = $filtros['hasta'];
+        if ($hastaConsulta === null) {
+            $hastaConsulta = PrestacionSocial::where('empleado_id', $empleado->id)
+                ->where('es_proyeccion', false)
+                ->max('periodo');
+        }
+        $rango = $this->service->estadoDeCuentaEnRango($empleado, $filtros['desde'], $hastaConsulta);
         $incluirAnteriores = $filtros['incluir_anteriores'];
         $pagos = PagoInteresPrestaciones::where('empleado_id', $empleado->id)
             ->orderBy('fecha')
@@ -300,6 +314,7 @@ class PrestacionesController extends Controller
         $proyeccionHasta = PrestacionSocial::where('empleado_id', $empleado->id)
             ->where('es_proyeccion', true)
             ->max('periodo');
+        $incluyeProyeccion = $rango['filas']->contains(fn ($c) => (bool) $c->es_proyeccion);
         $etiquetaTotales = 'Totales del período';
         $estadoAnteriores = ! $hayRango
             ? 'Período completo'
@@ -329,7 +344,7 @@ class PrestacionesController extends Controller
         $sheet->mergeCells('A4:P4');
         $sheet->setCellValue('A4', 'Período: '.($desde ?? '—').' a '.($hasta ?? '—')
             .' · '.$etiquetaTotales.' · '.$estadoAnteriores.' · '.$rango['periodos_filtrados'].' de '.$rango['total_periodos'].' período(s)'
-            .($proyeccionHasta ? ' · Proyección guardada hasta '.$proyeccionHasta : ''));
+            .($incluyeProyeccion ? ' · Incluye proyección hasta '.$proyeccionHasta : ''));
         $sheet->getStyle('A4')->getFont()->setItalic(true)->getColor()->setARGB('FF555555');
 
         $sheet->setCellValue('A5', 'Trabajador');
@@ -588,6 +603,7 @@ class PrestacionesController extends Controller
         $proyeccionHasta = PrestacionSocial::where('empleado_id', $empleado->id)
             ->where('es_proyeccion', true)
             ->max('periodo');
+        $incluyeProyeccion = $rango['filas']->contains(fn ($c) => (bool) $c->es_proyeccion);
         $periodosFiltrados = $rango['periodos_filtrados'];
         $totalPeriodos = $rango['total_periodos'];
 
@@ -616,6 +632,7 @@ class PrestacionesController extends Controller
             'totalPeriodos'  => $totalPeriodos,
             'periodoDesde'   => $periodoDesde,
             'proyeccionHasta' => $proyeccionHasta,
+            'incluyeProyeccion' => $incluyeProyeccion,
         ])->setPaper('letter', 'landscape')
           ->stream("estado-cuenta-prestaciones-{$empleado->nombre_completo}{$sufijo}.pdf");
     }

@@ -52,7 +52,7 @@
 		</tr>
 	</table>
 
-	@if ($proyeccionHasta)
+	@if ($incluyeProyeccion)
 		<p class="nota">Proyección guardada hasta {{ $proyeccionHasta }}: usa la última tasa y el último salario disponibles. Es informativa y no representa un monto causado.</p>
 	@endif
 
