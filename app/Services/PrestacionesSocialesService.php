@@ -510,13 +510,23 @@ class PrestacionesSocialesService
         })->values();
 
         $primera = $filas->first();
-        $ultima = $filas->last();
-        $ultimoGlobal = $cuenta->last();
+        $ultimaHasta = $acumuladas->last();
+        $anterior = $cuenta->filter(function ($c) use ($desdeEfectivo) {
+            return $desdeEfectivo !== null && $c->periodo < $desdeEfectivo;
+        })->last();
 
-        $saldoInicial = $primera ? (float) $primera->saldo_inicial : 0.0;
-        $saldoFinal = $ultima ? (float) $ultima->saldo_final : $saldoInicial;
-        $interesPendiente = $ultima ? (float) ($ultima->interes_pendiente_final ?? 0) : 0.0;
-        $saldoActual = $ultimoGlobal ? (float) $ultimoGlobal->saldo_final : 0.0;
+        $saldoInicial = $primera
+            ? (float) $primera->saldo_inicial
+            : ($anterior ? (float) $anterior->saldo_final : 0.0);
+
+        // El cierre siempre queda acotado a la fecha "hasta", nunca al último
+        // período global de la historia.
+        $saldoFinal = $ultimaHasta
+            ? (float) $ultimaHasta->saldo_final
+            : $saldoInicial;
+        $interesPendiente = $ultimaHasta
+            ? (float) ($ultimaHasta->interes_pendiente_final ?? 0)
+            : 0.0;
 
         return [
             'filas'              => $filas,
@@ -525,7 +535,9 @@ class PrestacionesSocialesService
             'hay_rango'          => $hayRango,
             'saldo_inicial'      => round($saldoInicial, 2),
             'saldo_final'        => round($saldoFinal, 2),
-            'saldo_actual'       => round($saldoActual, 2),
+            // Alias de compatibilidad: representa el cierre hasta "hasta",
+            // no el saldo global más reciente.
+            'saldo_actual'       => round($saldoFinal, 2),
             'interes_pendiente'  => round($interesPendiente, 2),
             'total_periodos'     => $cuenta->count(),
             'periodos_filtrados' => $filas->count(),

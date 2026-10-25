@@ -3,8 +3,9 @@
 @section('content')
 @php
 	$moneda = $empleado->moneda;
-	$etiquetaTotales = $soloPeriodo ? 'del período' : ($hayRango ? ($hasta ? 'acumulados hasta '.$hasta : 'acumulados') : 'históricos');
-	$exportParams = array_filter(['empleadoId' => $empleado->id, 'desde' => $desde, 'hasta' => $hasta, 'solo_periodo' => $soloPeriodo ? 1 : 0], fn ($v) => $v !== null);
+	$etiquetaTotales = ! $hayRango ? 'históricos' : ($incluirAnteriores ? 'acumulados hasta '.$hasta : 'del período');
+	$etiquetaNeto = ! $hayRango ? 'histórico' : ($incluirAnteriores ? 'acumulado hasta '.$hasta : 'del período');
+	$exportParams = array_filter(['empleadoId' => $empleado->id, 'desde' => $desde, 'hasta' => $hasta, 'incluir_anteriores' => $incluirAnteriores ? 1 : 0], fn ($v) => $v !== null);
 @endphp
 <div class="p-4 mx-auto max-w-6xl">
 	<div class="flex items-center justify-between mb-1">
@@ -58,9 +59,9 @@
 				<p class="text-[11px] text-gray-400 mt-1">Ejemplo: 2025-06</p>
 			</div>
 			<label class="inline-flex items-center gap-2 text-sm text-gray-700 pb-1.5">
-				<input type="hidden" name="solo_periodo" value="0">
-				<input type="checkbox" name="solo_periodo" value="1" @checked($soloPeriodo) class="border-gray-300">
-				Totales solo del período
+				<input type="hidden" name="incluir_anteriores" value="0">
+				<input type="checkbox" name="incluir_anteriores" value="1" @checked($incluirAnteriores) class="border-gray-300">
+				Incluir saldos acumulados anteriores
 			</label>
 			<button class="px-4 py-1.5 text-sm bg-gray-800 text-white hover:bg-gray-900">Filtrar</button>
 			<a href="{{ route('prestaciones.show', $empleado->id) }}" class="px-3 py-1.5 text-sm border border-gray-300 text-gray-600 hover:bg-gray-50">Limpiar</a>
@@ -78,25 +79,26 @@
 		</p>
 	</form>
 
-	<div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 mb-2">
-		<div class="bg-white border border-gray-200 p-3">
-			<p class="text-xs text-gray-500 mb-1">Saldo actual global</p>
-			<p class="text-base font-semibold text-blue-700">{{ $moneda }} {{ formato_monto($saldoActual) }}</p>
-		</div>
+	<p class="text-[11px] uppercase tracking-wide text-gray-500 mb-1">Saldos de referencia al corte {{ $hasta }}</p>
+	<div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
 		<div class="bg-white border border-gray-200 p-3">
 			<p class="text-xs text-gray-500 mb-1">Saldo inicial del rango</p>
 			<p class="text-base font-semibold">{{ $moneda }} {{ formato_monto($saldoInicialRango) }}</p>
 		</div>
 		<div class="bg-white border border-gray-200 p-3">
-			<p class="text-xs text-gray-500 mb-1">Saldo final del rango</p>
-			<p class="text-base font-semibold">{{ $moneda }} {{ formato_monto($saldoFinalRango) }}</p>
+			<p class="text-xs text-gray-500 mb-1">Saldo al cierre ({{ $hasta }})</p>
+			<p class="text-base font-semibold text-blue-700">{{ $moneda }} {{ formato_monto($saldoActual) }}</p>
 		</div>
 		<div class="bg-white border border-gray-200 p-3">
-			<p class="text-xs text-gray-500 mb-1">Interés pendiente</p>
+			<p class="text-xs text-gray-500 mb-1">Interés pendiente al cierre</p>
 			<p class="text-base font-semibold text-amber-700">{{ $moneda }} {{ formato_monto($interesPendiente) }}</p>
 		</div>
+	</div>
+
+	<p class="text-[11px] uppercase tracking-wide text-gray-500 mb-1">Totales {{ $etiquetaTotales }}</p>
+	<div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 mb-2">
 		<div class="bg-white border border-gray-200 p-3">
-			<p class="text-xs text-gray-500 mb-1">Neto del período</p>
+			<p class="text-xs text-gray-500 mb-1">Neto {{ $etiquetaNeto }}</p>
 			<p class="text-base font-semibold text-emerald-700">{{ $moneda }} {{ formato_monto($netoPeriodo) }}</p>
 		</div>
 		<div class="bg-white border border-gray-200 p-3">
@@ -116,13 +118,14 @@
 			<p class="text-base font-semibold text-red-600">{{ $moneda }} {{ formato_monto($totalAnticipos) }}</p>
 		</div>
 		<div class="bg-white border border-gray-200 p-3">
-			<p class="text-xs text-gray-500 mb-1">Interés capitalizado</p>
+			<p class="text-xs text-gray-500 mb-1">Interés capitalizado {{ $etiquetaTotales }}</p>
 			<p class="text-base font-semibold">{{ $moneda }} {{ formato_monto($totalInteresesCapitalizados) }}</p>
 		</div>
 	</div>
 	<p class="text-xs text-gray-500 mb-4">
 		Intereses pagados {{ $etiquetaTotales }}: {{ $moneda }} {{ formato_monto($totalInteresesPagados) }}.
 		El interés capitalizado es informativo y no se suma al neto.
+		Los saldos inicial/final y el interés pendiente son de referencia y reflejan el acumulado real hasta el corte; el checkbox solo cambia los totales de movimientos.
 	</p>
 
 	<div class="bg-white border border-gray-200 overflow-x-auto mb-4">

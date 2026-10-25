@@ -84,10 +84,10 @@ class PrestacionesController extends Controller
         $rango = $this->service->estadoDeCuentaEnRango($empleado, $filtros['desde'], $filtros['hasta']);
 
         $cuenta = $rango['filas'];
-        $soloPeriodo = $filtros['solo_periodo'];
-        $totales = $soloPeriodo ? $rango['totales_periodo'] : $rango['totales_acumulados'];
+        $incluirAnteriores = $filtros['incluir_anteriores'];
+        $totales = $incluirAnteriores ? $rango['totales_acumulados'] : $rango['totales_periodo'];
 
-        $saldoActual = $rango['saldo_actual'];
+        $saldoActual = $rango['saldo_final'];
         $saldoInicialRango = $rango['saldo_inicial'];
         $saldoFinalRango = $rango['saldo_final'];
         $interesPendiente = $rango['interes_pendiente'];
@@ -97,7 +97,7 @@ class PrestacionesController extends Controller
         $totalInteresesCapitalizados = $totales['capitalizado'];
         $totalInteresesPagados = $totales['pagados'];
         $totalAnticipos = $totales['anticipos'];
-        $netoPeriodo = $rango['totales_periodo']['neto'];
+        $netoPeriodo = $totales['neto'];
 
         $desde = $filtros['desde'];
         $hasta = $filtros['hasta'];
@@ -116,7 +116,7 @@ class PrestacionesController extends Controller
             'empleado', 'cuenta', 'saldoActual', 'saldoInicialRango', 'saldoFinalRango',
             'totalDepositos', 'totalAdicionales', 'totalIntereses', 'totalAnticipos',
             'totalInteresesCapitalizados', 'totalInteresesPagados', 'interesPendiente', 'netoPeriodo',
-            'pagos', 'desde', 'hasta', 'soloPeriodo', 'hayRango', 'periodosFiltrados', 'totalPeriodos',
+            'pagos', 'desde', 'hasta', 'incluirAnteriores', 'hayRango', 'periodosFiltrados', 'totalPeriodos',
             'totalesPeriodo', 'totalesAcumulados'
         ));
     }
@@ -124,7 +124,7 @@ class PrestacionesController extends Controller
     /**
      * Valida y normaliza los filtros de período.
      *
-     * @return array{desde:?string, hasta:?string, solo_periodo:bool}
+     * @return array{desde:?string, hasta:?string, incluir_anteriores:bool}
      */
     private function filtrosPeriodo(Request $request): array
     {
@@ -142,15 +142,21 @@ class PrestacionesController extends Controller
             ]);
         }
 
-        $soloPeriodo = $request->has('solo_periodo')
-            ? $request->boolean('solo_periodo')
-            : ($desde !== null || $hasta !== null);
-
-        if ($desde === null && $hasta === null) {
-            $soloPeriodo = false;
+        // Nuevo parámetro: incluir o no los saldos acumulados anteriores a
+        // "desde". Por defecto no se incluyen (solo el período seleccionado).
+        // Se acepta "solo_periodo" de enlaces antiguos, invertido.
+        $incluirAnteriores = false;
+        if ($request->has('incluir_anteriores')) {
+            $incluirAnteriores = $request->boolean('incluir_anteriores');
+        } elseif ($request->has('solo_periodo')) {
+            $incluirAnteriores = ! $request->boolean('solo_periodo');
         }
 
-        return ['desde' => $desde, 'hasta' => $hasta, 'solo_periodo' => $soloPeriodo];
+        if ($desde === null && $hasta === null) {
+            $incluirAnteriores = false;
+        }
+
+        return ['desde' => $desde, 'hasta' => $hasta, 'incluir_anteriores' => $incluirAnteriores];
     }
 
     /** Recalcula el estado de cuenta completo de un empleado. */
@@ -231,26 +237,30 @@ class PrestacionesController extends Controller
         $filtros = $this->filtrosPeriodo($request);
         $rango = $this->service->estadoDeCuentaEnRango($empleado, $filtros['desde'], $filtros['hasta']);
         $cuenta = $rango['filas'];
-        $soloPeriodo = $filtros['solo_periodo'];
+        $incluirAnteriores = $filtros['incluir_anteriores'];
         $pagos = PagoInteresPrestaciones::where('empleado_id', $empleado->id)
             ->orderBy('fecha')
             ->orderBy('id')
             ->get();
 
         $moneda = $empleado->moneda;
-        $saldoActual = $rango['saldo_actual'];
+        $saldoActual = $rango['saldo_final'];
         $saldoInicialRango = $rango['saldo_inicial'];
         $saldoFinalRango = $rango['saldo_final'];
         $interesPendiente = $rango['interes_pendiente'];
-        $netoPeriodo = $rango['totales_periodo']['neto'];
         $totalesPeriodo = $rango['totales_periodo'];
         $totalesAcumulados = $rango['totales_acumulados'];
+        $totalesSeleccionados = $incluirAnteriores ? $totalesAcumulados : $totalesPeriodo;
+        $netoPeriodo = $totalesSeleccionados['neto'];
         $desde = $rango['desde'];
         $hasta = $rango['hasta'];
         $hayRango = $rango['hay_rango'];
-        $etiquetaTotales = $soloPeriodo
-            ? 'Totales del período'
-            : ($hayRango ? 'Totales acumulados hasta '.$hasta : 'Totales históricos');
+        $etiquetaTotales = $incluirAnteriores
+            ? 'Totales acumulados hasta '.$hasta.' (incluyen períodos anteriores)'
+            : ($hayRango ? 'Totales del período '.$desde.' a '.$hasta : 'Totales históricos');
+        $etiquetaNeto = $incluirAnteriores
+            ? 'acumulado hasta '.$hasta
+            : ($hayRango ? 'del período' : 'histórico');
 
         $spreadsheet = new Spreadsheet;
         $spreadsheet->getProperties()
@@ -294,10 +304,10 @@ class PrestacionesController extends Controller
         $sheet->setCellValue('A6', 'Emitido');
         $sheet->mergeCells('B6:D6');
         $sheet->setCellValue('B6', now()->format('d/m/Y H:i'));
-        $sheet->setCellValue('E6', 'Saldo actual');
+        $sheet->setCellValue('E6', 'Saldo al cierre ('.$hasta.')');
         $sheet->mergeCells('F6:H6');
         $sheet->setCellValue('F6', $saldoActual);
-        $sheet->setCellValue('I6', 'Interés pendiente');
+        $sheet->setCellValue('I6', 'Interés pendiente al cierre');
         $sheet->mergeCells('J6:L6');
         $sheet->setCellValue('J6', $interesPendiente);
         $sheet->getStyle('F6')->getNumberFormat()->setFormatCode('#,##0.00');
@@ -309,7 +319,7 @@ class PrestacionesController extends Controller
         $sheet->setCellValue('E7', 'Saldo final del rango');
         $sheet->mergeCells('F7:H7');
         $sheet->setCellValue('F7', $saldoFinalRango);
-        $sheet->setCellValue('I7', 'Neto del período');
+        $sheet->setCellValue('I7', 'Neto '.$etiquetaNeto);
         $sheet->mergeCells('J7:L7');
         $sheet->setCellValue('J7', $netoPeriodo);
         $sheet->getStyle('B7')->getNumberFormat()->setFormatCode('#,##0.00');
@@ -378,10 +388,8 @@ class PrestacionesController extends Controller
         $summaryStart = $lastDataRow + 2;
         $sheet->mergeCells('A'.$summaryStart.':H'.$summaryStart);
         $sheet->setCellValue('A'.$summaryStart, 'Concepto');
-        $sheet->mergeCells('I'.$summaryStart.':L'.$summaryStart);
-        $sheet->setCellValue('I'.$summaryStart, 'Del período '.($desde ?? '—').' a '.($hasta ?? '—'));
-        $sheet->mergeCells('M'.$summaryStart.':P'.$summaryStart);
-        $sheet->setCellValue('M'.$summaryStart, 'Acumulado hasta '.($hasta ?? '—'));
+        $sheet->mergeCells('I'.$summaryStart.':P'.$summaryStart);
+        $sheet->setCellValue('I'.$summaryStart, $etiquetaTotales);
         $sheet->getStyle('A'.$summaryStart.':P'.$summaryStart)->applyFromArray([
             'font' => ['bold' => true, 'color' => ['argb' => 'FFFFFFFF']],
             'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FF1F2937']],
@@ -394,25 +402,21 @@ class PrestacionesController extends Controller
             'Intereses devengados' => ['intereses', false],
             'Anticipos' => ['anticipos', true],
             'Intereses pagados' => ['pagados', true],
-            'Neto del período' => ['neto', false],
+            'Neto '.$etiquetaNeto => ['neto', false],
             'Interés capitalizado (informativo)' => ['capitalizado', false],
         ];
 
         $r = $summaryStart + 1;
         foreach ($flows as $label => [$key, $negativo]) {
-            $periodo = (float) $totalesPeriodo[$key];
-            $acumulado = (float) $totalesAcumulados[$key];
+            $valor = (float) $totalesSeleccionados[$key];
             if ($negativo) {
-                $periodo *= -1;
-                $acumulado *= -1;
+                $valor *= -1;
             }
 
             $sheet->mergeCells('A'.$r.':H'.$r);
             $sheet->setCellValue('A'.$r, $label);
-            $sheet->mergeCells('I'.$r.':L'.$r);
-            $sheet->setCellValue('I'.$r, $periodo);
-            $sheet->mergeCells('M'.$r.':P'.$r);
-            $sheet->setCellValue('M'.$r, $acumulado);
+            $sheet->mergeCells('I'.$r.':P'.$r);
+            $sheet->setCellValue('I'.$r, $valor);
             $sheet->getStyle('A'.$r.':P'.$r)->applyFromArray([
                 'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFF9FAFB']],
             ]);
@@ -423,27 +427,19 @@ class PrestacionesController extends Controller
         $stocks = [
             'Saldo inicial del rango' => $saldoInicialRango,
             'Saldo final del rango' => $saldoFinalRango,
-            'Saldo actual global' => $saldoActual,
+            'Saldo al cierre ('.$hasta.')' => $saldoActual,
             'Interés pendiente al cierre' => $interesPendiente,
         ];
 
         foreach ($stocks as $label => $value) {
             $sheet->mergeCells('A'.$r.':H'.$r);
             $sheet->setCellValue('A'.$r, $label);
-            $sheet->mergeCells('I'.$r.':L'.$r);
+            $sheet->mergeCells('I'.$r.':P'.$r);
             $sheet->setCellValue('I'.$r, $value);
-            $sheet->mergeCells('M'.$r.':P'.$r);
-            $sheet->setCellValue('M'.$r, '—');
             $sheet->getStyle('A'.$r.':P'.$r)->getFont()->setBold(true);
             $sheet->getStyle('I'.$r)->getNumberFormat()->setFormatCode('#,##0.00;[Red]-#,##0.00');
             $r++;
         }
-
-        // Resalta la columna de totales seleccionada por el checkbox.
-        $selectedRange = $soloPeriodo ? 'I'.$summaryStart.':L'.$r : 'M'.$summaryStart.':P'.$r;
-        $sheet->getStyle($selectedRange)->getFill()
-            ->setFillType(Fill::FILL_SOLID)
-            ->getStartColor()->setARGB('FFE8F5E9');
 
         $sheet->getStyle('A'.$headerRow.':P'.$r)->applyFromArray([
             'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FFD1D5DB']]],
@@ -520,10 +516,10 @@ class PrestacionesController extends Controller
         $rango = $this->service->estadoDeCuentaEnRango($empleado, $filtros['desde'], $filtros['hasta']);
 
         $cuenta = $rango['filas'];
-        $soloPeriodo = $filtros['solo_periodo'];
-        $totales = $soloPeriodo ? $rango['totales_periodo'] : $rango['totales_acumulados'];
+        $incluirAnteriores = $filtros['incluir_anteriores'];
+        $totales = $incluirAnteriores ? $rango['totales_acumulados'] : $rango['totales_periodo'];
 
-        $saldoActual = $rango['saldo_actual'];
+        $saldoActual = $rango['saldo_final'];
         $saldoInicialRango = $rango['saldo_inicial'];
         $saldoFinalRango = $rango['saldo_final'];
         $interesPendiente = $rango['interes_pendiente'];
@@ -533,7 +529,7 @@ class PrestacionesController extends Controller
         $totalInteresesCapitalizados = $totales['capitalizado'];
         $totalInteresesPagados = $totales['pagados'];
         $totalAnticipos = $totales['anticipos'];
-        $netoPeriodo = $rango['totales_periodo']['neto'];
+        $netoPeriodo = $totales['neto'];
         $desde = $filtros['desde'];
         $hasta = $filtros['hasta'];
         $hayRango = $rango['hay_rango'];
@@ -557,7 +553,7 @@ class PrestacionesController extends Controller
             'totalInteresesPagados' => $totalInteresesPagados,
             'totalAnticipos' => $totalAnticipos,
             'netoPeriodo'    => $netoPeriodo,
-            'soloPeriodo'    => $soloPeriodo,
+            'incluirAnteriores' => $incluirAnteriores,
             'desde'          => $desde,
             'hasta'          => $hasta,
             'hayRango'       => $hayRango,

@@ -45,10 +45,10 @@
 			<td class="bold">Período</td><td>{{ $desde ?? '—' }} a {{ $hasta ?? '—' }}</td>
 			<td class="bold">Totales</td>
 			<td>
-				@if ($soloPeriodo)
-					Del período
+				@if ($incluirAnteriores)
+					Acumulados hasta {{ $hasta }} (incluyen períodos anteriores)
 				@elseif ($hayRango)
-					Acumulados hasta {{ $hasta }}
+					Solo del período {{ $desde }} a {{ $hasta }}
 				@else
 					Históricos
 				@endif
@@ -87,7 +87,8 @@
 			<tr><td colspan="10" class="right">{{ $hayRango ? 'Sin períodos en el rango seleccionado.' : 'Sin periodos calculados.' }}</td></tr>
 		@endforelse
 		@php
-			$etiquetaTotales = $soloPeriodo ? 'del período' : ($hayRango ? 'acumulados hasta '.$hasta : 'históricos');
+			$etiquetaTotales = ! $hayRango ? 'históricos' : ($incluirAnteriores ? 'acumulados hasta '.$hasta : 'del período');
+			$etiquetaNeto = ! $hayRango ? 'histórico' : ($incluirAnteriores ? 'acumulado hasta '.$hasta : 'del período');
 		@endphp
 		<tr class="total">
 			<td colspan="9" class="right bold">Totales {{ $etiquetaTotales }}</td>
@@ -117,8 +118,8 @@
 			<td class="bold">Interés capitalizado</td><td class="right">{{ $empleado->moneda }} {{ formato_monto($totalInteresesCapitalizados) }}</td>
 		</tr>
 		<tr class="total">
-			<td class="bold">Neto del período</td><td class="right">{{ $empleado->moneda }} {{ formato_monto($netoPeriodo) }}</td>
-			<td class="bold">Saldo actual global</td><td class="right">{{ $empleado->moneda }} {{ formato_monto($saldoActual) }}</td>
+			<td class="bold">Neto {{ $etiquetaNeto }}</td><td class="right">{{ $empleado->moneda }} {{ formato_monto($netoPeriodo) }}</td>
+			<td class="bold">Saldo al cierre ({{ $hasta }})</td><td class="right">{{ $empleado->moneda }} {{ formato_monto($saldoActual) }}</td>
 		</tr>
 		<tr class="total">
 			<td class="bold">Interés pendiente al cierre</td><td class="right">{{ $empleado->moneda }} {{ formato_monto($interesPendiente) }}</td>
