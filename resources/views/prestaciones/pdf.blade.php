@@ -57,26 +57,26 @@
 			<th class="right">Nº</th>
 			<th>Periodo</th>
 			<th class="right">Sal. integral</th>
-			<th class="right">Saldo acum. inicial</th>
+			<th class="right">Saldo inicial período</th>
 			<th class="right">Depósito trim.</th>
 			<th class="right">Días adic.</th>
 			<th class="right">Interés</th>
 			<th class="right">Tasa %</th>
 			<th class="right">Anticipos</th>
-			<th class="right">Saldo acum. final</th>
+			<th class="right">Saldo final período</th>
 		</tr>
 		@forelse ($cuenta as $c)
 			<tr>
 				<td class="right">{{ $loop->index }}</td>
 				<td>{{ \Carbon\Carbon::createFromFormat('Y-m', $c->periodo)->format('m/Y') }}</td>
 				<td class="right">{{ $empleado->moneda }} {{ formato_monto((float) $c->salario_integral_diario) }}</td>
-				<td class="right">{{ $empleado->moneda }} {{ formato_monto((float) $c->saldo_inicial) }}</td>
+				<td class="right">{{ $empleado->moneda }} {{ formato_monto((float) $c->saldo_inicial_periodo) }}</td>
 				<td class="right">{{ $c->deposito_trimestre > 0 ? $c->dias_deposito.' d · '.$empleado->moneda.' '.formato_monto((float) $c->deposito_trimestre) : '—' }}</td>
 				<td class="right">{{ $c->dias_adicionales > 0 ? $c->dias_adicionales_cont.' d · '.$empleado->moneda.' '.formato_monto((float) $c->dias_adicionales) : '—' }}</td>
 				<td class="right">{{ $c->interes_mes > 0 ? $empleado->moneda.' '.formato_monto((float) $c->interes_mes) : '—' }}</td>
 				<td class="right">{{ $c->tasa_interes !== null ? formato_monto((float) $c->tasa_interes, 4) : '—' }}</td>
 				<td class="right">{{ $c->anticipos > 0 ? '- '.$empleado->moneda.' '.formato_monto((float) $c->anticipos) : '—' }}</td>
-				<td class="right bold">{{ $empleado->moneda }} {{ formato_monto((float) $c->saldo_final) }}</td>
+				<td class="right bold">{{ $empleado->moneda }} {{ formato_monto((float) $c->saldo_final_periodo) }}</td>
 			</tr>
 		@empty
 			<tr><td colspan="10" class="right">{{ $hayRango ? 'Sin períodos en el rango seleccionado.' : 'Sin periodos calculados.' }}</td></tr>

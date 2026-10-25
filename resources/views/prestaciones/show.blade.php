@@ -129,16 +129,16 @@
 					<th class="text-center px-3 py-2 w-12">Nº</th>
 					<th class="text-left px-3 py-2">Periodo</th>
 					<th class="text-right px-3 py-2">Sal. integral</th>
-					<th class="text-right px-3 py-2">Saldo acum. inicial</th>
-					<th class="text-right px-3 py-2">Capital</th>
+					<th class="text-right px-3 py-2">Saldo inicial período</th>
+					<th class="text-right px-3 py-2">Capital período</th>
 					<th class="text-right px-3 py-2">Depósito trim.</th>
 					<th class="text-right px-3 py-2">Días adic.</th>
 					<th class="text-right px-3 py-2">Interés</th>
 					<th class="text-right px-3 py-2">Tasa interés %</th>
-					<th class="text-right px-3 py-2">Int. pend.</th>
+					<th class="text-right px-3 py-2">Int. pend. período</th>
 					<th class="text-right px-3 py-2">Int. pag.</th>
 					<th class="text-right px-3 py-2">Anticipos</th>
-					<th class="text-right px-3 py-2">Saldo acum. final</th>
+					<th class="text-right px-3 py-2">Saldo final período</th>
 				</tr>
 			</thead>
 			<tbody class="divide-y divide-gray-100">
@@ -147,8 +147,8 @@
 						<td class="px-3 py-2 text-center text-gray-500">{{ $loop->index }}</td>
 						<td class="px-3 py-2">{{ \Carbon\Carbon::createFromFormat('Y-m', $c->periodo)->format('m/Y') }}</td>
 						<td class="px-3 py-2 text-right text-gray-600">{{ formato_monto((float) $c->salario_integral_diario) }}</td>
-						<td class="px-3 py-2 text-right">{{ formato_monto((float) $c->saldo_inicial) }}</td>
-						<td class="px-3 py-2 text-right">{{ formato_monto((float) ($c->capital_final ?? $c->saldo_final)) }}</td>
+						<td class="px-3 py-2 text-right">{{ formato_monto((float) $c->saldo_inicial_periodo) }}</td>
+						<td class="px-3 py-2 text-right">{{ formato_monto((float) $c->capital_periodo) }}</td>
 						<td class="px-3 py-2 text-right">{{ $c->deposito_trimestre > 0 ? $c->dias_deposito.' d · '.formato_monto((float) $c->deposito_trimestre) : '—' }}</td>
 						<td class="px-3 py-2 text-right">{{ $c->dias_adicionales > 0 ? $c->dias_adicionales_cont.' d · '.formato_monto((float) $c->dias_adicionales) : '—' }}</td>
 						<td class="px-3 py-2 text-right">
@@ -158,10 +158,10 @@
 							@endif
 						</td>
 						<td class="px-3 py-2 text-right">{{ $c->tasa_interes !== null ? formato_monto((float) $c->tasa_interes, 4) : '—' }}</td>
-						<td class="px-3 py-2 text-right">{{ (float) ($c->interes_pendiente_final ?? 0) > 0 ? formato_monto((float) $c->interes_pendiente_final) : '—' }}</td>
+						<td class="px-3 py-2 text-right">{{ (float) $c->interes_pendiente_periodo > 0 ? formato_monto((float) $c->interes_pendiente_periodo) : '—' }}</td>
 						<td class="px-3 py-2 text-right">{{ (float) ($c->interes_pagado ?? 0) > 0 ? formato_monto((float) $c->interes_pagado) : '—' }}</td>
 						<td class="px-3 py-2 text-right text-red-600">{{ $c->anticipos > 0 ? '- '.formato_monto((float) $c->anticipos) : '—' }}</td>
-						<td class="px-3 py-2 text-right font-medium">{{ formato_monto((float) $c->saldo_final) }}</td>
+						<td class="px-3 py-2 text-right font-medium">{{ formato_monto((float) $c->saldo_final_periodo) }}</td>
 					</tr>
 				@empty
 					<tr><td colspan="13" class="text-center py-8 text-gray-400">{{ $hayRango ? 'Sin períodos en el rango seleccionado.' : 'Sin periodos calculados.' }}</td></tr>

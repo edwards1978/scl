@@ -83,11 +83,14 @@ class PrestacionesController extends Controller
         $filtros = $this->filtrosPeriodo($request);
         $rango = $this->service->estadoDeCuentaEnRango($empleado, $filtros['desde'], $filtros['hasta']);
 
-        $cuenta = $rango['filas'];
         $incluirAnteriores = $filtros['incluir_anteriores'];
         $desde = $filtros['desde'];
         $hasta = $filtros['hasta'];
         $hayRango = $rango['hay_rango'];
+        $cuenta = $this->service->filasConSaldosDelPeriodo(
+            $rango['filas'],
+            $hayRango && $incluirAnteriores
+        );
 
         // Los movimientos siempre son del período. El checkbox solo agrega
         // el saldo acumulado que existía antes de "desde".
@@ -238,7 +241,6 @@ class PrestacionesController extends Controller
         $patrono = $this->patronoActual();
         $filtros = $this->filtrosPeriodo($request);
         $rango = $this->service->estadoDeCuentaEnRango($empleado, $filtros['desde'], $filtros['hasta']);
-        $cuenta = $rango['filas'];
         $incluirAnteriores = $filtros['incluir_anteriores'];
         $pagos = PagoInteresPrestaciones::where('empleado_id', $empleado->id)
             ->orderBy('fecha')
@@ -249,6 +251,10 @@ class PrestacionesController extends Controller
         $desde = $rango['desde'];
         $hasta = $rango['hasta'];
         $hayRango = $rango['hay_rango'];
+        $cuenta = $this->service->filasConSaldosDelPeriodo(
+            $rango['filas'],
+            $hayRango && $incluirAnteriores
+        );
         $totalesPeriodo = $rango['totales_periodo'];
         $netoPeriodo = $totalesPeriodo['neto'];
         $saldoInicialRango = ($hayRango && $incluirAnteriores)
@@ -331,10 +337,10 @@ class PrestacionesController extends Controller
         }
 
         $headers = [
-            'Nº', 'Periodo', 'Salario integral', 'Saldo acum. inicial', 'Capital',
+            'Nº', 'Periodo', 'Salario integral', 'Saldo inicial período', 'Capital',
             'Depósito trimestral', 'Días depósito', 'Días adicionales',
             'Monto días adicionales', 'Interés del mes', 'Interés capitalizado',
-            'Interés pagado', 'Interés pendiente', 'Anticipos', 'Saldo acum. final', 'Tasa interés %',
+            'Interés pagado', 'Interés pendiente', 'Anticipos', 'Saldo final período', 'Tasa interés %',
         ];
 
         $headerRow = 9;
@@ -355,8 +361,8 @@ class PrestacionesController extends Controller
             $sheet->setCellValue('A'.$row, $numero++);
             $sheet->setCellValue('B'.$row, Carbon::createFromFormat('Y-m', $c->periodo)->format('m/Y'));
             $sheet->setCellValue('C'.$row, (float) $c->salario_integral_diario);
-            $sheet->setCellValue('D'.$row, (float) $c->saldo_inicial);
-            $sheet->setCellValue('E'.$row, (float) ($c->capital_final ?? $c->saldo_final));
+            $sheet->setCellValue('D'.$row, (float) $c->saldo_inicial_periodo);
+            $sheet->setCellValue('E'.$row, (float) $c->capital_periodo);
             $sheet->setCellValue('F'.$row, (float) $c->deposito_trimestre);
             $sheet->setCellValue('G'.$row, (int) $c->dias_deposito);
             $sheet->setCellValue('H'.$row, (int) $c->dias_adicionales_cont);
@@ -364,9 +370,9 @@ class PrestacionesController extends Controller
             $sheet->setCellValue('J'.$row, (float) $c->interes_mes);
             $sheet->setCellValue('K'.$row, (float) ($c->interes_capitalizado ?? 0));
             $sheet->setCellValue('L'.$row, (float) ($c->interes_pagado ?? 0));
-            $sheet->setCellValue('M'.$row, (float) ($c->interes_pendiente_final ?? 0));
+            $sheet->setCellValue('M'.$row, (float) $c->interes_pendiente_periodo);
             $sheet->setCellValue('N'.$row, -1 * (float) $c->anticipos);
-            $sheet->setCellValue('O'.$row, (float) $c->saldo_final);
+            $sheet->setCellValue('O'.$row, (float) $c->saldo_final_periodo);
             $sheet->setCellValue('P'.$row, $c->tasa_interes !== null ? (float) $c->tasa_interes : null);
             $row++;
         }
@@ -515,11 +521,14 @@ class PrestacionesController extends Controller
         $filtros = $this->filtrosPeriodo($request);
         $rango = $this->service->estadoDeCuentaEnRango($empleado, $filtros['desde'], $filtros['hasta']);
 
-        $cuenta = $rango['filas'];
         $incluirAnteriores = $filtros['incluir_anteriores'];
         $hayRango = $rango['hay_rango'];
         $desde = $rango['desde'];
         $hasta = $rango['hasta'];
+        $cuenta = $this->service->filasConSaldosDelPeriodo(
+            $rango['filas'],
+            $hayRango && $incluirAnteriores
+        );
 
         // Movimientos siempre del período; el checkbox solo agrega el saldo
         // acumulado anterior al saldo inicial.

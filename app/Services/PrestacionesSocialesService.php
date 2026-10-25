@@ -547,6 +547,39 @@ class PrestacionesSocialesService
     }
 
     /**
+     * Ajusta los saldos de las filas para que la tabla también respete el
+     * checkbox: si no se incluyen saldos anteriores, la primera fila empieza
+     * en cero y las demás muestran el acumulado del período.
+     *
+     * No modifica la base de datos: son atributos calculados para la vista.
+     */
+    public function filasConSaldosDelPeriodo(Collection $filas, bool $incluirAnteriores): Collection
+    {
+        $primera = $filas->first();
+
+        if (! $primera) {
+            return $filas;
+        }
+
+        $primerSaldo = (float) ($primera->saldo_inicial ?? 0);
+        $primerCapital = (float) ($primera->capital_inicial ?? 0);
+        $primerInteres = (float) ($primera->interes_pendiente_inicial ?? 0);
+
+        $baseSaldo = $incluirAnteriores ? $primerSaldo : 0.0;
+        $baseCapital = $incluirAnteriores ? $primerCapital : 0.0;
+        $baseInteres = $incluirAnteriores ? $primerInteres : 0.0;
+
+        return $filas->map(function ($c) use ($baseSaldo, $baseCapital, $baseInteres, $primerSaldo, $primerCapital, $primerInteres) {
+            $c->saldo_inicial_periodo = round($baseSaldo + ((float) ($c->saldo_inicial ?? 0) - $primerSaldo), 2);
+            $c->saldo_final_periodo = round($baseSaldo + ((float) ($c->saldo_final ?? 0) - $primerSaldo), 2);
+            $c->capital_periodo = round($baseCapital + ((float) ($c->capital_final ?? 0) - $primerCapital), 2);
+            $c->interes_pendiente_periodo = round($baseInteres + ((float) ($c->interes_pendiente_final ?? 0) - $primerInteres), 2);
+
+            return $c;
+        });
+    }
+
+    /**
      * Totales de movimientos (no de saldos). El interés capitalizado es
      * informativo y no se suma al neto porque ya está en `interes_mes`.
      */
