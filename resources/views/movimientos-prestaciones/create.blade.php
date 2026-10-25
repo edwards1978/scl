@@ -34,7 +34,7 @@
 					</div>
 					<div>
 						<label class="block text-xs font-medium text-gray-600 mb-0.5">Fecha</label>
-						<input type="date" name="fecha" value="{{ old('fecha', now()->format('Y-m-d')) }}" required class="w-full border border-gray-300 px-2 py-1.5 text-sm">
+						<input type="date" name="fecha" id="fecha" value="{{ old('fecha', now()->format('Y-m-d')) }}" required class="w-full border border-gray-300 px-2 py-1.5 text-sm">
 					</div>
 				</div>
 
@@ -115,18 +115,28 @@
 		toggleTipo();
 
 		const empleado = document.getElementById('empleado_id');
+		const fecha = document.getElementById('fecha');
 		const info = document.getElementById('info-saldo');
-		empleado.addEventListener('change', async function () {
+		const maximoUrl = "{{ route('movimientos-prestaciones.maximo', ['empleadoId' => '__EMPLEADO__']) }}";
+
+		async function actualizarInfoSaldo() {
 			info.textContent = '';
 			if (!empleado.value) return;
+
 			try {
-				const res = await fetch(`/movimientos-prestaciones/maximo/${empleado.value}`);
+				const params = new URLSearchParams();
+				if (fecha.value) params.set('fecha', fecha.value);
+				const url = maximoUrl.replace('__EMPLEADO__', empleado.value) + (params.toString() ? '?' + params.toString() : '');
+				const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
 				if (!res.ok) return;
 				const data = await res.json();
-				info.textContent = `Saldo de prestaciones: ${data.saldo} ${data.moneda} · Máximo anticipo (${data.pct}%): ${data.maximo} ${data.moneda}`;
+				info.textContent = `Saldo de prestaciones al ${data.fecha}: ${data.saldo} ${data.moneda} · Máximo anticipo (${data.pct}%): ${data.maximo} ${data.moneda} · Monto al 75%: ${data.monto_75} ${data.moneda}`;
 			} catch (e) { /* ignore */ }
-		});
-		if (empleado.value) empleado.dispatchEvent(new Event('change'));
+		}
+
+		empleado.addEventListener('change', actualizarInfoSaldo);
+		fecha.addEventListener('change', actualizarInfoSaldo);
+		if (empleado.value) actualizarInfoSaldo();
 	});
 </script>
 @endpush

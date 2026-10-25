@@ -106,15 +106,22 @@ class MovimientosPrestacionesController extends Controller
             return response()->json(['error' => 'Trabajador inactivo (liquidado).'], 409);
         }
 
-        $max = $this->service->maximoAnticipo($empleado);
+        $data = $request->validate([
+            'fecha' => ['nullable', 'date'],
+        ]);
+        $fecha = ! empty($data['fecha']) ? Carbon::parse($data['fecha']) : null;
+        $max = $this->service->maximoAnticipo($empleado, $fecha);
 
         return response()->json([
-            'saldo'  => $max['saldo'],
-            'maximo' => $max['maximo'],
-            'pct'    => $max['pct'],
-            'moneda' => $max['moneda'],
-            'dias'   => $max['dias'],
-            'anios'  => $max['anios'],
+            'saldo'    => $max['saldo'],
+            'maximo'   => $max['maximo'],
+            'pct'      => $max['pct'],
+            'monto_75' => round($max['saldo'] * 0.75, 2),
+            'pct_75'   => 75,
+            'moneda'   => $max['moneda'],
+            'dias'     => $max['dias'],
+            'anios'    => $max['anios'],
+            'fecha'    => ($fecha ?: now())->format('d/m/Y'),
         ]);
     }
 
