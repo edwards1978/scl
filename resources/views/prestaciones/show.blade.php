@@ -38,7 +38,6 @@
 						</svg>
 					</span>
 				</div>
-				<p class="text-[11px] text-gray-400 mt-1">Ejemplo: 2025-01</p>
 			</div>
 			<div class="w-36 shrink-0">
 				<label for="hasta" class="block text-xs text-gray-500 mb-1">Periodo hasta <span class="text-gray-400">(AAAA-MM)</span></label>
@@ -56,9 +55,8 @@
 						</svg>
 					</span>
 				</div>
-				<p class="text-[11px] text-gray-400 mt-1">Ejemplo: 2025-06</p>
 			</div>
-			<label class="inline-flex items-center gap-2 text-sm text-gray-700 pb-1.5">
+			<label class="inline-flex items-center gap-2 text-sm text-gray-700 pb-2 whitespace-nowrap">
 				<input type="hidden" name="incluir_anteriores" value="0">
 				<input type="checkbox" name="incluir_anteriores" value="1" @checked($incluirAnteriores) class="border-gray-300">
 				Incluir saldos acumulados anteriores
@@ -66,6 +64,7 @@
 			<button class="px-4 py-1.5 text-sm bg-gray-800 text-white hover:bg-gray-900">Filtrar</button>
 			<a href="{{ route('prestaciones.show', $empleado->id) }}" class="px-3 py-1.5 text-sm border border-gray-300 text-gray-600 hover:bg-gray-50">Limpiar</a>
 		</div>
+		<p class="text-[11px] text-gray-400 mt-1">Formato AAAA-MM · Ejemplo: 2025-01 a 2025-06</p>
 		@if ($errors->any())
 			<div class="mt-2 text-xs text-red-600">{{ $errors->first() }}</div>
 		@endif
