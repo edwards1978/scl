@@ -30,13 +30,7 @@
 						onfocus="this.type='month'" onblur="if(!this.value)this.type='text'"
 						min="2000-01" max="{{ now()->format('Y-m') }}"
 						title="Seleccione el mes y año en formato AAAA-MM"
-						class="w-full border border-gray-300 px-2 py-1.5 pr-9 text-sm">
-					<span class="pointer-events-none absolute inset-y-0 right-2 flex items-center text-gray-400">
-						<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-							<rect x="3" y="5" width="18" height="16" rx="2"></rect>
-							<path d="M16 3v4M8 3v4M3 10h18"></path>
-						</svg>
-					</span>
+						class="w-full border border-gray-300 px-2 py-1.5 pr-8 text-sm">
 				</div>
 			</div>
 			<div class="w-36 shrink-0">
@@ -47,13 +41,7 @@
 						onfocus="this.type='month'" onblur="if(!this.value)this.type='text'"
 						min="2000-01" max="{{ now()->format('Y-m') }}"
 						title="Seleccione el mes y año en formato AAAA-MM"
-						class="w-full border border-gray-300 px-2 py-1.5 pr-9 text-sm">
-					<span class="pointer-events-none absolute inset-y-0 right-2 flex items-center text-gray-400">
-						<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-							<rect x="3" y="5" width="18" height="16" rx="2"></rect>
-							<path d="M16 3v4M8 3v4M3 10h18"></path>
-						</svg>
-					</span>
+						class="w-full border border-gray-300 px-2 py-1.5 pr-8 text-sm">
 				</div>
 			</div>
 			<label class="inline-flex items-center gap-2 text-sm text-gray-700 pb-2 whitespace-nowrap">
