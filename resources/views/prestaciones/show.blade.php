@@ -21,7 +21,7 @@
 			$hastaValor = old('hasta', $hasta);
 		@endphp
 		<div class="flex flex-wrap items-end gap-3">
-			<div class="w-full sm:w-44">
+			<div class="w-36 shrink-0">
 				<label for="desde" class="block text-xs text-gray-500 mb-1">Periodo desde <span class="text-gray-400">(AAAA-MM)</span></label>
 				<div class="relative">
 					<input id="desde" type="text" name="desde" value="{{ $desdeValor }}"
@@ -39,7 +39,7 @@
 				</div>
 				<p class="text-[11px] text-gray-400 mt-1">Ejemplo: 2025-01</p>
 			</div>
-			<div class="w-full sm:w-44">
+			<div class="w-36 shrink-0">
 				<label for="hasta" class="block text-xs text-gray-500 mb-1">Periodo hasta <span class="text-gray-400">(AAAA-MM)</span></label>
 				<div class="relative">
 					<input id="hasta" type="text" name="hasta" value="{{ $hastaValor }}"
