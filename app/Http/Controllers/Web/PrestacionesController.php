@@ -143,17 +143,14 @@ class PrestacionesController extends Controller
         }
 
         // Nuevo parámetro: incluir o no los saldos acumulados anteriores a
-        // "desde". Por defecto no se incluyen (solo el período seleccionado).
-        // Se acepta "solo_periodo" de enlaces antiguos, invertido.
-        $incluirAnteriores = false;
+        // "desde". Por defecto se incluyen; el usuario puede desmarcarlo para
+        // totalizar solo el período seleccionado. Se acepta "solo_periodo" de
+        // enlaces antiguos, invertido.
+        $incluirAnteriores = true;
         if ($request->has('incluir_anteriores')) {
             $incluirAnteriores = $request->boolean('incluir_anteriores');
         } elseif ($request->has('solo_periodo')) {
             $incluirAnteriores = ! $request->boolean('solo_periodo');
-        }
-
-        if ($desde === null && $hasta === null) {
-            $incluirAnteriores = false;
         }
 
         return ['desde' => $desde, 'hasta' => $hasta, 'incluir_anteriores' => $incluirAnteriores];
