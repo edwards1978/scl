@@ -16,14 +16,46 @@
 	</p>
 
 	<form method="GET" action="{{ route('prestaciones.show', $empleado->id) }}" class="bg-white border border-gray-200 p-3 mb-4">
+		@php
+			$desdeValor = old('desde', $desde);
+			$hastaValor = old('hasta', $hasta);
+		@endphp
 		<div class="flex flex-wrap items-end gap-3">
-			<div>
-				<label class="block text-xs text-gray-500 mb-1">Periodo desde</label>
-				<input type="month" name="desde" value="{{ old('desde', $desde) }}" class="border border-gray-300 px-2 py-1.5 text-sm">
+			<div class="w-full sm:w-44">
+				<label for="desde" class="block text-xs text-gray-500 mb-1">Periodo desde <span class="text-gray-400">(AAAA-MM)</span></label>
+				<div class="relative">
+					<input id="desde" type="text" name="desde" value="{{ $desdeValor }}"
+						placeholder="AAAA-MM" pattern="\d{4}-(0[1-9]|1[0-2])" inputmode="numeric" autocomplete="off"
+						onfocus="this.type='month'" onblur="if(!this.value)this.type='text'"
+						min="2000-01" max="{{ now()->format('Y-m') }}"
+						title="Seleccione el mes y año en formato AAAA-MM"
+						class="w-full border border-gray-300 px-2 py-1.5 pr-9 text-sm">
+					<span class="pointer-events-none absolute inset-y-0 right-2 flex items-center text-gray-400">
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+							<rect x="3" y="5" width="18" height="16" rx="2"></rect>
+							<path d="M16 3v4M8 3v4M3 10h18"></path>
+						</svg>
+					</span>
+				</div>
+				<p class="text-[11px] text-gray-400 mt-1">Ejemplo: 2025-01</p>
 			</div>
-			<div>
-				<label class="block text-xs text-gray-500 mb-1">Periodo hasta</label>
-				<input type="month" name="hasta" value="{{ old('hasta', $hasta) }}" class="border border-gray-300 px-2 py-1.5 text-sm">
+			<div class="w-full sm:w-44">
+				<label for="hasta" class="block text-xs text-gray-500 mb-1">Periodo hasta <span class="text-gray-400">(AAAA-MM)</span></label>
+				<div class="relative">
+					<input id="hasta" type="text" name="hasta" value="{{ $hastaValor }}"
+						placeholder="AAAA-MM" pattern="\d{4}-(0[1-9]|1[0-2])" inputmode="numeric" autocomplete="off"
+						onfocus="this.type='month'" onblur="if(!this.value)this.type='text'"
+						min="2000-01" max="{{ now()->format('Y-m') }}"
+						title="Seleccione el mes y año en formato AAAA-MM"
+						class="w-full border border-gray-300 px-2 py-1.5 pr-9 text-sm">
+					<span class="pointer-events-none absolute inset-y-0 right-2 flex items-center text-gray-400">
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+							<rect x="3" y="5" width="18" height="16" rx="2"></rect>
+							<path d="M16 3v4M8 3v4M3 10h18"></path>
+						</svg>
+					</span>
+				</div>
+				<p class="text-[11px] text-gray-400 mt-1">Ejemplo: 2025-06</p>
 			</div>
 			<label class="inline-flex items-center gap-2 text-sm text-gray-700 pb-1.5">
 				<input type="hidden" name="solo_periodo" value="0">
