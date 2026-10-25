@@ -47,6 +47,28 @@
 			<td class="bold">Indemnización Art. 92</td><td>{{ $liquidacion->esDobleIndemnizacion() ? 'Convenido' : 'No aplica' }}</td></tr>
 	</table>
 
+	@if ($liquidacion->garantia_ab !== null && $liquidacion->literal_c !== null)
+		@php
+			$esGarantia = $liquidacion->prestaciones_origen === 'garantia';
+			$origenLabel = $esGarantia ? 'Garantía Art. 142 a+b' : 'Literal c (30 días por año)';
+		@endphp
+		<table>
+			<tr><th colspan="4">Comparativo Art. 142 LOTTT — se aplica el mayor</th></tr>
+			<tr>
+				<td class="bold">Art. 142 literales a+b<br><span class="sub">Garantía acumulada</span></td>
+				<td class="right">{{ $liquidacion->moneda === 'USD' ? 'USD' : 'Bs.' }} {{ formato_monto((float) $liquidacion->garantia_ab) }}</td>
+				<td class="bold">Art. 142 literal c<br><span class="sub">30 días por año</span></td>
+				<td class="right">{{ $liquidacion->moneda === 'USD' ? 'USD' : 'Bs.' }} {{ formato_monto((float) $liquidacion->literal_c) }}</td>
+			</tr>
+			<tr class="total">
+				<td class="bold">Se aplica</td>
+				<td colspan="3" class="right bold">{{ $origenLabel }} — {{ $liquidacion->moneda === 'USD' ? 'USD' : 'Bs.' }} {{ formato_monto((float) $liquidacion->prestaciones_mayor) }} (diferencia {{ formato_monto((float) $liquidacion->prestaciones_diferencia) }})</td>
+			</tr>
+		</table>
+	@else
+		<p class="nota">Comparativo Art. 142 a+b / literal c no registrado para esta liquidación.</p>
+	@endif
+
 	<table>
 		<tr><th>Concepto (base legal)</th><th class="right">Días</th><th class="right">Sueldo diario</th><th>Importe</th></tr>
 		@foreach ($asignaciones as $c)

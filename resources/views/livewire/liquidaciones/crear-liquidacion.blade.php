@@ -55,6 +55,26 @@
 					<div><span class="text-gray-400">Salario diario integral:</span> {{ formato_monto($preview['salario_integral_diario']) }} {{ $preview['moneda'] }}</div>
 				</div>
 
+				@php $esGarantiaPreview = ($preview['prestaciones_origen'] ?? null) === 'garantia'; @endphp
+				<div class="mt-3 grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
+					<div class="border p-2 {{ $esGarantiaPreview ? 'border-emerald-400 bg-emerald-50' : 'border-gray-200' }}">
+						<div class="text-gray-500">Art. 142 a+b · garantía</div>
+						<div class="font-semibold mt-1">{{ $preview['moneda'] }} {{ formato_monto($preview['garantia_ab']) }}</div>
+						<div class="text-gray-400 mt-1">Capital e intereses, antes de anticipos</div>
+					</div>
+					<div class="border p-2 {{ ! $esGarantiaPreview ? 'border-emerald-400 bg-emerald-50' : 'border-gray-200' }}">
+						<div class="text-gray-500">Art. 142 c · 30 días/año</div>
+						<div class="font-semibold mt-1">{{ $preview['moneda'] }} {{ formato_monto($preview['literal_c']) }}</div>
+						<div class="text-gray-400 mt-1">{{ $preview['dias_prestaciones'] }} días × salario integral</div>
+					</div>
+					<div class="border border-emerald-400 bg-emerald-50 p-2">
+						<div class="text-emerald-700">Se aplica el mayor</div>
+						<div class="font-semibold text-emerald-800 mt-1">{{ $esGarantiaPreview ? 'Garantía Art. 142 a+b' : 'Literal c (30 días/año)' }}</div>
+						<div class="font-bold text-emerald-800">{{ $preview['moneda'] }} {{ formato_monto($preview['prestaciones_mayor']) }}</div>
+						<div class="text-emerald-700 mt-1">Diferencia: {{ formato_monto($preview['prestaciones_diferencia']) }}</div>
+					</div>
+				</div>
+
 				<div class="mt-4 space-y-1 text-xs">
 					<div class="font-medium text-gray-700">Asignaciones ({{ $preview['moneda'] }})</div>
 					@foreach ($preview['asignaciones'] as $a)

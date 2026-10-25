@@ -12,6 +12,7 @@ Sistema web desarrollado en **Laravel 12** para la gestión y cálculo de presta
 - **Vacaciones**: Cálculo de días, períodos, bonos vacacionales y recibos de pago
 - **Prestaciones Sociales**: Cálculo automático según antigüedad, salario integral y tasas de interés BCV
 - **Liquidaciones**: Liquidación final de empleo (prestaciones, vacaciones pendientes, utilidades, bonificaciones)
+  con comparativo Art. 142 a+b vs. literal c y aplicación del mayor.
 - **Utilidades**: Cálculo de participación en utilidades según LOTTT
 - **Sueldos**: Gestión de variaciones salariales e histórico de cambios
 

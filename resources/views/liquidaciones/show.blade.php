@@ -3,6 +3,8 @@
 @section('content')
 @php
 	$editando = $liquidacion->estatus !== 'aprobada';
+	$esGarantia = $liquidacion->prestaciones_origen === 'garantia';
+	$origenLabel = $esGarantia ? 'Garantía Art. 142 a+b' : 'Literal c (30 días por año)';
 @endphp
 <div class="p-4 mx-auto max-w-4xl">
 	<div class="flex items-center justify-between mb-1">
@@ -28,6 +30,42 @@
     @if(session('error'))
         <div class="mx-4 mt-3 p-3 bg-red-100 border border-red-300 text-red-700 text-sm rounded">{{ session('error') }}</div>
     @endif
+
+	@if ($liquidacion->garantia_ab !== null && $liquidacion->literal_c !== null)
+		<div class="bg-white border border-gray-200 p-4 mb-4">
+			<div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+				<h2 class="text-sm font-semibold text-gray-800">Comparativo Art. 142 LOTTT</h2>
+				<span class="px-2 py-1 text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+					Se aplica el mayor
+				</span>
+			</div>
+			<div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+				<div class="border p-3 {{ $esGarantia ? 'border-emerald-400 bg-emerald-50' : 'border-gray-200' }}">
+					<p class="text-xs text-gray-500">Art. 142 literales a+b</p>
+					<p class="text-sm font-medium text-gray-700">Garantía acumulada</p>
+					<p class="text-lg font-semibold mt-1">{{ $liquidacion->moneda }} {{ formato_monto((float) $liquidacion->garantia_ab) }}</p>
+					<p class="text-[11px] text-gray-500 mt-1">Capital e intereses, antes de anticipos</p>
+				</div>
+				<div class="border p-3 {{ ! $esGarantia ? 'border-emerald-400 bg-emerald-50' : 'border-gray-200' }}">
+					<p class="text-xs text-gray-500">Art. 142 literal c</p>
+					<p class="text-sm font-medium text-gray-700">30 días por año</p>
+					<p class="text-lg font-semibold mt-1">{{ $liquidacion->moneda }} {{ formato_monto((float) $liquidacion->literal_c) }}</p>
+					<p class="text-[11px] text-gray-500 mt-1">{{ $liquidacion->dias_prestaciones }} días × salario integral</p>
+				</div>
+				<div class="border border-emerald-400 bg-emerald-50 p-3">
+					<p class="text-xs text-emerald-700">Mayor de los dos cálculos</p>
+					<p class="text-sm font-semibold text-emerald-800">{{ $origenLabel }}</p>
+					<p class="text-lg font-bold text-emerald-800 mt-1">{{ $liquidacion->moneda }} {{ formato_monto((float) $liquidacion->prestaciones_mayor) }}</p>
+					<p class="text-[11px] text-emerald-700 mt-1">Diferencia: {{ $liquidacion->moneda }} {{ formato_monto((float) $liquidacion->prestaciones_diferencia) }}</p>
+				</div>
+			</div>
+			<p class="text-[11px] text-gray-500 mt-3">Comparativo informativo del cálculo original. Los importes editados posteriormente pueden diferir.</p>
+		</div>
+	@else
+		<div class="mb-4 p-3 bg-gray-50 border border-gray-200 text-gray-600 text-xs">
+			Esta liquidación no tiene registrado el comparativo Art. 142 a+b / literal c porque fue creada antes de incorporar ese detalle.
+		</div>
+	@endif
 
 	<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
 		<div class="bg-white border border-gray-200 p-4">
