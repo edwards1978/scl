@@ -42,13 +42,11 @@
 						class="w-full border border-gray-300 px-2 py-1.5 pr-8 text-sm">
 				</div>
 			</div>
-			@if ($hayRango)
-				<label class="inline-flex items-center gap-2 text-sm text-gray-700 pb-2 whitespace-nowrap">
-					<input type="hidden" name="incluir_anteriores" value="0">
-					<input type="checkbox" name="incluir_anteriores" value="1" @checked($incluirAnteriores) class="border-gray-300">
-					Incluir saldos acumulados anteriores
-				</label>
-			@endif
+			<label class="inline-flex items-center gap-2 text-sm text-gray-700 pb-2 whitespace-nowrap" title="Al filtrar, incluye los saldos anteriores a la fecha desde">
+				<input type="hidden" name="incluir_anteriores" value="0">
+				<input type="checkbox" name="incluir_anteriores" value="1" @checked($incluirAnteriores) class="border-gray-300">
+				Incluir saldos acumulados anteriores
+			</label>
 			<button class="px-4 py-1.5 text-sm bg-gray-800 text-white hover:bg-gray-900">Filtrar</button>
 			<a href="{{ route('prestaciones.show', $empleado->id) }}" class="px-3 py-1.5 text-sm border border-gray-300 text-gray-600 hover:bg-gray-50">Limpiar</a>
 		</div>
