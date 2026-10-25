@@ -28,6 +28,9 @@ class CrearEmpleado extends Component
     public string $salario_base = '0';
     public string $moneda = 'BS';
     public string $estatus = 'Activo';
+    public bool $capitaliza_intereses = false;
+    public string $capitalizacion_autorizada_desde = '';
+    public string $capitalizacion_documento = '';
 
     public bool $guardando = false;
     public ?string $exito = null;
@@ -65,13 +68,17 @@ class CrearEmpleado extends Component
             'salario_base'     => (float) $this->salario_base,
             'moneda'           => $this->moneda,
             'estatus'          => $this->estatus,
+            'capitaliza_intereses' => $this->capitaliza_intereses,
+            'capitalizacion_autorizada_desde' => $this->capitaliza_intereses ? ($this->capitalizacion_autorizada_desde ?: null) : null,
+            'capitalizacion_documento' => $this->capitaliza_intereses ? ($this->capitalizacion_documento ?: null) : null,
         ]);
 
         $this->dispatch('empleado-creado');
         $this->exito = 'Empleado creado correctamente.';
         $this->reset(['nombres', 'apellidos', 'cedula', 'fecha_nacimiento',
                        'genero', 'telefono', 'correo', 'direccion', 'cargo', 'departamento',
-                       'tipo_contrato', 'tipo_salario', 'jornada_laboral', 'salario_base', 'moneda']);
+                       'tipo_contrato', 'tipo_salario', 'jornada_laboral', 'salario_base', 'moneda',
+                       'capitaliza_intereses', 'capitalizacion_autorizada_desde', 'capitalizacion_documento']);
         $this->tipo_contrato = 'Indeterminado';
         $this->tipo_salario = 'Fijo';
         $this->moneda = 'BS';
@@ -100,6 +107,9 @@ class CrearEmpleado extends Component
             'salario_base'     => ['required', 'numeric', 'min:0'],
             'moneda'           => ['required', 'in:USD,BS'],
             'estatus'          => ['nullable', 'in:Activo,Inactivo,Suspendido'],
+            'capitaliza_intereses' => ['boolean'],
+            'capitalizacion_autorizada_desde' => ['nullable', 'date', 'before_or_equal:today', 'required_if:capitaliza_intereses,1'],
+            'capitalizacion_documento' => ['nullable', 'string', 'max:255', 'required_if:capitaliza_intereses,1'],
         ];
     }
 

@@ -140,6 +140,33 @@
                 </div>
             </fieldset>
 
+            <fieldset class="bg-white border border-gray-200 p-5">
+                <legend class="text-sm font-semibold text-gray-700 px-1">Capitalización de intereses sobre prestaciones</legend>
+                <div class="space-y-3 mt-2">
+                    <div class="flex items-start gap-2">
+                        <input id="capitaliza_intereses" type="checkbox" wire:model.live="capitaliza_intereses" class="mt-1 border-gray-300">
+                        <div>
+                            <label for="capitaliza_intereses" class="text-sm text-gray-700">Capitalizar intereses anualmente</label>
+                            <p class="text-[11px] text-gray-500">Requiere manifestación escrita del trabajador. Sin esta autorización, los intereses quedan pendientes y no se suman al capital.</p>
+                        </div>
+                    </div>
+                    @if ($capitaliza_intereses)
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-0.5">Fecha de la autorización</label>
+                                <input type="date" wire:model="capitalizacion_autorizada_desde" class="w-full border border-gray-300 px-2 py-1.5 text-sm">
+                                @error('capitalizacion_autorizada_desde') <p class="text-xs text-red-500 mt-0.5">{{ $message }}</p> @enderror
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-0.5">Documento o referencia</label>
+                                <input type="text" wire:model="capitalizacion_documento" placeholder="Ej: carta firmada 15/03/2025" class="w-full border border-gray-300 px-2 py-1.5 text-sm">
+                                @error('capitalizacion_documento') <p class="text-xs text-red-500 mt-0.5">{{ $message }}</p> @enderror
+                            </div>
+                        </div>
+                    @endif
+                </div>
+            </fieldset>
+
             <div class="flex justify-end gap-2">
                 <a href="{{ route('empleados.index') }}" class="px-3 py-1.5 text-sm border border-gray-300 text-gray-600 hover:bg-gray-50">Cancelar</a>
                 <button type="submit" wire:loading.attr="disabled" class="px-4 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">

@@ -14,6 +14,24 @@
 		{{ $empleado->nombre_completo }} · C.I. {{ $empleado->cedula }} · Ingreso {{ $empleado->fecha_ingreso?->format('d/m/Y') }}
 	</p>
 
+	@php
+		$modalidadDeposito = $empleado->patrono?->deposito_tipo ?? 'contabilidad';
+	@endphp
+	@if ($modalidadDeposito !== 'contabilidad')
+		<div class="mb-4 p-3 bg-blue-50 border border-blue-200 text-blue-800 text-xs">
+			Los intereses de esta garantía son calculados por {{ $modalidadDeposito === 'fideicomiso' ? 'la entidad bancaria del fideicomiso' : 'el Fondo Nacional de Prestaciones Sociales' }}. SCL no calcula intereses en esta modalidad.
+		</div>
+	@elseif ($empleado->capitaliza_intereses)
+		<div class="mb-4 p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs">
+			Capitalización de intereses autorizada por escrito desde {{ optional($empleado->capitalizacion_autorizada_desde)->format('d/m/Y') ?? '—' }}.
+			@if ($empleado->capitalizacion_documento) Referencia: {{ $empleado->capitalizacion_documento }}. @endif
+		</div>
+	@else
+		<div class="mb-4 p-3 bg-gray-50 border border-gray-200 text-gray-600 text-xs">
+			Intereses no capitalizados: se acumulan como pendientes y no generan intereses sobre intereses. Para capitalizarlos se requiere autorización escrita del trabajador.
+		</div>
+	@endif
+
 	<form method="GET" action="{{ route('prestaciones.show', $empleado->id) }}" class="bg-white border border-gray-200 p-3 mb-4">
 		@php
 			$desdeValor = old('desde', $desde);
@@ -167,7 +185,7 @@
 			</tbody>
 		</table>
 	</div>
-	<p class="text-xs text-gray-500 mb-4">Tasa interés %: tasa anual del BCV aplicada al cálculo del interés del período (informativa).</p>
+	<p class="text-xs text-gray-500 mb-4">Tasa interés %: tasa anual promedio entre activa y pasiva del BCV, aplicada al cálculo del interés del período (informativa).</p>
 
 	<div class="bg-white border border-gray-200 p-4 mb-4">
 		<h2 class="text-sm font-semibold text-gray-800 mb-3">Pagos de intereses</h2>

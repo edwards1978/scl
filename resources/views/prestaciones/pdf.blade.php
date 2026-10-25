@@ -118,7 +118,7 @@
 		</tr>
 	</table>
 
-	<p class="nota">Emitido: {{ now()->format('d/m/Y') }} | La tabla muestra saldos acumulados reales; los totales de movimientos son del período. | Tasa %: tasa anual BCV aplicada al interés del período (informativa).</p>
+	<p class="nota">Emitido: {{ now()->format('d/m/Y') }} | La tabla muestra saldos acumulados reales; los totales de movimientos son del período. | Tasa %: promedio entre activa y pasiva del BCV aplicado al interés del período (informativa).</p>
 
 	<div class="firma">
 		<p class="firma-label">Recibí conforme,</p>

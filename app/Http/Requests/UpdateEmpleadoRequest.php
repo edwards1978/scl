@@ -35,6 +35,9 @@ class UpdateEmpleadoRequest extends FormRequest
             'salario_base'    => ['required', 'numeric', 'min:0'],
             'moneda'          => ['required', Rule::in(['USD', 'BS'])],
             'estatus'         => ['nullable', Rule::in(['Activo', 'Inactivo', 'Suspendido'])],
+            'capitaliza_intereses' => ['boolean'],
+            'capitalizacion_autorizada_desde' => ['nullable', 'date', 'before_or_equal:today', 'required_if:capitaliza_intereses,1'],
+            'capitalizacion_documento' => ['nullable', 'string', 'max:255', 'required_if:capitaliza_intereses,1'],
         ];
     }
 

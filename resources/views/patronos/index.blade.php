@@ -30,6 +30,7 @@
 						<th class="text-left px-4 py-2">R.I.F.</th>
 						<th class="text-left px-4 py-2">Razón Social</th>
 						<th class="text-left px-4 py-2">Nombre Comercial</th>
+						<th class="text-left px-4 py-2">Depósito prestaciones</th>
 						<th class="text-center px-4 py-2">Empleados</th>
 						<th class="text-center px-4 py-2">Estado</th>
 						<th class="text-right px-4 py-2">Acciones</th>
@@ -41,6 +42,9 @@
 							<td class="px-4 py-2 text-xs font-mono">{{ $p->rif }}</td>
 							<td class="px-4 py-2">{{ $p->razon_social }}</td>
 							<td class="px-4 py-2 text-xs text-gray-500">{{ $p->nombre_comercial ?? '—' }}</td>
+							<td class="px-4 py-2 text-xs">
+								{{ $p->deposito_tipo === 'contabilidad' ? 'Contabilidad' : ($p->deposito_tipo === 'fideicomiso' ? 'Fideicomiso' : 'Fondo') }}
+							</td>
 							<td class="px-4 py-2 text-center text-xs">{{ $p->empleados_count }}</td>
 							<td class="px-4 py-2 text-center">
 								<span class="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 {{ $p->estado === 'Activo' ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-500' }}">

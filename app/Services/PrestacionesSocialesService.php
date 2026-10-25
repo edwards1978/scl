@@ -20,8 +20,13 @@ use Illuminate\Support\Collection;
  * - Depósito trimestral: 15 días de salario integral por cada trimestre.
  * - Días adicionales: se abona el acumulado completo en cada aniversario
  *   (2, 4, 6… días), con tope de 30.
- * - Interés: simple mensual sobre el CAPITAL de la garantía.
- * - El interés no pagado se capitaliza en el mes del aniversario del ingreso.
+ * - Interés: simple mensual sobre el CAPITAL de la garantía, a la tasa
+ *   promedio entre activa y pasiva del BCV.
+ * - Solo se calculan intereses cuando la garantía está abonada en la
+ *   contabilidad del patrono. En fideicomiso o fondo los calcula la entidad.
+ * - El interés no pagado se capitaliza en el aniversario SOLO si el trabajador
+ *   tiene una autorización escrita registrada.
+ * - Sin autorización, el interés queda pendiente y no genera intereses.
  * - Los anticipos reducen el capital; los préstamos NO reducen la garantía
  *   (son deuda separada).
  * - Los pagos de intereses se registran en `pagos_interes_prestaciones`.
@@ -265,10 +270,16 @@ class PrestacionesSocialesService
         }
 
         // Interés simple del mes sobre el capital (no sobre el interés pendiente).
-        $tasaInteres = $this->tasasInteres->tasaEn($cierre);
+        // Solo la modalidad "contabilidad" se calcula en SCL; en fideicomiso o
+        // fondo los intereses los determina la entidad correspondiente.
+        $modalidadDeposito = $empleado->patrono?->deposito_tipo ?? 'contabilidad';
+        $tasaInteres = null;
         $interesMes = 0.0;
-        if ($tasaInteres !== null && $capitalInicial > 0) {
-            $interesMes = round($capitalInicial * ($tasaInteres / 100 / self::MESES_ANNO), 2);
+        if ($modalidadDeposito === 'contabilidad') {
+            $tasaInteres = $this->tasasInteres->tasaEn($cierre);
+            if ($tasaInteres !== null && $capitalInicial > 0) {
+                $interesMes = round($capitalInicial * ($tasaInteres / 100 / self::MESES_ANNO), 2);
+            }
         }
 
         $anticipos = $this->anticiposDelMes($empleado, $inicio, $cierre, $moneda);
@@ -283,10 +294,18 @@ class PrestacionesSocialesService
         $capital = $capitalInicial + $depositoTrimestre + $diasAdicionales - $anticipos - $excesoPago;
         $capital = max(0.0, round($capital, 2));
 
-        // Capitalización del interés vencido y no pagado en el aniversario.
+        // Capitalización del interés vencido y no pagado en el aniversario:
+        // solo con autorización escrita vigente y modalidad contabilidad.
         $interesCapitalizado = 0.0;
         $interesPendienteFinal = $pendienteDespuesPago;
-        if ($this->esMesAniversario($empleado, $cierre) && $pendienteDespuesPago > 0) {
+        $autorizaCapitalizacion = $modalidadDeposito === 'contabilidad'
+            && (bool) $empleado->capitaliza_intereses
+            && $empleado->capitalizacion_autorizada_desde !== null
+            && $empleado->capitalizacion_autorizada_desde->lte($cierre);
+
+        if ($autorizaCapitalizacion
+            && $this->esMesAniversario($empleado, $cierre)
+            && $pendienteDespuesPago > 0) {
             $interesCapitalizado = $pendienteDespuesPago;
             $capital = round($capital + $interesCapitalizado, 2);
             $interesPendienteFinal = 0.0;

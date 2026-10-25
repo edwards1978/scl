@@ -47,6 +47,16 @@
 					</div>
 				</div>
 				<div>
+					<label class="block text-xs font-medium text-gray-600 mb-0.5">Depósito de prestaciones sociales</label>
+					<select name="deposito_tipo" class="w-full border border-gray-300 px-2 py-1.5 text-sm bg-white">
+						<option value="contabilidad" {{ old('deposito_tipo', $patrono->deposito_tipo) === 'contabilidad' ? 'selected' : '' }}>Abonado en la contabilidad de la empresa</option>
+						<option value="fideicomiso" {{ old('deposito_tipo', $patrono->deposito_tipo) === 'fideicomiso' ? 'selected' : '' }}>Fideicomiso individual (intereses calculados por la entidad bancaria)</option>
+						<option value="fondo" {{ old('deposito_tipo', $patrono->deposito_tipo) === 'fondo' ? 'selected' : '' }}>Fondo Nacional de Prestaciones Sociales (intereses calculados por el fondo)</option>
+					</select>
+					<p class="text-[11px] text-gray-500 mt-1">Solo en contabilidad SCL calcula los intereses mensuales. En fideicomiso o fondo, los intereses los determina la entidad correspondiente.</p>
+					@error('deposito_tipo') <p class="text-xs text-red-500 mt-0.5">{{ $message }}</p> @enderror
+				</div>
+				<div>
 					<label class="block text-xs font-medium text-gray-600 mb-0.5">Estado</label>
 					<select name="estado" class="w-full border border-gray-300 px-2 py-1.5 text-sm bg-white">
 						<option value="Activo" {{ $patrono->estado === 'Activo' ? 'selected' : '' }}>Activo</option>

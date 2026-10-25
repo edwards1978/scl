@@ -34,6 +34,7 @@ class UpdatePatronoRequest extends FormRequest
             'telefono'          => ['nullable', 'string', 'max:50'],
             'correo'            => ['nullable', 'email', 'max:255'],
             'estado'            => ['nullable', Rule::in(['Activo', 'Inactivo'])],
+            'deposito_tipo'     => ['required', Rule::in(['contabilidad', 'fideicomiso', 'fondo'])],
         ];
     }
 }

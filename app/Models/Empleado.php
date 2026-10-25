@@ -32,6 +32,9 @@ class Empleado extends Model
         'moneda',
         'dias_descanso',
         'estatus',
+        'capitaliza_intereses',
+        'capitalizacion_autorizada_desde',
+        'capitalizacion_documento',
     ];
 
     protected function casts(): array
@@ -44,6 +47,9 @@ class Empleado extends Model
             'moneda'           => 'string',
             'dias_descanso'    => 'string',
             'estatus'          => 'string',
+            'capitaliza_intereses' => 'boolean',
+            'capitalizacion_autorizada_desde' => 'date',
+            'capitalizacion_documento' => 'string',
         ];
     }
 
