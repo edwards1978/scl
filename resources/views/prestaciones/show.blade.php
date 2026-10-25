@@ -166,6 +166,7 @@
 			<button class="px-3 py-1.5 text-sm border border-gray-300 text-gray-600 hover:bg-gray-50">↻ Recalcular</button>
 		</form>
 		<a href="{{ route('prestaciones.pdf', $empleado->id) }}" target="_blank" rel="noopener" class="px-4 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700">Descargar PDF</a>
+		<a href="{{ route('prestaciones.excel', $empleado->id) }}" class="px-4 py-1.5 text-sm bg-emerald-600 text-white hover:bg-emerald-700">Descargar Excel</a>
 	</div>
 </div>
 @endsection

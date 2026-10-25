@@ -132,6 +132,7 @@ Route::middleware('auth')->group(function () {
         Route::post('{empleadoId}/intereses', [PrestacionesController::class, 'pagarInteres'])->name('intereses');
         Route::delete('{empleadoId}/intereses/{pago}', [PrestacionesController::class, 'destroyInteres'])->name('intereses.destroy');
         Route::get('{empleadoId}/pdf', [PrestacionesController::class, 'pdf'])->name('pdf');
+        Route::get('{empleadoId}/excel', [PrestacionesController::class, 'excel'])->name('excel');
     });
 
     // Liquidaciones de prestaciones sociales (Art. 142 lit. C LOTTT)
