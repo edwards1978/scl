@@ -45,13 +45,8 @@
 			<td class="bold">Período</td><td>{{ $desde ?? '—' }} a {{ $hasta ?? '—' }}</td>
 			<td class="bold">Totales</td>
 			<td>
-				@if ($incluirAnteriores)
-					Acumulados hasta {{ $hasta }} (incluyen períodos anteriores)
-				@elseif ($hayRango)
-					Solo del período {{ $desde }} a {{ $hasta }}
-				@else
-					Históricos
-				@endif
+				Totales del período {{ $desde }} a {{ $hasta }}
+				· {{ ! $hayRango ? 'período completo' : ($incluirAnteriores ? 'incluye saldos anteriores' : 'no incluye saldos anteriores') }}
 				({{ $periodosFiltrados }} de {{ $totalPeriodos }} períodos)
 			</td>
 		</tr>
@@ -62,13 +57,13 @@
 			<th class="right">Nº</th>
 			<th>Periodo</th>
 			<th class="right">Sal. integral</th>
-			<th class="right">Saldo inicial</th>
+			<th class="right">Saldo acum. inicial</th>
 			<th class="right">Depósito trim.</th>
 			<th class="right">Días adic.</th>
 			<th class="right">Interés</th>
 			<th class="right">Tasa %</th>
 			<th class="right">Anticipos</th>
-			<th class="right">Saldo final</th>
+			<th class="right">Saldo acum. final</th>
 		</tr>
 		@forelse ($cuenta as $c)
 			<tr>
@@ -86,20 +81,16 @@
 		@empty
 			<tr><td colspan="10" class="right">{{ $hayRango ? 'Sin períodos en el rango seleccionado.' : 'Sin periodos calculados.' }}</td></tr>
 		@endforelse
-		@php
-			$etiquetaTotales = ! $hayRango ? 'históricos' : ($incluirAnteriores ? 'acumulados hasta '.$hasta : 'del período');
-			$etiquetaNeto = ! $hayRango ? 'histórico' : ($incluirAnteriores ? 'acumulado hasta '.$hasta : 'del período');
-		@endphp
 		<tr class="total">
-			<td colspan="9" class="right bold">Totales {{ $etiquetaTotales }}</td>
+			<td colspan="9" class="right bold">Totales del período</td>
 			<td></td>
 		</tr>
 		<tr class="total">
-			<td colspan="9" class="right bold">Saldo inicial del rango</td>
+			<td colspan="9" class="right bold">Saldo inicial del período</td>
 			<td class="right bold">{{ $empleado->moneda }} {{ formato_monto($saldoInicialRango) }}</td>
 		</tr>
 		<tr class="total">
-			<td colspan="9" class="right bold">Saldo final del rango</td>
+			<td colspan="9" class="right bold">Saldo final del período</td>
 			<td class="right bold">{{ $empleado->moneda }} {{ formato_monto($saldoFinalRango) }}</td>
 		</tr>
 	</table>
@@ -118,8 +109,8 @@
 			<td class="bold">Interés capitalizado</td><td class="right">{{ $empleado->moneda }} {{ formato_monto($totalInteresesCapitalizados) }}</td>
 		</tr>
 		<tr class="total">
-			<td class="bold">Neto {{ $etiquetaNeto }}</td><td class="right">{{ $empleado->moneda }} {{ formato_monto($netoPeriodo) }}</td>
-			<td class="bold">Saldo al cierre ({{ $hasta }})</td><td class="right">{{ $empleado->moneda }} {{ formato_monto($saldoActual) }}</td>
+			<td class="bold">Neto del período</td><td class="right">{{ $empleado->moneda }} {{ formato_monto($netoPeriodo) }}</td>
+			<td class="bold">Saldo final del período</td><td class="right">{{ $empleado->moneda }} {{ formato_monto($saldoFinalRango) }}</td>
 		</tr>
 		<tr class="total">
 			<td class="bold">Interés pendiente al cierre</td><td class="right">{{ $empleado->moneda }} {{ formato_monto($interesPendiente) }}</td>
@@ -127,7 +118,7 @@
 		</tr>
 	</table>
 
-	<p class="nota">Emitido: {{ now()->format('d/m/Y') }} | Tasa %: tasa anual BCV aplicada al interés del período (informativa) | Tasa de interés promedio activa/pasiva del BCV aplicada mensualmente (Art. 143 LOTTT).</p>
+	<p class="nota">Emitido: {{ now()->format('d/m/Y') }} | La tabla muestra saldos acumulados reales; los totales de movimientos son del período. | Tasa %: tasa anual BCV aplicada al interés del período (informativa).</p>
 
 	<div class="firma">
 		<p class="firma-label">Recibí conforme,</p>
