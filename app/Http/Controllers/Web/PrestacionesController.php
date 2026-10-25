@@ -21,7 +21,7 @@ use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\Writer\Ods;
 
 class PrestacionesController extends Controller
 {
@@ -223,8 +223,8 @@ class PrestacionesController extends Controller
             ->with('success', 'Pago de intereses eliminado y estado de cuenta recalculado.');
     }
 
-    /** Exporta el estado de cuenta a Excel (.xlsx), con el mismo filtro. */
-    public function excel(Request $request, int $empleadoId)
+    /** Exporta el estado de cuenta a OpenDocument Spreadsheet (.ods), con el mismo filtro. */
+    public function hojaCalculo(Request $request, int $empleadoId)
     {
         $empleado = $this->empleadoActivo($empleadoId);
         $patrono = $this->patronoActual();
@@ -501,13 +501,13 @@ class PrestacionesController extends Controller
         }
 
         $sufijo = $hayRango ? '-'.$desde.'-a-'.$hasta : '';
-        $filename = 'estado-cuenta-prestaciones-'.(Str::slug($empleado->nombre_completo) ?: 'empleado').$sufijo.'.xlsx';
-        $writer = new Xlsx($spreadsheet);
+        $filename = 'estado-cuenta-prestaciones-'.(Str::slug($empleado->nombre_completo) ?: 'empleado').$sufijo.'.ods';
+        $writer = new Ods($spreadsheet);
 
         return response()->streamDownload(function () use ($writer) {
             $writer->save('php://output');
         }, $filename, [
-            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Type' => 'application/vnd.oasis.opendocument.spreadsheet',
         ]);
     }
 

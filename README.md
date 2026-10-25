@@ -29,6 +29,8 @@ Sistema web desarrollado en **Laravel 12** para la gestión y cálculo de presta
   - Liquidaciones finales
   - Utilidades
   - Recibos de pago
+- Estado de cuenta de prestaciones también exportable a **Hoja de Cálculo (.ods)**,
+  con filtro por período y totales del período o acumulados.
 
 ### Tecnologías
 - **Backend**: Laravel 12, PHP 8.2+
