@@ -52,6 +52,10 @@
 		</tr>
 	</table>
 
+	@if ($proyeccionHasta)
+		<p class="nota">Proyección guardada hasta {{ $proyeccionHasta }}: usa la última tasa y el último salario disponibles. Es informativa y no representa un monto causado.</p>
+	@endif
+
 	<table>
 		<tr>
 			<th class="right">Nº</th>
@@ -68,7 +72,7 @@
 		@forelse ($cuenta as $c)
 			<tr>
 				<td class="right">{{ $loop->index }}</td>
-				<td>{{ \Carbon\Carbon::createFromFormat('Y-m', $c->periodo)->format('m/Y') }}</td>
+				<td>{{ \Carbon\Carbon::createFromFormat('Y-m', $c->periodo)->format('m/Y') }}@if ($c->es_proyeccion) <span class="sub">(proyección)</span>@endif</td>
 				<td class="right">{{ $empleado->moneda }} {{ formato_monto((float) $c->salario_integral_diario) }}</td>
 				<td class="right">{{ $empleado->moneda }} {{ formato_monto((float) $c->saldo_inicial_periodo) }}</td>
 				<td class="right">{{ $c->deposito_trimestre > 0 ? $c->dias_deposito.' d · '.$empleado->moneda.' '.formato_monto((float) $c->deposito_trimestre) : '—' }}</td>

@@ -87,7 +87,9 @@ class MovimientosPrestacionesService
         $anios = app(SalarioIntegralService::class)->aniosServicio($empleado, $fecha);
         $prestaciones = app(PrestacionesSocialesService::class);
         $prestaciones->asegurarPeriodos($empleado, $fecha);
-        $registro = $prestaciones->registroEn($empleado, $fecha);
+        // Para anticipos sí se permite leer una proyección guardada; si no
+        // existe, se usa el último período real disponible.
+        $registro = $prestaciones->registroEn($empleado, $fecha, true);
         $capital = $registro
             ? (float) ($registro->capital_final ?? $registro->saldo_final)
             : 0.0;

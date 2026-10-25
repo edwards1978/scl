@@ -88,6 +88,43 @@
 		</p>
 	</form>
 
+	@if ($empleado->estaActivo())
+		<div class="bg-white border border-gray-200 p-3 mb-4">
+			<div class="flex flex-wrap items-end gap-3">
+				<form method="POST" action="{{ route('prestaciones.proyectar', $empleado->id) }}" class="flex flex-wrap items-end gap-3">
+					@csrf
+					<div>
+						<label for="hasta_proyeccion" class="block text-xs text-gray-500 mb-1">Proyectar / calcular hasta</label>
+						<input id="hasta_proyeccion" type="month" name="hasta" required
+							min="{{ $minProyeccion }}" max="{{ $maxProyeccion }}"
+							value="{{ old('hasta', $proyeccionHasta ?? $minProyeccion) }}"
+							class="border border-gray-300 px-2 py-1.5 text-sm">
+					</div>
+					<button class="px-4 py-1.5 text-sm bg-indigo-600 text-white hover:bg-indigo-700">
+						{{ $proyeccionHasta ? 'Reproyectar' : 'Proyectar' }}
+					</button>
+				</form>
+				@if ($proyeccionHasta)
+					<form method="POST" action="{{ route('prestaciones.proyeccion.destroy', $empleado->id) }}">
+						@csrf @method('DELETE')
+						<button class="px-3 py-1.5 text-sm border border-red-300 text-red-600 hover:bg-red-50">Eliminar proyección</button>
+					</form>
+				@endif
+			</div>
+			<p class="text-[11px] text-gray-500 mt-2">
+				Máximo 12 meses hacia adelante. La proyección usa la última tasa BCV disponible y el último salario registrado; queda guardada como informativa y no se usa en liquidaciones.
+				@if ($proyeccionHasta) Proyección guardada hasta <strong>{{ $proyeccionHasta }}</strong>. @endif
+			</p>
+			@error('hasta') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+		</div>
+	@endif
+
+	@if ($proyeccionHasta)
+		<div class="mb-3 p-3 bg-indigo-50 border border-indigo-200 text-indigo-800 text-xs">
+			Proyección guardada hasta {{ $proyeccionHasta }}. Si el rango la incluye, las filas aparecen marcadas como proyección. Son cifras informativas calculadas con la última tasa y el último salario; no representan un monto causado.
+		</div>
+	@endif
+
 	<div class="bg-white border border-gray-200 p-4 mb-4">
 		<div class="flex flex-wrap items-center justify-between gap-2 mb-3">
 			<h2 class="text-sm font-semibold text-gray-800">Totales del período</h2>
@@ -167,7 +204,12 @@
 				@forelse ($cuenta as $c)
 					<tr class="hover:bg-gray-50">
 						<td class="px-3 py-2 text-center text-gray-500">{{ $loop->index }}</td>
-						<td class="px-3 py-2">{{ \Carbon\Carbon::createFromFormat('Y-m', $c->periodo)->format('m/Y') }}</td>
+						<td class="px-3 py-2">
+							{{ \Carbon\Carbon::createFromFormat('Y-m', $c->periodo)->format('m/Y') }}
+							@if ($c->es_proyeccion)
+								<span class="ml-1 inline-block text-[10px] px-1.5 py-0.5 bg-indigo-100 text-indigo-700">proyección</span>
+							@endif
+						</td>
 						<td class="px-3 py-2 text-right text-gray-600">{{ formato_monto((float) $c->salario_integral_diario) }}</td>
 						<td class="px-3 py-2 text-right">{{ formato_monto((float) $c->saldo_inicial_periodo) }}</td>
 						<td class="px-3 py-2 text-right">{{ formato_monto((float) $c->capital_periodo) }}</td>

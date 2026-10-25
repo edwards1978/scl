@@ -35,6 +35,7 @@ class PrestacionSocial extends Model
         'interes_pagado',
         'anticipos',
         'saldo_final',
+        'es_proyeccion',
     ];
 
     protected function casts(): array
@@ -60,6 +61,7 @@ class PrestacionSocial extends Model
             'interes_pagado'          => 'decimal:2',
             'anticipos'               => 'decimal:2',
             'saldo_final'             => 'decimal:2',
+            'es_proyeccion'           => 'boolean',
         ];
     }
 

@@ -59,12 +59,13 @@ class PrestacionesSocialesService
     }
 
     /** Último período calculado en o antes de la fecha. */
-    public function registroEn(Empleado $empleado, ?CarbonInterface $fecha = null): ?PrestacionSocial
+    public function registroEn(Empleado $empleado, ?CarbonInterface $fecha = null, bool $incluirProyeccion = false): ?PrestacionSocial
     {
         $fecha = $fecha ?: now();
 
         return PrestacionSocial::where('empleado_id', $empleado->id)
             ->where('periodo', '<=', $fecha->format('Y-m'))
+            ->when(! $incluirProyeccion, fn ($q) => $q->where('es_proyeccion', false))
             ->orderByDesc('periodo')
             ->first();
     }
@@ -230,7 +231,7 @@ class PrestacionesSocialesService
      *               interes_mes:float, interes_capitalizado:float, interes_pagado:float,
      *               anticipos:float, saldo_final:float}
      */
-    public function calcularMes(Empleado $empleado, CarbonInterface $fechaDelMes): array
+    public function calcularMes(Empleado $empleado, CarbonInterface $fechaDelMes, bool $incluirProyeccion = false): array
     {
         $cierre = Carbon::instance($fechaDelMes)->endOfMonth();
         $inicio = Carbon::instance($fechaDelMes)->startOfMonth();
@@ -243,7 +244,7 @@ class PrestacionesSocialesService
         $trimestre = $this->trimestresCumplidos($empleado, $cierre);
         $aniosServicio = $this->aniosServicio($empleado, $cierre);
 
-        $previo = $this->registroEn($empleado, $inicio->copy()->subDay());
+        $previo = $this->registroEn($empleado, $inicio->copy()->subDay(), $incluirProyeccion);
         $capitalInicial = $previo
             ? (float) ($previo->capital_final ?? $previo->saldo_final)
             : 0.0;
@@ -361,9 +362,9 @@ class PrestacionesSocialesService
     /**
      * Registra un periodo calculado (update-or-insert por empleado+periodo).
      */
-    public function registrarMes(Empleado $empleado, CarbonInterface $fechaDelMes): PrestacionSocial
+    public function registrarMes(Empleado $empleado, CarbonInterface $fechaDelMes, bool $esProyeccion = false): PrestacionSocial
     {
-        $data = $this->calcularMes($empleado, $fechaDelMes);
+        $data = $this->calcularMes($empleado, $fechaDelMes, $esProyeccion);
 
         return PrestacionSocial::updateOrCreate(
             [
@@ -392,6 +393,7 @@ class PrestacionesSocialesService
                 'interes_pagado'          => $data['interes_pagado'],
                 'anticipos'               => $data['anticipos'],
                 'saldo_final'             => $data['saldo_final'],
+                'es_proyeccion'            => $esProyeccion,
             ]
         );
     }
@@ -428,7 +430,14 @@ class PrestacionesSocialesService
      */
     public function asegurarPeriodos(Empleado $empleado, ?CarbonInterface $hasta = null): array
     {
-        $hasta = Carbon::instance($hasta ?: now());
+        // Los períodos reales nunca se generan hacia el futuro. Las
+        // proyecciones se crean explícitamente con proyectarHasta().
+        $limite = Carbon::instance(now())->endOfMonth();
+        $hasta = Carbon::instance($hasta ?: $limite);
+        if ($hasta->gt($limite)) {
+            $hasta = $limite;
+        }
+
         $requeridos = $this->periodosRequeridos($empleado, $hasta);
 
         if (empty($requeridos)) {
@@ -466,6 +475,12 @@ class PrestacionesSocialesService
         $hasta = now();
 
         return \Illuminate\Support\Facades\DB::transaction(function () use ($empleado, $desde, $hasta) {
+            // Una proyección deja de ser válida si se recalculan los datos
+            // reales: se elimina y el usuario puede volver a proyectar.
+            PrestacionSocial::where('empleado_id', $empleado->id)
+                ->where('es_proyeccion', true)
+                ->delete();
+
             PrestacionSocial::where('empleado_id', $empleado->id)
                 ->where('periodo', '>=', $desde->format('Y-m'))
                 ->delete();
@@ -482,6 +497,75 @@ class PrestacionesSocialesService
 
             return $creados;
         });
+    }
+
+    /**
+     * Genera y guarda una proyección mensual desde el mes siguiente al último
+     * período real hasta "$hasta" (máximo 12 meses hacia adelante).
+     *
+     * La proyección usa la última tasa BCV disponible y el último salario
+     * conocido; queda marcada con es_proyeccion = true.
+     */
+    public function proyectarHasta(Empleado $empleado, string $hasta): int
+    {
+        $hastaMes = Carbon::createFromFormat('Y-m', $hasta)->startOfMonth();
+        $limite = Carbon::instance(now())->startOfMonth();
+        $maximo = $limite->copy()->addMonths(12);
+
+        if ($hastaMes->lte($limite)) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'hasta' => 'La proyección debe ser para un mes posterior al mes actual.',
+            ]);
+        }
+
+        if ($hastaMes->gt($maximo)) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'hasta' => 'La proyección no puede superar los 12 meses hacia adelante.',
+            ]);
+        }
+
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($empleado, $hastaMes, $limite) {
+            // Asegura los períodos reales hasta el mes actual.
+            $this->asegurarPeriodos($empleado, $limite->copy()->endOfMonth());
+
+            // Una nueva proyección reemplaza la anterior.
+            PrestacionSocial::where('empleado_id', $empleado->id)
+                ->where('es_proyeccion', true)
+                ->delete();
+
+            $ultimoReal = PrestacionSocial::where('empleado_id', $empleado->id)
+                ->where('es_proyeccion', false)
+                ->orderByDesc('periodo')
+                ->first();
+
+            $inicio = $ultimoReal
+                ? Carbon::createFromFormat('Y-m', $ultimoReal->periodo)->addMonth()->startOfMonth()
+                : Carbon::instance($empleado->fecha_ingreso)->startOfMonth();
+
+            if ($inicio->lte($limite)) {
+                $inicio = $limite->copy()->addMonth()->startOfMonth();
+            }
+
+            $creados = 0;
+            for ($mes = $inicio->copy(); $mes->lte($hastaMes); $mes->addMonth()) {
+                if ($mes->lte($limite)) {
+                    continue;
+                }
+
+                $this->registrarMes($empleado, $mes, true);
+                $creados++;
+            }
+
+            return $creados;
+        });
+    }
+
+    /** Elimina las proyecciones guardadas de un empleado. */
+    public function eliminarProyeccion(Empleado $empleado): int
+    {
+        return PrestacionSocial::where('empleado_id', $empleado->id)
+            ->where('es_proyeccion', true)
+            ->delete();
     }
 
     /**

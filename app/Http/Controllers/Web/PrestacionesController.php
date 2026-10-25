@@ -114,6 +114,11 @@ class PrestacionesController extends Controller
         $totalesPeriodo = $rango['totales_periodo'];
         $periodoDesde = $rango['desde'];
         $periodoHasta = $rango['hasta'];
+        $proyeccionHasta = PrestacionSocial::where('empleado_id', $empleado->id)
+            ->where('es_proyeccion', true)
+            ->max('periodo');
+        $minProyeccion = now()->addMonth()->format('Y-m');
+        $maxProyeccion = now()->addMonths(12)->format('Y-m');
 
         $pagos = PagoInteresPrestaciones::where('empleado_id', $empleado->id)
             ->orderByDesc('fecha')
@@ -125,7 +130,8 @@ class PrestacionesController extends Controller
             'totalDepositos', 'totalAdicionales', 'totalIntereses', 'totalAnticipos',
             'totalInteresesCapitalizados', 'totalInteresesPagados', 'interesPendiente', 'netoPeriodo',
             'pagos', 'desde', 'hasta', 'incluirAnteriores', 'hayRango', 'periodosFiltrados', 'totalPeriodos',
-            'totalesPeriodo', 'periodoDesde', 'periodoHasta'
+            'totalesPeriodo', 'periodoDesde', 'periodoHasta',
+            'proyeccionHasta', 'minProyeccion', 'maxProyeccion'
         ));
     }
 
@@ -162,6 +168,34 @@ class PrestacionesController extends Controller
         }
 
         return ['desde' => $desde, 'hasta' => $hasta, 'incluir_anteriores' => $incluirAnteriores];
+    }
+
+    /** Genera/guarda una proyección mensual hasta el mes indicado. */
+    public function proyectar(Request $request, int $empleadoId): RedirectResponse
+    {
+        $empleado = $this->empleadoActivo($empleadoId);
+        $data = $request->validate([
+            'hasta' => ['required', 'date_format:Y-m'],
+        ]);
+
+        try {
+            $creados = $this->service->proyectarHasta($empleado, $data['hasta']);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return back()->withErrors($e->errors())->withInput();
+        }
+
+        return redirect()->route('prestaciones.show', $empleado->id)
+            ->with('success', "Proyección generada hasta {$data['hasta']} ({$creados} período(s)). Es informativa y usa la última tasa y salario disponibles.");
+    }
+
+    /** Elimina las proyecciones guardadas del empleado. */
+    public function eliminarProyeccion(int $empleadoId): RedirectResponse
+    {
+        $empleado = $this->empleadoActivo($empleadoId);
+        $eliminados = $this->service->eliminarProyeccion($empleado);
+
+        return redirect()->route('prestaciones.show', $empleado->id)
+            ->with('success', "Proyección eliminada ({$eliminados} período(s)).");
     }
 
     /** Recalcula el estado de cuenta completo de un empleado. */
@@ -263,6 +297,9 @@ class PrestacionesController extends Controller
         $saldoFinalRango = round($saldoInicialRango + $netoPeriodo, 2);
         $saldoActual = $saldoFinalRango;
         $interesPendiente = $rango['interes_pendiente'];
+        $proyeccionHasta = PrestacionSocial::where('empleado_id', $empleado->id)
+            ->where('es_proyeccion', true)
+            ->max('periodo');
         $etiquetaTotales = 'Totales del período';
         $estadoAnteriores = ! $hayRango
             ? 'Período completo'
@@ -291,7 +328,8 @@ class PrestacionesController extends Controller
 
         $sheet->mergeCells('A4:P4');
         $sheet->setCellValue('A4', 'Período: '.($desde ?? '—').' a '.($hasta ?? '—')
-            .' · '.$etiquetaTotales.' · '.$estadoAnteriores.' · '.$rango['periodos_filtrados'].' de '.$rango['total_periodos'].' período(s)');
+            .' · '.$etiquetaTotales.' · '.$estadoAnteriores.' · '.$rango['periodos_filtrados'].' de '.$rango['total_periodos'].' período(s)'
+            .($proyeccionHasta ? ' · Proyección guardada hasta '.$proyeccionHasta : ''));
         $sheet->getStyle('A4')->getFont()->setItalic(true)->getColor()->setARGB('FF555555');
 
         $sheet->setCellValue('A5', 'Trabajador');
@@ -359,7 +397,7 @@ class PrestacionesController extends Controller
         $numero = 0;
         foreach ($cuenta as $c) {
             $sheet->setCellValue('A'.$row, $numero++);
-            $sheet->setCellValue('B'.$row, Carbon::createFromFormat('Y-m', $c->periodo)->format('m/Y'));
+            $sheet->setCellValue('B'.$row, Carbon::createFromFormat('Y-m', $c->periodo)->format('m/Y').($c->es_proyeccion ? ' (proyección)' : ''));
             $sheet->setCellValue('C'.$row, (float) $c->salario_integral_diario);
             $sheet->setCellValue('D'.$row, (float) $c->saldo_inicial_periodo);
             $sheet->setCellValue('E'.$row, (float) $c->capital_periodo);
@@ -547,6 +585,9 @@ class PrestacionesController extends Controller
         $totalInteresesPagados = $totales['pagados'];
         $totalAnticipos = $totales['anticipos'];
         $periodoDesde = $desde;
+        $proyeccionHasta = PrestacionSocial::where('empleado_id', $empleado->id)
+            ->where('es_proyeccion', true)
+            ->max('periodo');
         $periodosFiltrados = $rango['periodos_filtrados'];
         $totalPeriodos = $rango['total_periodos'];
 
@@ -574,6 +615,7 @@ class PrestacionesController extends Controller
             'periodosFiltrados' => $periodosFiltrados,
             'totalPeriodos'  => $totalPeriodos,
             'periodoDesde'   => $periodoDesde,
+            'proyeccionHasta' => $proyeccionHasta,
         ])->setPaper('letter', 'landscape')
           ->stream("estado-cuenta-prestaciones-{$empleado->nombre_completo}{$sufijo}.pdf");
     }
