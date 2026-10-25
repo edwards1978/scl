@@ -66,6 +66,7 @@
 			<th class="right">Depósito trim.</th>
 			<th class="right">Días adic.</th>
 			<th class="right">Interés</th>
+			<th class="right">Tasa %</th>
 			<th class="right">Anticipos</th>
 			<th class="right">Saldo final</th>
 		</tr>
@@ -78,25 +79,26 @@
 				<td class="right">{{ $c->deposito_trimestre > 0 ? $c->dias_deposito.' d · '.$empleado->moneda.' '.formato_monto((float) $c->deposito_trimestre) : '—' }}</td>
 				<td class="right">{{ $c->dias_adicionales > 0 ? $c->dias_adicionales_cont.' d · '.$empleado->moneda.' '.formato_monto((float) $c->dias_adicionales) : '—' }}</td>
 				<td class="right">{{ $c->interes_mes > 0 ? $empleado->moneda.' '.formato_monto((float) $c->interes_mes) : '—' }}</td>
+				<td class="right">{{ $c->tasa_interes !== null ? formato_monto((float) $c->tasa_interes, 4) : '—' }}</td>
 				<td class="right">{{ $c->anticipos > 0 ? '- '.$empleado->moneda.' '.formato_monto((float) $c->anticipos) : '—' }}</td>
 				<td class="right bold">{{ $empleado->moneda }} {{ formato_monto((float) $c->saldo_final) }}</td>
 			</tr>
 		@empty
-			<tr><td colspan="9" class="right">{{ $hayRango ? 'Sin períodos en el rango seleccionado.' : 'Sin periodos calculados.' }}</td></tr>
+			<tr><td colspan="10" class="right">{{ $hayRango ? 'Sin períodos en el rango seleccionado.' : 'Sin periodos calculados.' }}</td></tr>
 		@endforelse
 		@php
 			$etiquetaTotales = $soloPeriodo ? 'del período' : ($hayRango ? 'acumulados hasta '.$hasta : 'históricos');
 		@endphp
 		<tr class="total">
-			<td colspan="8" class="right bold">Totales {{ $etiquetaTotales }}</td>
+			<td colspan="9" class="right bold">Totales {{ $etiquetaTotales }}</td>
 			<td></td>
 		</tr>
 		<tr class="total">
-			<td colspan="8" class="right bold">Saldo inicial del rango</td>
+			<td colspan="9" class="right bold">Saldo inicial del rango</td>
 			<td class="right bold">{{ $empleado->moneda }} {{ formato_monto($saldoInicialRango) }}</td>
 		</tr>
 		<tr class="total">
-			<td colspan="8" class="right bold">Saldo final del rango</td>
+			<td colspan="9" class="right bold">Saldo final del rango</td>
 			<td class="right bold">{{ $empleado->moneda }} {{ formato_monto($saldoFinalRango) }}</td>
 		</tr>
 	</table>
@@ -124,7 +126,7 @@
 		</tr>
 	</table>
 
-	<p class="nota">Emitido: {{ now()->format('d/m/Y') }} | Tasa de interés promedio activa/pasiva del BCV aplicada mensualmente (Art. 143 LOTTT).</p>
+	<p class="nota">Emitido: {{ now()->format('d/m/Y') }} | Tasa %: tasa anual BCV aplicada al interés del período (informativa) | Tasa de interés promedio activa/pasiva del BCV aplicada mensualmente (Art. 143 LOTTT).</p>
 
 	<div class="firma">
 		<p class="firma-label">Recibí conforme,</p>

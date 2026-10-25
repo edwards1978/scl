@@ -137,6 +137,7 @@
 					<th class="text-right px-3 py-2">Depósito trim.</th>
 					<th class="text-right px-3 py-2">Días adic.</th>
 					<th class="text-right px-3 py-2">Interés</th>
+					<th class="text-right px-3 py-2">Tasa interés %</th>
 					<th class="text-right px-3 py-2">Int. pend.</th>
 					<th class="text-right px-3 py-2">Int. pag.</th>
 					<th class="text-right px-3 py-2">Anticipos</th>
@@ -159,17 +160,19 @@
 								<div class="text-[10px] text-amber-600">cap. {{ formato_monto((float) $c->interes_capitalizado) }}</div>
 							@endif
 						</td>
+						<td class="px-3 py-2 text-right">{{ $c->tasa_interes !== null ? formato_monto((float) $c->tasa_interes, 4) : '—' }}</td>
 						<td class="px-3 py-2 text-right">{{ (float) ($c->interes_pendiente_final ?? 0) > 0 ? formato_monto((float) $c->interes_pendiente_final) : '—' }}</td>
 						<td class="px-3 py-2 text-right">{{ (float) ($c->interes_pagado ?? 0) > 0 ? formato_monto((float) $c->interes_pagado) : '—' }}</td>
 						<td class="px-3 py-2 text-right text-red-600">{{ $c->anticipos > 0 ? '- '.formato_monto((float) $c->anticipos) : '—' }}</td>
 						<td class="px-3 py-2 text-right font-medium">{{ formato_monto((float) $c->saldo_final) }}</td>
 					</tr>
 				@empty
-					<tr><td colspan="12" class="text-center py-8 text-gray-400">{{ $hayRango ? 'Sin períodos en el rango seleccionado.' : 'Sin periodos calculados.' }}</td></tr>
+					<tr><td colspan="13" class="text-center py-8 text-gray-400">{{ $hayRango ? 'Sin períodos en el rango seleccionado.' : 'Sin periodos calculados.' }}</td></tr>
 				@endforelse
 			</tbody>
 		</table>
 	</div>
+	<p class="text-xs text-gray-500 mb-4">Tasa interés %: tasa anual del BCV aplicada al cálculo del interés del período (informativa).</p>
 
 	<div class="bg-white border border-gray-200 p-4 mb-4">
 		<h2 class="text-sm font-semibold text-gray-800 mb-3">Pagos de intereses</h2>
