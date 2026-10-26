@@ -39,11 +39,7 @@
 				<p class="text-xs text-gray-500 mb-1">Motivo</p>
 				<p class="text-lg font-semibold">{{ $movimiento->labelMotivo() ?? '—' }}</p>
 			</div>
-			<div class="bg-white border border-gray-200 p-4">
-				<p class="text-xs text-gray-500 mb-1">Intereses pagados</p>
-				<p class="text-lg font-semibold">{{ $movimiento->moneda }} {{ formato_monto($movimiento->totalInteresesPagados()) }}</p>
-			</div>
-		@endif
+			@endif
 	</div>
 
 	<div class="bg-white border border-gray-200 p-5 mb-4">
@@ -76,6 +72,7 @@
 		</div>
 	</div>
 
+	@if (! $movimiento->esAnticipo())
 	<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
 		{{-- Registrar interés --}}
 		<div class="bg-white border border-gray-200 p-5">
@@ -112,21 +109,19 @@
 		{{-- Abono a préstamo --}}
 		<div class="bg-white border border-gray-200 p-5">
 			<h2 class="text-sm font-semibold text-gray-700 mb-3">Abonar a préstamo</h2>
-			@if ($movimiento->esAnticipo())
-				<p class="text-xs text-gray-500">Los anticipos no admiten abonos parciales.</p>
-			@else
-				<form method="POST" action="{{ route('movimientos-prestaciones.abonar', $movimiento) }}" class="space-y-3">
-					@csrf
-					<div>
-						<label class="block text-xs font-medium text-gray-600 mb-0.5">Monto del abono</label>
-						<input type="number" name="monto" step="0.01" min="0.01" max="{{ $movimiento->saldo }}" required class="w-full border border-gray-300 px-2 py-1.5 text-sm">
-					</div>
-					<button class="px-3 py-1.5 text-sm bg-green-600 text-white hover:bg-green-700">Registrar abono</button>
-				</form>
-			@endif
+			<form method="POST" action="{{ route('movimientos-prestaciones.abonar', $movimiento) }}" class="space-y-3">
+				@csrf
+				<div>
+					<label class="block text-xs font-medium text-gray-600 mb-0.5">Monto del abono</label>
+					<input type="number" name="monto" step="0.01" min="0.01" max="{{ $movimiento->saldo }}" required class="w-full border border-gray-300 px-2 py-1.5 text-sm">
+				</div>
+				<button class="px-3 py-1.5 text-sm bg-green-600 text-white hover:bg-green-700">Registrar abono</button>
+			</form>
 		</div>
 	</div>
+	@endif
 
+	@if (! $movimiento->esAnticipo())
 	{{-- Intereses registrados --}}
 	<div class="bg-white border border-gray-200 overflow-x-auto mb-4">
 		<table class="w-full text-sm">
@@ -152,6 +147,7 @@
 			</tbody>
 		</table>
 	</div>
+	@endif
 
 	{{-- Acciones de estatus --}}
 	<div class="flex justify-end gap-2">

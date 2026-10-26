@@ -156,6 +156,7 @@ class MovimientosPrestacionesController extends Controller
     public function registrarInteres(Request $request, MovimientoPrestaciones $movimiento): RedirectResponse
     {
         abort_if((int) $movimiento->patrono_id !== (int) session('patrono_id'), 404);
+        abort_if($movimiento->esAnticipo(), 409, 'Los anticipos no generan intereses.');
 
         $validated = $request->validate([
             'fecha'   => ['required', 'date'],
