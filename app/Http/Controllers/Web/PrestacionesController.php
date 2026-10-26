@@ -125,16 +125,11 @@ class PrestacionesController extends Controller
         $minProyeccion = now()->addMonth()->format('Y-m');
         $maxProyeccion = now()->addMonths(12)->format('Y-m');
 
-        $pagos = PagoInteresPrestaciones::where('empleado_id', $empleado->id)
-            ->orderByDesc('fecha')
-            ->orderByDesc('id')
-            ->get();
-
         return view('prestaciones.show', compact(
             'empleado', 'cuenta', 'saldoActual', 'saldoInicialRango', 'saldoFinalRango',
             'totalDepositos', 'totalAdicionales', 'totalIntereses', 'totalAnticipos',
             'totalInteresesCapitalizados', 'totalInteresesPagados', 'interesPendiente', 'netoPeriodo',
-            'pagos', 'desde', 'hasta', 'incluirAnteriores', 'hayRango', 'periodosFiltrados', 'totalPeriodos',
+            'desde', 'hasta', 'incluirAnteriores', 'hayRango', 'periodosFiltrados', 'totalPeriodos',
             'totalesPeriodo', 'periodoDesde', 'periodoHasta',
             'proyeccionHasta', 'minProyeccion', 'maxProyeccion', 'incluyeProyeccion'
         ));

@@ -96,6 +96,10 @@
 			<button type="submit" class="px-4 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700">Registrar movimiento</button>
 		</div>
 	</form>
+
+	<div id="pagos-intereses-panel" class="mt-4">
+		<p class="text-xs text-gray-500">Seleccione un trabajador para registrar pagos de intereses sobre sus prestaciones.</p>
+	</div>
 </div>
 @endsection
 
@@ -137,6 +141,30 @@
 		empleado.addEventListener('change', actualizarInfoSaldo);
 		fecha.addEventListener('change', actualizarInfoSaldo);
 		if (empleado.value) actualizarInfoSaldo();
+
+		const panelPagos = document.getElementById('pagos-intereses-panel');
+		const panelUrl = "{{ route('movimientos-prestaciones.intereses.panel', ['empleadoId' => '__EMPLEADO__']) }}";
+
+		async function cargarPagosIntereses() {
+			if (!panelPagos) return;
+			if (!empleado.value) {
+				panelPagos.innerHTML = '<p class="text-xs text-gray-500">Seleccione un trabajador para registrar pagos de intereses sobre sus prestaciones.</p>';
+				return;
+			}
+			try {
+				const res = await fetch(panelUrl.replace('__EMPLEADO__', empleado.value), { headers: { 'Accept': 'text/html' } });
+				if (!res.ok) {
+					panelPagos.innerHTML = '<p class="text-xs text-red-600">No se pudo cargar el panel de intereses.</p>';
+					return;
+				}
+				panelPagos.innerHTML = await res.text();
+			} catch (e) {
+				panelPagos.innerHTML = '<p class="text-xs text-red-600">No se pudo cargar el panel de intereses.</p>';
+			}
+		}
+
+		empleado.addEventListener('change', cargarPagosIntereses);
+		cargarPagosIntereses();
 	});
 </script>
 @endpush

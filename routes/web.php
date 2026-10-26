@@ -117,6 +117,9 @@ Route::middleware('auth')->group(function () {
         Route::get('crear', [MovimientosPrestacionesController::class, 'create'])->name('create');
         Route::post('/', [MovimientosPrestacionesController::class, 'store'])->name('store');
         Route::get('maximo/{empleadoId}', [MovimientosPrestacionesController::class, 'maximo'])->name('maximo');
+        Route::get('intereses/{empleadoId}', [MovimientosPrestacionesController::class, 'interesesPanel'])->name('intereses.panel');
+        Route::post('intereses/{empleadoId}', [MovimientosPrestacionesController::class, 'pagarInteresPrestaciones'])->name('intereses.prestaciones');
+        Route::delete('intereses/{empleadoId}/{pago}', [MovimientosPrestacionesController::class, 'destroyInteresPrestaciones'])->name('intereses.prestaciones.destroy');
         Route::get('{movimiento}/comprobante', [MovimientosPrestacionesController::class, 'comprobante'])->name('comprobante');
         Route::get('{movimiento}', [MovimientosPrestacionesController::class, 'show'])->name('show');
         Route::post('{movimiento}/intereses', [MovimientosPrestacionesController::class, 'registrarInteres'])->name('intereses');
