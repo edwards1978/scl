@@ -9,9 +9,11 @@ use App\Models\Empleado;
 use App\Models\MovimientoPrestaciones;
 use App\Models\Patrono;
 use App\Services\MovimientosPrestacionesService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -132,6 +134,22 @@ class MovimientosPrestacionesController extends Controller
         $movimiento->load(['empleado', 'intereses']);
 
         return view('movimientos-prestaciones.show', compact('movimiento'));
+    }
+
+    /** Comprobante/recibo de pago del movimiento en PDF. */
+    public function comprobante(MovimientoPrestaciones $movimiento)
+    {
+        abort_if((int) $movimiento->patrono_id !== (int) session('patrono_id'), 404);
+
+        $movimiento->load(['empleado', 'patrono', 'intereses']);
+
+        $archivo = 'comprobante-'.($movimiento->labelTipo() === 'Anticipo' ? 'anticipo' : 'prestamo')
+            .'-'.(Str::slug($movimiento->empleado->nombre_completo) ?: 'trabajador')
+            .'-'.$movimiento->id.'.pdf';
+
+        return Pdf::loadView('movimientos-prestaciones.comprobante', compact('movimiento'))
+            ->setPaper('letter', 'portrait')
+            ->stream($archivo);
     }
 
     /** Registra el pago de intereses de un movimiento. */

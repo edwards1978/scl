@@ -5,9 +5,12 @@
 	$emp = $movimiento->empleado;
 @endphp
 <div class="p-4 mx-auto max-w-4xl">
-	<div class="flex items-center justify-between mb-1">
+	<div class="flex items-center justify-between mb-1 gap-2">
 		<h1 class="text-xl font-semibold">{{ $movimiento->labelTipo() }} de Prestaciones</h1>
-		<a href="{{ route('movimientos-prestaciones.index') }}" class="px-3 py-1.5 text-sm border border-gray-300 text-gray-600 hover:bg-gray-50">← Volver</a>
+		<div class="flex items-center gap-2">
+			<a href="{{ route('movimientos-prestaciones.comprobante', $movimiento) }}" target="_blank" rel="noopener" class="px-3 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700">Comprobante PDF</a>
+			<a href="{{ route('movimientos-prestaciones.index') }}" class="px-3 py-1.5 text-sm border border-gray-300 text-gray-600 hover:bg-gray-50">← Volver</a>
+		</div>
 	</div>
 	<p class="text-sm text-gray-600 mb-4">
 		{{ $emp->nombre_completo }} · C.I. {{ $emp->cedula }}
