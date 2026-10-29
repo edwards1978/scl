@@ -10,6 +10,7 @@ use App\Models\Liquidacion;
 use App\Models\Patrono;
 use App\Services\LiquidacionService;
 use App\Services\PrestacionesSocialesService;
+use App\Services\SueldosService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
@@ -23,6 +24,7 @@ class LiquidacionController extends Controller
     public function __construct(
         private LiquidacionService $service = new LiquidacionService,
         private PrestacionesSocialesService $prestaciones = new PrestacionesSocialesService,
+        private SueldosService $sueldos = new SueldosService,
     ) {}
 
     private function patronoActual(): Patrono
@@ -107,11 +109,17 @@ class LiquidacionController extends Controller
 
         DB::transaction(function () use ($liquidacion) {
             $liquidacion->update(['estatus' => 'aprobada']);
-            $liquidacion->empleado->update(['estatus' => 'Inactivo']);
+            $empleado = $liquidacion->empleado;
+            $empleado->update(['estatus' => 'Inactivo']);
+
+            // No deben quedar sueldos devengados después del mes de egreso.
+            $empleado->sueldos()
+                ->where('periodo', '>', $liquidacion->fecha_egreso->format('Y-m'))
+                ->delete();
 
             // Con el egreso ya vigente, los períodos se recalculan con corte en
             // esa fecha para guardar la fracción del último trimestre.
-            $this->prestaciones->regenerar($liquidacion->empleado);
+            $this->prestaciones->regenerar($empleado);
         });
 
         return redirect()->route('liquidaciones.show', $liquidacion->id)
@@ -131,10 +139,15 @@ class LiquidacionController extends Controller
 
         DB::transaction(function () use ($liquidacion) {
             $liquidacion->update(['estatus' => 'anulada']);
-            $this->reactivarSiCorresponde($liquidacion->empleado, $liquidacion->id);
+            $empleado = $liquidacion->empleado;
+            $this->reactivarSiCorresponde($empleado, $liquidacion->id);
 
             // Sin el egreso vigente se restablecen los períodos posteriores.
-            $this->prestaciones->regenerar($liquidacion->empleado);
+            $this->prestaciones->regenerar($empleado);
+
+            if ($empleado->estaActivo()) {
+                $this->sueldos->regenerarSueldos($empleado);
+            }
         });
 
         return redirect()->route('liquidaciones.show', $liquidacion->id)

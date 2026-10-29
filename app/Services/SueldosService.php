@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Models\CambioSalario;
 use App\Models\Empleado;
+use App\Models\Liquidacion;
 use App\Models\Sueldo;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
@@ -175,13 +176,28 @@ class SueldosService
 
     /**
      * Periodos (YYYY-MM) que deben existir para un empleado: desde el mes de
-     * ingreso hasta el mes actual (cerrado).
+     * ingreso hasta el mes actual (cerrado). Si tiene una liquidación aprobada,
+     * se detiene en el mes de egreso: no se generan sueldos posteriores.
      */
     public function periodosRequeridos(Empleado $empleado, ?CarbonInterface $hasta = null): array
     {
         $hasta = Carbon::instance($hasta ?: now());
         $inicio = Carbon::instance($empleado->fecha_ingreso)->startOfMonth();
         $fin = $hasta->startOfMonth();
+
+        $fechaEgreso = Liquidacion::query()
+            ->where('empleado_id', $empleado->id)
+            ->where('estatus', 'aprobada')
+            ->orderByDesc('fecha_egreso')
+            ->value('fecha_egreso');
+
+        if ($fechaEgreso !== null) {
+            $finEgreso = Carbon::parse($fechaEgreso)->startOfMonth();
+
+            if ($finEgreso->lt($fin)) {
+                $fin = $finEgreso;
+            }
+        }
 
         if ($fin->lt($inicio)) {
             return [];

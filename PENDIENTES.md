@@ -1,7 +1,7 @@
 # Pendientes vigentes — SCL
 
 **Actualizado:** 29/10/2026
-**Estado:** suite 189 pruebas / 802 aserciones en verde; Pint limpio; CI #11 en verde.
+**Estado:** suite 195 pruebas / 821 aserciones en verde; Pint limpio; CI pendiente de verificar tras el último push.
 
 Este archivo reúne lo que queda pendiente de funcionalidades **ya existentes**. No incluye ideas nuevas.
 
@@ -20,22 +20,14 @@ La purga definitiva y la retención automática ya están implementadas. Quedan 
 
 ## Prioridad alta
 
-1. **Anomalía de datos: empleado 10.**
-   El empleado 10 (LUIS DIAZ) sigue `Activo` con una liquidación `aprobada` del 07/08/2026. Hay que confirmar si fue reincorporado o regularizar su estatus antes de nuevos cálculos.
-
-2. **Dependencias con avisos de seguridad.**
+1. **Dependencias con avisos de seguridad.**
    `composer audit --locked --no-dev` reporta **24 avisos en 7 paquetes**. `livewire/livewire 4.3.3` está afectado por un XSS; hay versión 4.4.8 disponible. Requiere aprobación para actualizar dependencias y añadir `composer audit` al CI.
 
-3. **Fórmulas pendientes de firma legal/contable.**
+2. **Fórmulas pendientes de firma legal/contable.**
    Días adicionales acumulativos, intereses cuando gana el literal c, deducción de intereses de préstamos y base de alícuota de utilidades. No se deben cambiar sin decisión del usuario.
 
-### Resuelto (29/10/2026)
-
-- **Utilidades: bonificaciones aprobadas protegidas.** `UtilidadesService::calcularBonificacion()` lanza `DomainException` si la bonificación existente está `aprobado`; el cálculo masivo la omite y reporta cuántas recalculó/omitió; el recálculo individual devuelve error; la vista oculta la acción y muestra un candado. Cubierto por `tests/Feature/Utilidades/ProtegerAprobadasTest.php`.
-
-### Pendiente relacionado
-
-- **Calidad del cálculo histórico de utilidades.** El último sueldo no se filtra por año, el promedio divide entre filas con valores nulos y la tasa BCV es la del día del cálculo. Requiere decisión funcional/legal antes de tocarlo.
+3. **Calidad del cálculo histórico de utilidades.**
+   El último sueldo no se filtra por año, el promedio divide entre filas con valores nulos y la tasa BCV es la del día del cálculo. Requiere decisión funcional/legal antes de tocarlo.
 
 ---
 
@@ -61,9 +53,21 @@ La purga definitiva y la retención automática ya están implementadas. Quedan 
 
 8. **Rendimiento.** N+1 en `PrestacionesController@index()`, reportes de vacaciones y generación síncrona de períodos/proyecciones.
 
-9. **Cobertura de pruebas.** Faltan casos de vacaciones, liquidaciones, utilidades, sueldos e importación/exportación.
+9. **Cobertura de pruebas.** Faltan casos de vacaciones, importación/exportación y flujos completos de liquidación.
 
 10. **Mantenimiento.**
     - README desactualizado y archivos Excel de ejemplo en la raíz.
     - Dos migraciones comparten el prefijo `2026_10_29_000002`.
     - `PrestacionesSocialesService` concentra demasiadas responsabilidades.
+
+---
+
+## Resuelto
+
+### 29/10/2026
+
+- **Utilidades: bonificaciones aprobadas protegidas.** `UtilidadesService::calcularBonificacion()` lanza `DomainException` si la bonificación existente está `aprobado`; el cálculo masivo la omite y reporta cuántas recalculó/omitió; el recálculo individual devuelve error; la vista oculta la acción y muestra un candado. Cubierto por `tests/Feature/Utilidades/ProtegerAprobadasTest.php`.
+
+- **Empleado 10 (LUIS DIAZ) regularizado.** Se confirmó que no fue reincorporado tras el retiro del 07/08/2026. El empleado quedó `Inactivo`, con lo que se bloquean nuevos cálculos y la generación de sueldos. Sus vacaciones ya estaban disfrutadas y no tenía períodos pendientes.
+
+- **Sueldos posteriores al egreso.** `SueldosService::periodosRequeridos()` ahora se detiene en el mes de egreso de la última liquidación aprobada. Al aprobar una liquidación se eliminan los sueldos devengados después de ese mes. Se eliminaron **13 filas** generadas por error el 29/10 en 7 trabajadores ya liquidados (2026-09 y 2026-10). Cubierto por `tests/Feature/Sueldos/SueldosPostEgresoTest.php`.
