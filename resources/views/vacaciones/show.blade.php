@@ -72,11 +72,17 @@
 				<input type="hidden" name="accion" value="aprobar">
 				<button class="px-3 py-1.5 text-sm bg-amber-600 text-white hover:bg-amber-700">✓ Aprobar</button>
 			</form>
-		@elseif ($vacacion->estatus_calculo === 'aprobada' && ! in_array($vacacion->estatus_vacacion, ['pagada', 'disfrutada'], true))
-			<form action="{{ route('vacaciones.estatus', $vacacion) }}" method="POST" onsubmit="return confirm('¿Marcar como pagada y disfrutada?')">
+		@elseif ($vacacion->puedePagar())
+			<form action="{{ route('vacaciones.estatus', $vacacion) }}" method="POST" onsubmit="return confirm('¿Registrar el pago y emitir el recibo?')">
 				@csrf @method('PUT')
 				<input type="hidden" name="accion" value="pagar">
-				<button class="px-3 py-1.5 text-sm bg-green-600 text-white hover:bg-green-700">💰 Pagar y disfrutar</button>
+				<button class="px-3 py-1.5 text-sm bg-green-600 text-white hover:bg-green-700">💰 Registrar pago</button>
+			</form>
+		@elseif ($vacacion->puedeDisfrutar())
+			<form action="{{ route('vacaciones.estatus', $vacacion) }}" method="POST" onsubmit="return confirm('¿Marcar este periodo como disfrutado?')">
+				@csrf @method('PUT')
+				<input type="hidden" name="accion" value="disfrutar">
+				<button class="px-3 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700">🏖 Marcar disfrutada</button>
 			</form>
 		@endif
 		@if ($vacacion->puedeAnular())

@@ -140,7 +140,7 @@ class Vacacion extends Model
     public function labelEstatusVacacion(): string
     {
         return match ($this->estatus_vacacion) {
-            'pagada' => 'Pagada / Disfrutada',
+            'pagada' => 'Pagada',
             'disfrutada' => 'Disfrutada',
             default => 'Pendiente',
         };
@@ -158,7 +158,8 @@ class Vacacion extends Model
     public function colorEstatusVacacion(): string
     {
         return match ($this->estatus_vacacion) {
-            'pagada', 'disfrutada' => 'bg-blue-50 text-blue-700',
+            'pagada' => 'bg-emerald-50 text-emerald-700',
+            'disfrutada' => 'bg-blue-50 text-blue-700',
             default => 'bg-gray-100 text-gray-500',
         };
     }
@@ -177,7 +178,13 @@ class Vacacion extends Model
     public function puedePagar(): bool
     {
         return $this->estatus_calculo === 'aprobada'
-            && ! in_array($this->estatus_vacacion, ['pagada', 'disfrutada'], true);
+            && $this->estatus_vacacion === 'pendiente';
+    }
+
+    public function puedeDisfrutar(): bool
+    {
+        return $this->estatus_calculo === 'aprobada'
+            && $this->estatus_vacacion === 'pagada';
     }
 
     public function puedeBorrar(): bool

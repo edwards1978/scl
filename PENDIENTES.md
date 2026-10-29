@@ -1,7 +1,7 @@
 # Pendientes vigentes — SCL
 
 **Actualizado:** 29/10/2026
-**Estado:** suite 195 pruebas / 821 aserciones en verde; Pint limpio; CI en verde (último run verificado: #15).
+**Estado:** suite 200 pruebas / 841 aserciones en verde; Pint limpio; CI pendiente de verificar tras el último push.
 
 Este archivo reúne lo que queda pendiente de funcionalidades **ya existentes**. No incluye ideas nuevas.
 
@@ -31,8 +31,6 @@ La purga definitiva y la retención automática ya están implementadas. Quedan 
 ## Prioridad media
 
 3. **Vacaciones.**
-   - `accionPagar()` marca `disfrutada`; el estado `pagada` no se usa (0 registros frente a 14 `disfrutada`).
-   - `reciboPdf()` es un GET con efecto de escritura: crea el recibo si no existe.
    - Revisar el recálculo de períodos anulados y la validación de descansos/feriados/deducciones.
 
 4. **Despliegue.**
@@ -50,7 +48,7 @@ La purga definitiva y la retención automática ya están implementadas. Quedan 
 
 7. **Rendimiento.** N+1 en `PrestacionesController@index()`, reportes de vacaciones y generación síncrona de períodos/proyecciones.
 
-8. **Cobertura de pruebas.** Faltan casos de vacaciones, importación/exportación y flujos completos de liquidación.
+8. **Cobertura de pruebas.** Faltan casos de importación/exportación y flujos completos de liquidación.
 
 9. **Mantenimiento.**
     - README desactualizado y archivos Excel de ejemplo en la raíz.
@@ -62,6 +60,8 @@ La purga definitiva y la retención automática ya están implementadas. Quedan 
 ## Resuelto
 
 ### 29/10/2026
+
+- **Vacaciones: pago y disfrute separados.** `pagar` emite el recibo y deja el estatus en `pagada`; una acción explícita `disfrutar` lo pasa a `disfrutada`. El listado y el detalle muestran un botón para cada paso, y el filtro distingue ambos estados. El GET del PDF ya no crea recibos: devuelve error si la vacación no está pagada. Cubierto por `tests/Feature/Vacaciones/PagarYDisfrutarTest.php`.
 
 - **Dependencias actualizadas y auditadas.** Sin avisos en `composer audit` ni en `npm audit`. Se actualizaron Laravel 12.64.0 → 12.70.2, Livewire 4.3.3 → 4.4.8, PhpSpreadsheet 5.9.0 → 5.10.0, league/commonmark 2.8.3 → 2.10.4, Flysystem 3.35.2 → 3.36.0 y Symfony 7.4.x → 7.4.22. Se agregó `composer audit --locked --no-dev` como paso bloqueante del CI.
 

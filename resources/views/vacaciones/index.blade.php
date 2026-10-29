@@ -48,7 +48,8 @@
 			<select name="estatus_vacacion" class="border border-gray-300 px-2 py-1.5 text-sm bg-white w-44">
 				<option value="">Todos</option>
 				<option value="pendiente" {{ request('estatus_vacacion') == 'pendiente' ? 'selected' : '' }}>Pendiente</option>
-				<option value="pagada" {{ request('estatus_vacacion') == 'pagada' ? 'selected' : '' }}>Pagada/Disfrutada</option>
+				<option value="pagada" {{ request('estatus_vacacion') == 'pagada' ? 'selected' : '' }}>Pagada</option>
+				<option value="disfrutada" {{ request('estatus_vacacion') == 'disfrutada' ? 'selected' : '' }}>Disfrutada</option>
 			</select>
 		</div>
 		<button type="submit" class="px-3 py-1.5 text-sm border border-gray-300 text-gray-600 hover:bg-gray-50">Filtrar</button>
@@ -103,10 +104,16 @@
 									</a>
 									@can('aprobar')
 									@if ($v->puedePagar())
-										<form action="{{ route('vacaciones.estatus', $v) }}" method="POST" onsubmit="return confirm('¿Marcar como pagada/disfrutada?')">
+										<form action="{{ route('vacaciones.estatus', $v) }}" method="POST" onsubmit="return confirm('¿Registrar el pago y emitir el recibo?')">
 											@csrf @method('PUT')
 											<input type="hidden" name="accion" value="pagar">
-											<button type="submit" class="p-1 text-gray-500 hover:text-green-600" title="Pagar y disfrutar">💰</button>
+											<button type="submit" class="p-1 text-gray-500 hover:text-green-600" title="Registrar pago">💰</button>
+										</form>
+									@elseif ($v->puedeDisfrutar())
+										<form action="{{ route('vacaciones.estatus', $v) }}" method="POST" onsubmit="return confirm('¿Marcar este periodo como disfrutado?')">
+											@csrf @method('PUT')
+											<input type="hidden" name="accion" value="disfrutar">
+											<button type="submit" class="p-1 text-gray-500 hover:text-blue-600" title="Marcar disfrutada">🏖</button>
 										</form>
 									@elseif ($v->puedeAprobar())
 										<form action="{{ route('vacaciones.estatus', $v) }}" method="POST" onsubmit="return confirm('¿Aprobar este cálculo?')">

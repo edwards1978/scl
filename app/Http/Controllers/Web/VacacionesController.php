@@ -105,7 +105,7 @@ class VacacionesController extends Controller
         abort_if((int) $vacacion->patrono_id !== (int) session('patrono_id'), 404);
 
         $action = $request->validate([
-            'accion' => ['required', 'in:aprobar,anular,pagar'],
+            'accion' => ['required', 'in:aprobar,anular,pagar,disfrutar'],
         ])['accion'];
 
         try {
@@ -113,6 +113,7 @@ class VacacionesController extends Controller
                 'aprobar' => $this->accionAprobar($vacacion),
                 'anular' => $this->accionAnular($vacacion),
                 'pagar' => $this->accionPagar($vacacion),
+                'disfrutar' => $this->accionDisfrutar($vacacion),
             };
         } catch (ValidationException $e) {
             return back()->with('error', $e->getMessage());
@@ -122,7 +123,7 @@ class VacacionesController extends Controller
             ->with('success', 'Estatus actualizado correctamente.');
     }
 
-    /** PDF del recibo de pago (regenera o sobre recibo existente). */
+    /** PDF del recibo existente. No lo genera: el recibo se emite al pagar. */
     public function reciboPdf(Vacacion $vacacion)
     {
         abort_if((int) $vacacion->patrono_id !== (int) session('patrono_id'), 404);
@@ -130,12 +131,11 @@ class VacacionesController extends Controller
         $vacacion->load('empleado');
         $empleado = $vacacion->empleado;
 
-        $recibo = in_array($vacacion->estatus_vacacion, ['pagada', 'disfrutada'], true)
-            ? $vacacion->recibos()->latest('fecha_emision')->first()
-            : null;
+        $recibo = $vacacion->recibos()->latest('fecha_emision')->first();
 
         if (! $recibo) {
-            $recibo = $this->service->generarRecibo($vacacion);
+            return redirect()->route('vacaciones.show', $vacacion)
+                ->with('error', 'La vacación no tiene recibo emitido. Regístrela como pagada para generarlo.');
         }
 
         $moneda = $this->service->formatearMonto($empleado, (float) $recibo->neto, (float) $recibo->tipo_cambio, null, $vacacion->moneda);
@@ -205,16 +205,29 @@ class VacacionesController extends Controller
             ]);
         }
 
-        $recibo = $this->service->generarRecibo($vacacion);
+        DB::transaction(function () use ($vacacion): void {
+            $recibo = $this->service->generarRecibo($vacacion);
 
-        $vacacion->update([
-            'estatus_vacacion' => 'disfrutada',
-            'estatus_calculo' => 'aprobada',
-        ]);
+            $vacacion->update([
+                'estatus_vacacion' => 'pagada',
+                'estatus_calculo' => 'aprobada',
+            ]);
 
-        $recibo->update([
-            'fecha_inicio' => $vacacion->fecha_inicio_real,
-            'fecha_retiro' => $vacacion->fecha_reintegro,
-        ]);
+            $recibo->update([
+                'fecha_inicio' => $vacacion->fecha_inicio_real,
+                'fecha_retiro' => $vacacion->fecha_reintegro,
+            ]);
+        });
+    }
+
+    private function accionDisfrutar(Vacacion $vacacion): void
+    {
+        if (! $vacacion->puedeDisfrutar()) {
+            throw ValidationException::withMessages([
+                'accion' => 'Solo una vacación pagada puede marcarse como disfrutada.',
+            ]);
+        }
+
+        $vacacion->update(['estatus_vacacion' => 'disfrutada']);
     }
 }

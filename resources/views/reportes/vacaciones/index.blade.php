@@ -46,7 +46,7 @@
 			<select name="estatus_vacacion" class="border border-gray-300 px-2 py-1.5 text-sm bg-white w-44">
 				<option value="">Todos</option>
 				<option value="pendiente" {{ request('estatus_vacacion') == 'pendiente' ? 'selected' : '' }}>Pendiente</option>
-				<option value="pagada" {{ request('estatus_vacacion') == 'pagada' ? 'selected' : '' }}>Pagada/Disfrutada</option>
+				<option value="pagada" {{ request('estatus_vacacion') == 'pagada' ? 'selected' : '' }}>Pagada</option>
 				<option value="disfrutada" {{ request('estatus_vacacion') == 'disfrutada' ? 'selected' : '' }}>Disfrutada</option>
 			</select>
 		</div>
