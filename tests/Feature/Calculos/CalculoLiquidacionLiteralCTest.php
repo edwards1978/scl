@@ -3,6 +3,7 @@
 namespace Tests\Feature\Calculos;
 
 use App\Models\CalculoLiquidacionLiteralC;
+use App\Models\TasaBcv;
 use App\Models\User;
 use App\Services\CalculoLiquidacionLiteralCService;
 use Illuminate\Support\Facades\Schema;
@@ -124,6 +125,42 @@ class CalculoLiquidacionLiteralCTest extends TestCase
             ->assertRedirect(route('calculos-literal-c.index'));
 
         $this->assertDatabaseMissing('calculos_liquidacion_literal_c', ['id' => $calculo->id]);
+    }
+
+    public function test_equivalencia_solo_se_muestra_si_esta_marcada(): void
+    {
+        TasaBcv::create([
+            'fecha' => '2026-07-15',
+            'tasa_usd' => 887.30,
+            'fuente' => 'manual',
+        ]);
+
+        $usuario = User::factory()->administrador()->create();
+        $datos = $this->datosFormulario();
+        $datos['mostrar_equivalencia'] = 1;
+
+        $this->actingAs($usuario)
+            ->post(route('calculos-literal-c.store'), $datos)
+            ->assertRedirect();
+
+        $calculo = CalculoLiquidacionLiteralC::firstOrFail();
+        $this->assertTrue($calculo->mostrar_equivalencia);
+
+        $this->actingAs($usuario)
+            ->get(route('calculos-literal-c.show', $calculo))
+            ->assertOk()
+            ->assertSee('Equivalencia informativa');
+
+        $this->actingAs($usuario)
+            ->put(route('calculos-literal-c.update', $calculo), $this->datosFormulario())
+            ->assertRedirect(route('calculos-literal-c.show', $calculo));
+
+        $this->assertFalse($calculo->fresh()->mostrar_equivalencia);
+
+        $this->actingAs($usuario)
+            ->get(route('calculos-literal-c.show', $calculo))
+            ->assertOk()
+            ->assertDontSee('Equivalencia informativa');
     }
 
     public function test_consulta_puede_leer_pero_no_gestionar(): void

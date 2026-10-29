@@ -53,7 +53,9 @@ class CalculoLiquidacionLiteralCController extends Controller
     {
         Gate::authorize('gestionar');
 
-        $datos = $this->calcular($request->validated());
+        $datos = $this->calcular($request->validated()) + [
+            'mostrar_equivalencia' => $request->boolean('mostrar_equivalencia'),
+        ];
 
         $calculo = CalculoLiquidacionLiteralC::create($datos + [
             'created_by' => $request->user()?->id,
@@ -67,7 +69,7 @@ class CalculoLiquidacionLiteralCController extends Controller
     public function show(CalculoLiquidacionLiteralC $calculo): View
     {
         $calculo->load(['creador', 'editor']);
-        $equivalencia = $this->equivalencia($calculo);
+        $equivalencia = $calculo->mostrar_equivalencia ? $this->equivalencia($calculo) : null;
 
         return view('calculos-literal-c.show', compact('calculo', 'equivalencia'));
     }
@@ -84,6 +86,7 @@ class CalculoLiquidacionLiteralCController extends Controller
         Gate::authorize('gestionar');
 
         $calculo->update($this->calcular($request->validated()) + [
+            'mostrar_equivalencia' => $request->boolean('mostrar_equivalencia'),
             'updated_by' => $request->user()?->id,
         ]);
 
@@ -104,7 +107,7 @@ class CalculoLiquidacionLiteralCController extends Controller
     public function pdf(CalculoLiquidacionLiteralC $calculo)
     {
         $calculo->load(['creador', 'editor']);
-        $equivalencia = $this->equivalencia($calculo);
+        $equivalencia = $calculo->mostrar_equivalencia ? $this->equivalencia($calculo) : null;
 
         return Pdf::loadView('calculos-literal-c.pdf', compact('calculo', 'equivalencia'))
             ->setPaper('letter', 'portrait')

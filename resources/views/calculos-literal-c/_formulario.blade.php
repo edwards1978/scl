@@ -73,6 +73,13 @@
 					@endforeach
 				</select>
 			</div>
+			<div class="md:col-span-3">
+				<label class="flex items-center gap-2 text-sm text-gray-700">
+					<input type="checkbox" name="mostrar_equivalencia" value="1" {{ old('mostrar_equivalencia', $esEdicion ? $calculo->mostrar_equivalencia : false) ? 'checked' : '' }} class="h-4 w-4 text-blue-600 border-gray-300">
+					Mostrar en el recibo la equivalencia informativa en la otra moneda
+				</label>
+				<p class="text-[11px] text-gray-500 mt-0.5">Usa la tasa BCV cargada; no convierte el monto que se paga.</p>
+			</div>
 			<div>
 				<label class="block text-xs font-medium text-gray-600 mb-0.5">Días de utilidades *</label>
 				<input type="number" name="dias_utilidades" min="30" max="120" value="{{ $valor('dias_utilidades', 30) }}" required class="w-full border border-gray-300 px-2 py-1.5 text-sm">

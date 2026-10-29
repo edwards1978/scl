@@ -40,6 +40,7 @@ class CalculoLiquidacionLiteralCRequest extends FormRequest
             'tipo_salario' => ['required', Rule::in(array_keys(CalculoLiquidacionLiteralC::tiposSalario()))],
             'salario' => ['required', 'numeric', 'gt:0'],
             'moneda' => ['required', Rule::in(array_keys(CalculoLiquidacionLiteralC::monedas()))],
+            'mostrar_equivalencia' => ['boolean'],
             'dias_utilidades' => ['required', 'integer', 'min:30', 'max:120'],
             'anios_vacaciones_vencidas' => ['required', 'integer', 'min:0'],
             'anios_utilidades_vencidas' => ['required', 'integer', 'min:0'],
