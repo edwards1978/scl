@@ -4,10 +4,12 @@ namespace Tests\Feature\Liquidaciones;
 
 use App\Models\CambioSalario;
 use App\Models\Empleado;
+use App\Models\Liquidacion;
 use App\Models\MovimientoPrestaciones;
 use App\Models\MovimientoPrestacionInteres;
 use App\Models\Patrono;
 use App\Models\TasaInteresPrestaciones;
+use App\Models\User;
 use App\Services\LiquidacionService;
 use App\Services\PrestacionesSocialesService;
 use App\Services\SalarioIntegralService;
@@ -131,6 +133,34 @@ class LiquidacionLegalTest extends TestCase
             $detalle['capital'],
             0.01
         );
+    }
+
+    public function test_la_liquidacion_aprobada_ofrece_anularla(): void
+    {
+        [$patrono, $empleado] = $this->crearEscenario();
+
+        $usuario = User::factory()->administrador()->create();
+        $this->actingAs($usuario);
+
+        $liquidacion = Liquidacion::create([
+            'patrono_id' => $patrono->id,
+            'empleado_id' => $empleado->id,
+            'fecha_liquidacion' => '2026-10-01',
+            'fecha_ingreso' => '2020-01-15',
+            'fecha_egreso' => '2026-10-01',
+            'motivo' => 'retiro_voluntario',
+            'anios_servicio' => 6,
+            'meses_fraccion' => 8,
+            'dias_prestaciones' => 210,
+            'salario_integral_diario' => 10,
+            'moneda' => 'USD',
+            'estatus' => 'aprobada',
+        ]);
+
+        $this->withSession(['patrono_id' => $patrono->id])
+            ->get(route('liquidaciones.show', $liquidacion->id))
+            ->assertOk()
+            ->assertSee('Anular liquidación');
     }
 
     /**

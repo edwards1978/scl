@@ -83,11 +83,13 @@
 										<a href="{{ route('liquidaciones.pdf', $l->id) }}" target="_blank" rel="noopener" class="p-1 text-gray-500 hover:text-red-600" title="Liquidación PDF">📄</a>
 									@endif
 									@can('eliminar')
+									@if ($l->estatus !== 'aprobada')
 									<form action="{{ route('liquidaciones.destroy', $l->id) }}" method="POST"
 										onsubmit="return confirm('¿Eliminar esta liquidación?')">
 										@csrf @method('DELETE')
 										<button class="p-1 text-gray-400 hover:text-red-500" title="Eliminar">🗑</button>
 									</form>
+									@endif
 									@endcan
 								</div>
 							</td>

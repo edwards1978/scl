@@ -4,7 +4,10 @@
 @php
 	$editando = $liquidacion->estatus !== 'aprobada';
 	$esGarantia = $liquidacion->prestaciones_origen === 'garantia';
-	$origenLabel = $esGarantia ? 'Garantía Art. 142 a+b' : 'Literal c (30 días por año)';
+	$esLiteralE = $liquidacion->prestaciones_origen === 'literal_e';
+	$origenLabel = $esGarantia
+		? 'Garantía Art. 142 a+b'
+		: ($esLiteralE ? 'Literal e (5 días por mes o fracción)' : 'Literal c (30 días por año)');
 @endphp
 <div class="p-4 mx-auto max-w-4xl">
 	<div class="flex items-center justify-between mb-1">
@@ -32,13 +35,6 @@
     @endif
 
 	@if ($liquidacion->garantia_ab !== null && $liquidacion->literal_c !== null)
-		@php
-			$esGarantia = $liquidacion->prestaciones_origen === 'garantia';
-			$esLiteralE = $liquidacion->prestaciones_origen === 'literal_e';
-			$origenLabel = $esGarantia
-				? 'Garantía Art. 142 a+b'
-				: ($esLiteralE ? 'Literal e (5 días por mes o fracción)' : 'Literal c (30 días por año)');
-		@endphp
 		<div class="bg-white border border-gray-200 p-4 mb-4">
 			<div class="flex flex-wrap items-center justify-between gap-2 mb-3">
 				<h2 class="text-sm font-semibold text-gray-800">Comparativo Art. 142 LOTTT</h2>
@@ -238,6 +234,12 @@
 			</form>
 			@endcan
 		@elseif ($liquidacion->estatus === 'aprobada')
+			@can('aprobar')
+			<form method="POST" action="{{ route('liquidaciones.anular', $liquidacion->id) }}" onsubmit="return confirm('¿Anular esta liquidación aprobada? Se reactivará al trabajador si no queda otra liquidación vigente.')">
+				@csrf
+				<button class="px-3 py-1.5 text-sm border border-red-300 text-red-600 hover:bg-red-50">Anular liquidación</button>
+			</form>
+			@endcan
 			<a href="{{ route('liquidaciones.pdf', $liquidacion->id) }}" target="_blank" rel="noopener" class="px-4 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700">Descargar PDF</a>
 		@endif
 	</div>
