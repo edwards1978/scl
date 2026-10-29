@@ -170,7 +170,8 @@ class CalculoLiquidacionLiteralCService
     }
 
     /**
-     * Meses completos estrictos: no se prorratean días.
+     * Meses completos estrictos: no se prorratean días. Si el período termina
+     * el último día del mes, ese mes cuenta completo (ej. 01/01 a 31/12 = 12).
      */
     public function mesesCompletos(Carbon $inicio, Carbon $fin): int
     {
@@ -178,7 +179,14 @@ class CalculoLiquidacionLiteralCService
             return 0;
         }
 
-        return max(0, (int) $inicio->diffInMonths($fin));
+        $meses = max(0, (int) $inicio->diffInMonths($fin));
+        $fechaMes = $inicio->copy()->addMonthsNoOverflow($meses);
+
+        if ($fin->isEndOfMonth() && $fechaMes->lt($fin)) {
+            $meses++;
+        }
+
+        return $meses;
     }
 
     /**

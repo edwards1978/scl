@@ -44,6 +44,22 @@ class CalculoLiquidacionLiteralCTest extends TestCase
         $this->assertEqualsWithDelta(100, $servicio->salarioNormalDiario(100, CalculoLiquidacionLiteralC::TIPO_DIARIO), 0.01);
     }
 
+    public function test_un_anio_calendario_completo_cuenta_doce_meses(): void
+    {
+        $resultado = $this->calcular([
+            'fecha_ingreso' => '2026-01-01',
+            'fecha_egreso' => '2026-12-31',
+        ]);
+
+        $conceptos = collect($resultado['asignaciones']);
+
+        $this->assertSame(12, $resultado['meses_vacaciones_fraccionadas']);
+        $this->assertSame(12, $resultado['meses_utilidades_fraccionadas']);
+        $this->assertEqualsWithDelta(15, $conceptos->firstWhere('concepto', 'Vacaciones fraccionadas')['dias'], 0.01);
+        $this->assertEqualsWithDelta(15, $conceptos->firstWhere('concepto', 'Bono vacacional fraccionado')['dias'], 0.01);
+        $this->assertEqualsWithDelta(30, $conceptos->firstWhere('concepto', 'Utilidades fraccionadas')['dias'], 0.01);
+    }
+
     public function test_quince_dias_completan_el_mes_solo_para_literal_c(): void
     {
         $catorce = $this->calcular(['fecha_ingreso' => '2025-01-15', 'fecha_egreso' => '2026-06-29']);
