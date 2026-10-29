@@ -24,7 +24,7 @@ jobs:
         image: mariadb:10.11
         env:
           MARIADB_ROOT_PASSWORD: root
-          MARIADB_DATABASE: scl
+          MARIADB_DATABASE: scl_test
           MARIADB_USER: scl
           MARIADB_PASSWORD: scl
         ports:
@@ -40,7 +40,7 @@ jobs:
       DB_CONNECTION: mysql
       DB_HOST: 127.0.0.1
       DB_PORT: 3306
-      DB_DATABASE: scl
+      DB_DATABASE: scl_test
       DB_USERNAME: scl
       DB_PASSWORD: scl
 

@@ -33,7 +33,7 @@ SCL es una aplicación **Laravel 12 + Livewire 4 + Blade/Tailwind + MySQL/MariaD
 1. **Permisos por acción y borrado lógico pendientes.** Roles, Policies, aislamiento por patrono y auditoría ya están implementados; falta revisar permisos por acción específica y definir borrado lógico. **P2.**
 2. **Historial salarial — corregido el 29/10/2026.** Se completó `salario_inicial` en los 37 trabajadores y se registró el cambio de ingreso en `cambios_salarios` (37 registros). Alta, edición de ficha, variaciones e importación registran ahora el cambio con fecha de vigencia y recalculan sueldos y prestaciones. Queda cargar el historial real de aumentos anteriores, que no consta en el sistema. **P2.**
 3. **Fórmulas legales aún no firmadas.** La decisión de abonar el acumulado completo de días adicionales en cada aniversario, el tratamiento de los intereses cuando gana el literal c y la deducción de intereses de préstamos en la liquidación requieren validación legal/contable. **P1.**
-4. **La suite comparte la base de datos de producción** (`scl`) con prefijo `test_` y 28 tablas de prueba. El aislamiento funciona, pero un error de configuración podría tocar datos reales. Se recomienda una base `scl_test` separada. **P1.**
+4. **Aislamiento de pruebas — corregido el 29/10/2026.** La suite usa la base `scl_test` (sin prefijo) y el CI crea esa base; las tablas `test_*` de producción se eliminaron. **Resuelto.**
 5. **Trabajo sin commitear.** Hay 25 archivos modificados (+1.722/−980) y varios grupos de archivos nuevos (módulo de intereses, migración, vistas, pruebas, tooling) fuera de Git. El estado actual no es reproducible desde un commit. **P1.**
 6. **Dependencias con avisos de seguridad.** `composer audit --locked --no-dev` reporta **19 avisos en 5 paquetes**, incluido un XSS de Livewire 4.3.3. **P2.**
 7. **Despliegue sobre HTTP.** `SESSION_SECURE_COOKIE=false`, `APP_URL=http://localhost/scl`, `MAIL_MAILER=log`, sin CSP/HSTS ni `TrustProxies`. Aceptable en red interna, insuficiente si se publica. **P2.**
@@ -167,16 +167,16 @@ Distribución:
 
 ### 4.2 Aislamiento de pruebas
 
-`phpunit.xml` apunta las cachés a `storage/framework/testing/*` y usa `DB_PREFIX=test_`. `tests/bootstrap.php`:
+`phpunit.xml` apunta las cachés a `storage/framework/testing/*` y usa la base **`scl_test`** con `DB_PREFIX` vacío y `force="true"`, para que ni `.env` ni el entorno del CI puedan redirigir la suite a producción. `tests/bootstrap.php`:
 
 - exige `APP_ENV=testing`;
-- rechaza ejecutar si la base es `scl` sin prefijo `test_`;
+- rechaza ejecutar si la base es `scl` sin prefijo;
 - migra el esquema de pruebas de forma idempotente;
 - restaura los manejadores de error para PHPUnit.
 
-Actualmente existen **28 tablas `test_*`** en la misma base `scl`. `TestCase` usa `DatabaseTransactions`, por lo que cada prueba revierte sus escrituras.
+`TestCase` usa `DatabaseTransactions`, por lo que cada prueba revierte sus escrituras. Las 30 tablas `test_*` que quedaban en `scl` se eliminaron el 29/10/2026; la suite ya no las usa. El CI crea `scl_test` como base del servicio MariaDB.
 
-**Riesgo:** aunque el aislamiento funciona, se comparte la misma instancia y credenciales de producción. Un cambio en `phpunit.xml`, un `migrate:fresh` accidental o una consulta con nombre de tabla explícito podría afectar datos reales. La solución recomendada es una base `scl_test` separada y `DB_PREFIX` vacío.
+**Estado:** aislamiento **implementado**. El riesgo de tocar datos reales al correr tests queda cerrado.
 
 ### 4.3 Calidad y dependencias
 
@@ -495,7 +495,7 @@ La suite actual es una buena base, pero todavía no cubre los módulos donde que
 | 1 | Permisos por acción y borrado lógico pendientes (roles y auditoría ya implementados) | Baja | Medio | **P2** |
 | 2 | Historial salarial reconstruido (37 cambios de ingreso); faltan los aumentos reales anteriores al 29/10/2026 | Alta | Medio | **P2** |
 | 3 | Fórmulas pendientes de firma legal: días adicionales acumulativos, intereses vs. literal c, deducción de intereses de préstamos | Media | Muy alto | **P1** |
-| 4 | Suite comparte la base de producción con prefijo `test_` | Media | Alto | **P1** |
+| 4 | Suite aislada en `scl_test` (sin prefijo) y CI sobre esa base | Baja | Bajo | **Resuelto** |
 | 5 | Estado reproducible desde Git y CI activo en GitHub Actions | Baja | Bajo | **Resuelto** |
 | 6 | 19 avisos de dependencias, incluido XSS de Livewire 4.3.3 | Media | Medio | **P2** |
 | 7 | HTTP, `SESSION_SECURE_COOKIE=false`, `MAIL_MAILER=log`, sin CSP/HSTS/TrustProxies | Alta | Medio | **P2** |
@@ -529,7 +529,7 @@ La suite actual es una buena base, pero todavía no cubre los módulos donde que
 2. **Revisar y firmar** con abogado/contador: días adicionales acumulativos, intereses cuando gana el literal c, deducción de intereses de préstamos y base de alícuota de utilidades.
 3. **Corregir la deducción de intereses de préstamos** si se confirma que son intereses ya pagados; separar “interés devengado” de “interés pagado”.
 4. **Resolver la anomalía del empleado 10** (activo con liquidación aprobada): verificar si fue reincorporado y, si no, regularizar el estatus antes de permitir nuevos cálculos.
-5. **Aislar la suite** en una base `scl_test` separada; dejar el prefijo `test_` solo como respaldo.
+5. **Aislar la suite** en una base `scl_test` separada; dejar el prefijo `test_` solo como respaldo — **implementado** el 29/10/2026.
 6. **Actualizar dependencias** y volver a ejecutar `composer audit`; priorizar Livewire.
 7. **Habilitar HTTPS** y `SESSION_SECURE_COOKIE=true` si el sistema se publica fuera de la red local; configurar SMTP real.
 8. **Publicar `lang/es`** para validación, auth y passwords.
@@ -624,7 +624,7 @@ El problema ya no es “que no funcione”, sino **la confiabilidad de los núme
 - El historial salarial está prácticamente vacío, y eso afecta cualquier cálculo histórico.
 - Quedan interpretaciones legales sin firmar y una deducción de intereses de préstamos que debe revisarse.
 - Roles y auditoría implementados; queda el borrado lógico y el historial salarial.
-- La suite comparte la base de producción, aunque el estado del árbol ya está commiteado y el CI está activo.
+- La suite quedó aislada en `scl_test`; el árbol ya está commiteado y el CI está activo.
 - El despliegue funciona, pero sigue sobre HTTP y con correo en log.
 
 La prioridad debe ser **resolver el historial salarial y las fórmulas pendientes**, **aislar las pruebas**, **completar el borrado lógico** y **endurecer el despliegue** antes de seguir agregando funcionalidades. Con esas correcciones, la base actual es aprovechable y el esfuerzo de refactor es acotado.
@@ -850,7 +850,7 @@ El empleado 10 sube porque el recálculo completó períodos faltantes; no se mo
 
 1. **`LiquidacionService` descuenta `MovimientoPrestacionInteres`** como “Pago de intereses”. Si son intereses ya pagados, hay doble cobro; si son devengados no pagados, falta modelar el estado. Revisar.
 2. **La línea “Intereses sobre prestaciones” queda en 0** cuando se compara con el literal c. Definir si el Art. 143 se paga aparte cuando gana el literal c.
-3. **La suite comparte la base de producción** (`scl`) con prefijo `test_` y 28 tablas de prueba. Migrar a `scl_test`.
+3. **La suite está aislada en `scl_test`** desde el 29/10/2026; las tablas `test_*` de producción se eliminaron.
 4. **El árbol de trabajo sigue sucio:** 25 archivos modificados y el módulo de intereses/pruebas sin commitear.
 5. **`i18n` sigue sin `lang/es`:** se confirmó que `validation.required` y `auth.failed` se muestran como claves.
 6. **`UtilidadesService` permite recalcular aprobadas** y las devuelve a `calculado`; no hay bloqueo por estatus.

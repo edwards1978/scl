@@ -6,9 +6,8 @@ use Illuminate\Support\Facades\Artisan;
 /**
  * Bootstrap de pruebas.
  *
- * Se ejecuta antes de PHPUnit. Crea el esquema de test con el prefijo
- * configurado en phpunit.xml (test_) si aún no existe. Así la suite usa
- * tablas propias y no toca las tablas reales de la base de datos.
+ * Se ejecuta antes de PHPUnit. Migra el esquema de la base de pruebas
+ * (`scl_test`) si aún no existe. La suite nunca toca la base de producción.
  */
 
 require __DIR__.'/../vendor/autoload.php';
@@ -35,8 +34,8 @@ if ($prefix !== '' && ! str_starts_with($prefix, 'test_')) {
     exit(1);
 }
 
-// Migra/actualiza el esquema de pruebas con prefijo test_. Es idempotente:
-// si ya está al día, no hace nada; si faltan migraciones nuevas, las aplica.
+// Migra/actualiza el esquema de pruebas. Es idempotente: si ya está al día,
+// no hace nada; si faltan migraciones nuevas, las aplica.
 Artisan::call('migrate', ['--force' => true]);
 
 // El kernel de consola instala sus propios manejadores de error/excepción;

@@ -37,12 +37,12 @@
         <env name="APP_PACKAGES_CACHE" value="storage/framework/testing/packages.php"/>
 
         <!--
-            Base de datos aislada dentro de la misma instancia MySQL.
-            Las tablas de test usan el prefijo test_ y nunca tocan las tablas
-            de producción. Si se dispone de otra base, basta cambiar DB_DATABASE
-            y dejar DB_PREFIX vacío.
+            Base de datos de pruebas separada. El bootstrap de tests migra
+            este esquema y la suite hace rollback por transacción, de modo que
+            nunca toca la base de producción `scl`.
         -->
-        <env name="DB_PREFIX" value="test_"/>
+        <env name="DB_DATABASE" value="scl_test" force="true"/>
+        <env name="DB_PREFIX" value="" force="true"/>
 
         <env name="MAIL_MAILER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>

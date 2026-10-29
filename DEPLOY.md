@@ -173,24 +173,26 @@ cada cambio en `.env` o en rutas.
 
 ## 8. Tests
 
-Los tests usan la base de datos configurada y hacen rollback por transacción
-(`DatabaseTransactions`), por lo que no borran datos. Aun así, para CI o para
-probar sin tocar producción, crear una base separada:
+La suite usa una base separada, `scl_test`, configurada en `phpunit.xml`.
+`tests/bootstrap.php` aplica las migraciones pendientes y cada prueba hace
+rollback por transacción: nunca toca la base de producción `scl`.
+
+Crear la base una sola vez (requiere un usuario con privilegios):
 
 ```sql
-CREATE DATABASE scl_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE IF NOT EXISTS scl_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 GRANT ALL PRIVILEGES ON scl_test.* TO 'scl'@'localhost';
+FLUSH PRIVILEGES;
 ```
 
-y ejecutar con:
+Luego basta:
 
 ```bash
-php artisan optimize:clear          # evita usar la configuracion cacheada
-DB_DATABASE=scl_test php artisan test
-php artisan optimize                # volver a cachear para produccion
+php artisan test --compact
 ```
 
-Resultado esperado: **26 tests OK**.
+Resultado esperado: **159 tests OK**. Las tablas `test_*` que quedaban en
+`scl` fueron eliminadas el 29/10/2026; ya no se usan.
 
 ## 9. Verificación posterior al despliegue
 
