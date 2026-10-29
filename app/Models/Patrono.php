@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\RegistraAuditoria;
 use App\Rules\RifVenezolanoRule;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -11,6 +12,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Patrono extends Model
 {
+    use RegistraAuditoria;
+
     protected $fillable = [
         'rif',
         'razon_social',

@@ -34,7 +34,9 @@ class AprobarTodasTest extends TestCase
             2025
         );
 
-        $respuesta = $this->actingAs(User::factory()->create())
+        $usuario = User::factory()->create();
+
+        $respuesta = $this->actingAs($usuario)
             ->withSession(['patrono_id' => $patrono->id])
             ->post(route('utilidades.aprobar-todas'), ['anio' => '2026']);
 
@@ -47,6 +49,8 @@ class AprobarTodasTest extends TestCase
             $this->assertSame('aprobado', $bonificacion->estatus);
             $this->assertNotNull($bonificacion->fecha_aprobacion);
             $this->assertNotNull($bonificacion->fecha_emision);
+            $this->assertSame($usuario->id, $bonificacion->approved_by);
+            $this->assertNotNull($bonificacion->approved_at);
         }
 
         $this->assertSame('calculado', $pendiente2025->fresh()->estatus);

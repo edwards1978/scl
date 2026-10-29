@@ -284,15 +284,23 @@ class UtilidadesService
         $tasaBcv = (new TasasBcvService)->tasaEn(Carbon::now());
         $tasa = $tasaBcv ?? (float) Parametro::get('tasa_dolar', 0.0);
 
-        return BonificacionFinAno::where('patrono_id', $patrono->id)
+        $pendientes = BonificacionFinAno::where('patrono_id', $patrono->id)
             ->when($anio !== null, fn ($query) => $query->where('anio', $anio))
             ->where('estatus', 'calculado')
-            ->update([
+            ->get();
+
+        // Se actualiza modelo por modelo para que cada aprobación deje su
+        // sello de usuario y su registro en el historial de estados.
+        foreach ($pendientes as $bonificacion) {
+            $bonificacion->update([
                 'estatus' => 'aprobado',
                 'fecha_aprobacion' => now()->toDateString(),
                 'fecha_emision' => now()->toDateString(),
                 'tasa_cambio' => $tasa,
             ]);
+        }
+
+        return $pendientes->count();
     }
 
     /**

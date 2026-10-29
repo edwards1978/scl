@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\RegistraAuditoria;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class PagoInteresPrestaciones extends Model
 {
+    use RegistraAuditoria;
+
     protected $table = 'pagos_interes_prestaciones';
 
     protected $fillable = [

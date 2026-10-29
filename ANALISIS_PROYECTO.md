@@ -20,8 +20,8 @@ SCL es una aplicación **Laravel 12 + Livewire 4 + Blade/Tailwind + MySQL/MariaD
 
 **Lo que está bien:**
 
-- La aplicación **funciona**: 90 pruebas, 332 aserciones, 21,8 s; las vistas Blade compilan sin errores.
-- Separación razonable en capas: 16 controladores web, 4 componentes Livewire, 11 servicios de dominio, 20 modelos, 40 migraciones y 105 rutas propias (117 contando las de vendor).
+- La aplicación **funciona**: 150 pruebas, 632 aserciones, ~27 s; las vistas Blade compilan sin errores y el pipeline de GitHub Actions está en verde.
+- Separación razonable en capas: 17 controladores web, 4 componentes Livewire, 12 servicios de dominio, 21 modelos, 43 migraciones y 131 rutas (contando las de vendor).
 - Motor de prestaciones documentado y cubierto con pruebas de dominio: trimestres, aniversarios, fracción de egreso, días adicionales, intereses, capitalización, anticipos, proyecciones y pagos de intereses.
 - Aislamiento por patrono en la mayoría de consultas mediante `patrono_id` de sesión; se validan cédula/RIF, duplicados y períodos.
 - Buenas prácticas presentes: `APP_DEBUG=false`, registro público deshabilitado, throttling de login, CSRF, regeneración de sesión, `Hash` de contraseñas y cabeceras de seguridad en Apache.
@@ -30,7 +30,7 @@ SCL es una aplicación **Laravel 12 + Livewire 4 + Blade/Tailwind + MySQL/MariaD
 
 **Riesgos principales (en orden de impacto):**
 
-1. **No hay roles, permisos ni auditoría.** Cualquier usuario autenticado puede cambiar de patrono, ver/editar toda la nómina, aprobar liquidaciones y borrar historial. No existe relación `users.patrono_id`, Policies, `Gate`, `created_by`, `approved_by`, historial de estados ni borrado lógico. **P0.**
+1. **Permisos por acción y borrado lógico pendientes.** Roles, Policies, aislamiento por patrono y auditoría ya están implementados; falta revisar permisos por acción específica y definir borrado lógico. **P2.**
 2. **Historial salarial insuficiente.** Hay **0 registros** en `cambios_salarios` y **22 de 24** empleados tienen `salario_inicial = NULL`. Los cálculos históricos se apoyan en el salario actual o en el primer sueldo disponible, no en la evolución real del salario. Editar la ficha del empleado no registra un cambio salarial ni regenera los cálculos. **P0/P1.**
 3. **Fórmulas legales aún no firmadas.** La decisión de abonar el acumulado completo de días adicionales en cada aniversario, el tratamiento de los intereses cuando gana el literal c y la deducción de intereses de préstamos en la liquidación requieren validación legal/contable. **P1.**
 4. **La suite comparte la base de datos de producción** (`scl`) con prefijo `test_` y 28 tablas de prueba. El aislamiento funciona, pero un error de configuración podría tocar datos reales. Se recomienda una base `scl_test` separada. **P1.**
@@ -125,7 +125,7 @@ routes/web.php
 
 **Fortaleza:** el filtrado por patrono está aplicado en la mayoría de controladores y componentes Livewire; no se encontraron consultas evidentes sin ese filtro en los módulos de negocio.
 
-**Debilidad estructural:** el contexto no está ligado al usuario. No existe `users.patrono_id`, tabla pivote, roles ni políticas. Cualquier usuario autenticado puede seleccionar cualquier patrono activo. La cookie `scl_ctx` es JSON sin firmar; no es una escalada por sí sola, pero confirma que el modelo de autorización es solo “usuario autenticado”.
+**Debilidad estructural (resuelta):** el contexto ya está ligado al usuario mediante la tabla pivote `patrono_user`, roles y políticas. `contexto.patrono` valida la cookie cifrada contra el usuario y `nomina.gestionar` bloquea las escrituras del rol Consulta.
 
 ### 3.3 Módulos funcionales
 
@@ -322,7 +322,7 @@ La liquidación descuenta:
 - `deducciones()` devuelve `de_ley => 0.0`; el total real se calcula después con `deduccionesDeLey()`. El campo es informativo y no se usa para el neto.
 - `fraccionUtilidades()` usa `max(1, round(días/30))`: un egreso el 1 de enero otorga al menos 1 mes de utilidades. Revisar.
 - `dias_indemnizacion` almacena `1` como bandera booleana, no días; funciona con `esDobleIndemnizacion()`, pero el nombre es engañoso para reportes.
-- No hay campos de auditoría (`created_by`, `approved_by`, `annulled_by`, fechas, motivo). El historial de estados no queda registrado.
+- Los campos de auditoría (`created_by`, `updated_by`, `approved_by`, `annulled_by` y sus fechas) y el historial de estados están implementados desde el 29/10/2026.
 
 ---
 
@@ -379,7 +379,7 @@ Esto mezcla “días de bonificación de fin de año” con “días de utilidad
 
 ## 8. Seguridad y cumplimiento
 
-### 8.1 Autorización y auditoría — **P0 resuelto en roles; auditoría pendiente**
+### 8.1 Autorización y auditoría — **P0 resuelto**
 
 **Implementado el 28/10/2026:**
 
@@ -392,7 +392,17 @@ Esto mezcla “días de bonificación de fin de año” con “días de utilidad
 - Pantalla `/usuarios` para crear/editar usuarios, asignar rol y varios patronos; protección del último administrador y del propio usuario.
 - Los usuarios existentes conservan su acceso al migrar como administradores.
 
-**Pendiente:** auditoría (`created_by`, `updated_by`, `approved_by`, `annulled_by`, historial de estados), borrado lógico y revisión de permisos por acción específica.
+**Auditoría implementada el 29/10/2026:**
+
+- Trait `App\Models\Concerns\RegistraAuditoria`: completa `created_by` y `updated_by`, coloca sellos de aprobación/anulación y escribe el historial.
+- Columnas en patronos, empleados, cambios salariales, pagos de intereses y catálogos editables: `created_by`, `updated_by`.
+- Sellos en liquidaciones y vacaciones: `approved_by`, `approved_at`, `annulled_by`, `annulled_at`; en bonificaciones: `approved_by`, `approved_at`; en movimientos: `annulled_by`, `annulled_at`.
+- Tabla polimórfica `historial_estados` (patrono, entidad, campo, valor anterior/nuevo, usuario y fecha) con índice por entidad.
+- Los cambios de estado que reinician una aprobación (por ejemplo, bonificación recalculada a `calculado`) limpian los sellos y las fechas de emisión.
+- La aprobación masiva de utilidades actualiza modelo por modelo para no perder los sellos ni el historial.
+- Las vistas de detalle de liquidaciones, vacaciones, bonificaciones y movimientos muestran la trazabilidad y el historial de estados.
+
+**Pendiente:** revisión de permisos por acción específica y borrado lógico.
 
 ### 8.2 Controles presentes
 
@@ -480,18 +490,18 @@ La suite actual es una buena base, pero todavía no cubre los módulos donde que
 
 | # | Hallazgo | Probabilidad | Impacto | Prioridad |
 |---|---|---|---|---|
-| 1 | Sin roles, permisos ni auditoría; cualquier usuario ve/edita toda la nómina | Alta | Muy alto | **P0** |
+| 1 | Permisos por acción y borrado lógico pendientes (roles y auditoría ya implementados) | Baja | Medio | **P2** |
 | 2 | Historial salarial vacío (0 cambios, 22/24 sin `salario_inicial`) y edición de salario inconsistente | Alta | Alto | **P0/P1** |
 | 3 | Fórmulas pendientes de firma legal: días adicionales acumulativos, intereses vs. literal c, deducción de intereses de préstamos | Media | Muy alto | **P1** |
 | 4 | Suite comparte la base de producción con prefijo `test_` | Media | Alto | **P1** |
-| 5 | Cambios sin commitear; estado no reproducible desde Git | Alta | Medio-Alto | **P1** |
+| 5 | Estado reproducible desde Git y CI activo en GitHub Actions | Baja | Bajo | **Resuelto** |
 | 6 | 19 avisos de dependencias, incluido XSS de Livewire 4.3.3 | Media | Medio | **P2** |
 | 7 | HTTP, `SESSION_SECURE_COOKIE=false`, `MAIL_MAILER=log`, sin CSP/HSTS/TrustProxies | Alta | Medio | **P2** |
 | 8 | Empleado 10 activo con liquidación aprobada | Media | Medio | **P2** |
 | 9 | Mensajes `validation.required` / `auth.failed` sin traducir | Alta | Bajo-Medio | **P3** |
 | 10 | N+1 y generación síncrona de períodos/proyecciones | Media | Medio | **P3** |
-| 11 | Mantenibilidad: servicio de 1.251 líneas, Pint en 77 archivos, strings, sin CI | Alta | Medio | **P3** |
-| 12 | README desactualizado y artefactos en la raíz (`test.php`, Excel, volcados HTML) | Alta | Bajo | **P3** |
+| 11 | Mantenibilidad: servicio de 1.251 líneas y strings sin traducir; Pint y CI ya activos | Media | Medio | **P3** |
+| 12 | README desactualizado y archivos de tasas BCV en la raíz | Alta | Bajo | **P3** |
 
 **Riesgos cerrados o mitigados desde el 23/10/2026:**
 
@@ -500,9 +510,12 @@ La suite actual es una buena base, pero todavía no cubre los módulos donde que
 - Liquidación que ignoraba la garantía (P0 anterior) — **corregido** con comparación y regeneración.
 - Inactivación al crear la liquidación / no reactivar al anular (P1 anterior) — **corregido**.
 - Cambio de patrono sin mover historial (P1 anterior) — **corregido**.
-- Recibos duplicados y borrados destructivos (P1 anterior) — **mitigado**; quedan separar “pagada”/“disfrutada” y la auditoría.
+- Recibos duplicados y borrados destructivos (P1 anterior) — **mitigado**; queda separar “pagada”/“disfrutada”.
 - Feriados delete+insert en cada request (P2 anterior) — **corregido**; `asegurarAnio()` solo materializa si el año no existe.
-- Suite en rojo por caché de configuración (P2 anterior) — **corregido**; 90/90.
+- Suite en rojo por caché de configuración (P2 anterior) — **corregido**; 150/150.
+- Roles, Policies y aislamiento por patrono (P0 anterior) — **corregido** el 28/10/2026.
+- Auditoría de creación, modificación, aprobación, anulación e historial de estados (P0 anterior) — **implementada** el 29/10/2026.
+- CI con pruebas y Pint bloqueantes (P3 anterior) — **activo** en GitHub Actions.
 
 ---
 
@@ -521,13 +534,13 @@ La suite actual es una buena base, pero todavía no cubre los módulos donde que
 
 ### Fase 1 — Corto plazo (2-4 semanas)
 
-1. **Roles y Policies** mínimos: administrador, operador y consulta; asociar usuarios a patronos; impedir que un usuario cambie a un patrono que no le corresponde.
-2. **Auditoría:** `created_by`, `updated_by`, `approved_by`, `approved_at`, `annulled_by`, `annulled_at`, historial de estados y borrado lógico.
+1. **Roles y Policies** mínimos — **implementado** el 28/10/2026.
+2. **Auditoría** (`created_by`, `updated_by`, `approved_by`, `approved_at`, `annulled_by`, `annulled_at`) e historial de estados — **implementada** el 29/10/2026; queda el borrado lógico.
 3. **Historial salarial:** una sola vía de alta/edición; registrar `CambioSalario` al editar salario con fecha de vigencia; regenerar sueldos y prestaciones desde esa fecha dentro de una transacción.
 4. **Utilidades:** bloquear o versionar el recálculo de aprobadas; usar salario y tasa del período; promediar solo valores no nulos; aclarar que es bonificación fija y no participación sobre beneficios.
 5. **Vacaciones:** separar “pagada” de “disfrutada”; hacer el PDF idempotente sin efectos en GET; permitir recalcular un período anulado; documentar el pago de descansos/feriados y las deducciones.
 6. **Rendimiento:** eager loading/agregados en listados, caché de tasas/parámetros, índices compuestos y jobs para generaciones masivas.
-7. **CI:** `php -l`, `pint --test`, `phpunit`, `composer audit` y `npm audit`.
+7. **CI** — **implementado** en GitHub Actions con pruebas y Pint bloqueantes.
 
 ### Fase 2 — Mediano plazo (1-3 meses)
 
@@ -535,7 +548,7 @@ La suite actual es una buena base, pero todavía no cubre los módulos donde que
 2. **Pruebas HTTP** de autorización por patrono/rol y de rutas críticas.
 3. **Dividir** `PrestacionesSocialesService` en calculadora, repositorio y presentador; unificar reglas duplicadas.
 4. **Enums** para estados, tipos y monedas; política única de redondeo.
-5. **Soft deletes y auditoría** en todas las entidades con historial.
+5. **Borrado lógico** en todas las entidades con historial; la auditoría ya está implementada.
 6. **Endurecer despliegue:** CSP, HSTS, `TrustProxies`, límites de subida de Excel y configuración portable del subdirectorio.
 7. **Limpiar** artefactos raíz, README y dependencias no usadas (`@tailwindcss/vite`).
 
@@ -608,11 +621,11 @@ El problema ya no es “que no funcione”, sino **la confiabilidad de los núme
 
 - El historial salarial está prácticamente vacío, y eso afecta cualquier cálculo histórico.
 - Quedan interpretaciones legales sin firmar y una deducción de intereses de préstamos que debe revisarse.
-- No hay roles, auditoría ni borrado lógico: un usuario autenticado puede operar toda la nómina.
-- La suite comparte la base de producción y el árbol de trabajo no está commiteado.
+- Roles y auditoría implementados; queda el borrado lógico y el historial salarial.
+- La suite comparte la base de producción, aunque el estado del árbol ya está commiteado y el CI está activo.
 - El despliegue funciona, pero sigue sobre HTTP y con correo en log.
 
-La prioridad debe ser **commitear y reproducir el estado actual**, **cerrar el acceso y la auditoría**, **resolver el historial salarial y las fórmulas pendientes**, **aislar las pruebas** y **añadir CI** antes de seguir agregando funcionalidades. Con esas correcciones, la base actual es aprovechable y el esfuerzo de refactor es acotado.
+La prioridad debe ser **resolver el historial salarial y las fórmulas pendientes**, **aislar las pruebas**, **completar el borrado lógico** y **endurecer el despliegue** antes de seguir agregando funcionalidades. Con esas correcciones, la base actual es aprovechable y el esfuerzo de refactor es acotado.
 
 ---
 
@@ -793,7 +806,7 @@ El empleado 10 sube porque el recálculo completó períodos faltantes; no se mo
 
 - Las **7 liquidaciones aprobadas antes del motor v2** no se recalcularon por decisión expresa; siguen con la fórmula anterior.
 - La interpretación legal de las reglas 1–10 debe ser firmada por contador/abogado antes de usarla masivamente en pagos.
-- Siguen pendientes: auditoría, historial salarial y utilidades.
+- Siguen pendientes: historial salarial, utilidades y borrado lógico; la auditoría quedó implementada el 29/10/2026.
 - El respaldo `prestaciones_sociales_backup_20261023` se conserva en la base; no eliminar hasta validar los nuevos saldos.
 
 ---

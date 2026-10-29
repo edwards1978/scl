@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\RegistraAuditoria;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
@@ -14,6 +15,8 @@ use Illuminate\Database\Eloquent\Model;
  */
 class FeriadoFijo extends Model
 {
+    use RegistraAuditoria;
+
     protected $table = 'feriados_fijos';
 
     protected $fillable = ['mes', 'dia', 'descripcion', 'activo'];

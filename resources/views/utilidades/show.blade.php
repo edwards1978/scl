@@ -58,5 +58,7 @@
 	<div class="flex justify-end gap-2">
 		<a href="{{ route('utilidades.pdf', $bonificacion->id) }}" target="_blank" rel="noopener" class="px-3 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700">Descargar PDF</a>
 	</div>
+
+	@include('partials.auditoria', ['registro' => $bonificacion])
 </div>
 @endsection

@@ -95,5 +95,7 @@
 			</form>
 		@endif
 	</div>
+
+	@include('partials.auditoria', ['registro' => $vacacion])
 </div>
 @endsection

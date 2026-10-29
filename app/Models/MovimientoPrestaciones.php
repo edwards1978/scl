@@ -4,13 +4,20 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\RegistraAuditoria;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class MovimientoPrestaciones extends Model
 {
+    use RegistraAuditoria;
+
     protected $table = 'movimientos_prestaciones';
+
+    protected $attributes = [
+        'estatus' => 'activo',
+    ];
 
     public const TIPO_ANTICIPO = 'anticipo';
 
@@ -52,6 +59,29 @@ class MovimientoPrestaciones extends Model
             'motivo' => 'string',
             'moneda' => 'string',
             'estatus' => 'string',
+            'annulled_at' => 'datetime',
+        ];
+    }
+
+    /** @return list<string> */
+    protected function camposDeEstado(): array
+    {
+        return ['estatus'];
+    }
+
+    /** @return array<string, array{0: string, 1: string}> */
+    protected function sellosDeEstado(): array
+    {
+        return [
+            'anulado' => ['annulled_by', 'annulled_at'],
+        ];
+    }
+
+    /** @return array<string, list<string>> */
+    protected function sellosQueSeReinician(): array
+    {
+        return [
+            'activo' => ['annulled_by', 'annulled_at'],
         ];
     }
 

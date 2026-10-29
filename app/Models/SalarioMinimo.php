@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\RegistraAuditoria;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
 
 class SalarioMinimo extends Model
 {
+    use RegistraAuditoria;
+
     protected $table = 'salarios_minimos';
 
     protected $fillable = [

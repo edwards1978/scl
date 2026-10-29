@@ -4,12 +4,19 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\RegistraAuditoria;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class BonificacionFinAno extends Model
 {
+    use RegistraAuditoria;
+
     protected $table = 'bonificaciones_fin_ano';
+
+    protected $attributes = [
+        'estatus' => 'calculado',
+    ];
 
     protected $fillable = [
         'patrono_id',
@@ -61,6 +68,34 @@ class BonificacionFinAno extends Model
             'total_asignaciones' => 'decimal:2',
             'total_deducciones' => 'decimal:2',
             'neto' => 'decimal:2',
+            'approved_at' => 'datetime',
+        ];
+    }
+
+    /** @return list<string> */
+    protected function camposDeEstado(): array
+    {
+        return ['estatus'];
+    }
+
+    /** @return array<string, array{0: string, 1: string}> */
+    protected function sellosDeEstado(): array
+    {
+        return [
+            'aprobado' => ['approved_by', 'approved_at'],
+        ];
+    }
+
+    /** @return array<string, list<string>> */
+    protected function sellosQueSeReinician(): array
+    {
+        return [
+            'calculado' => [
+                'approved_by',
+                'approved_at',
+                'fecha_aprobacion',
+                'fecha_emision',
+            ],
         ];
     }
 

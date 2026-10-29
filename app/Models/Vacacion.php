@@ -4,13 +4,21 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\RegistraAuditoria;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Vacacion extends Model
 {
+    use RegistraAuditoria;
+
     protected $table = 'vacaciones';
+
+    protected $attributes = [
+        'estatus_calculo' => 'por_aprobar',
+        'estatus_vacacion' => 'pendiente',
+    ];
 
     protected $fillable = [
         'patrono_id',
@@ -58,6 +66,31 @@ class Vacacion extends Model
             'moneda' => 'string',
             'estatus_calculo' => 'string',
             'estatus_vacacion' => 'string',
+            'approved_at' => 'datetime',
+            'annulled_at' => 'datetime',
+        ];
+    }
+
+    /** @return list<string> */
+    protected function camposDeEstado(): array
+    {
+        return ['estatus_calculo', 'estatus_vacacion'];
+    }
+
+    /** @return array<string, array{0: string, 1: string}> */
+    protected function sellosDeEstado(): array
+    {
+        return [
+            'aprobada' => ['approved_by', 'approved_at'],
+            'no_aprobada' => ['annulled_by', 'annulled_at'],
+        ];
+    }
+
+    /** @return array<string, list<string>> */
+    protected function sellosQueSeReinician(): array
+    {
+        return [
+            'por_aprobar' => ['approved_by', 'approved_at', 'annulled_by', 'annulled_at'],
         ];
     }
 

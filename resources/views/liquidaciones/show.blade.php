@@ -232,5 +232,7 @@
 			<a href="{{ route('liquidaciones.pdf', $liquidacion->id) }}" target="_blank" rel="noopener" class="px-4 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700">Descargar PDF</a>
 		@endif
 	</div>
+
+	@include('partials.auditoria', ['registro' => $liquidacion])
 </div>
 @endsection

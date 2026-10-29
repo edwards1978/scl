@@ -163,5 +163,7 @@
 			<button class="px-3 py-1.5 text-sm border border-gray-300 text-gray-600 hover:bg-gray-50">Eliminar</button>
 		</form>
 	</div>
+
+	@include('partials.auditoria', ['registro' => $movimiento])
 </div>
 @endsection

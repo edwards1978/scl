@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\RegistraAuditoria;
 use Illuminate\Database\Eloquent\Model;
 
 class TasaInteresPrestaciones extends Model
 {
+    use RegistraAuditoria;
+
     protected $table = 'tasas_interes_prestaciones';
 
     protected $fillable = [
