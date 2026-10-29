@@ -143,8 +143,8 @@ routes/web.php
 
 ```
 php artisan test --compact
-Tests:    90 passed (332 assertions)
-Duration: 21.8 s
+Tests:    143 passed (573 assertions)
+Duration: 25.0 s
 ```
 
 Distribución:
@@ -158,11 +158,12 @@ Distribución:
 | `tests/Feature/Auth/*` | 15 |
 | `tests/Unit/DiasFeriadosServiceTest.php` | 2 |
 | `tests/Feature/ExampleTest.php` / `tests/Unit/ExampleTest.php` | 3 |
-| **Total** | **90** |
+| `tests/Feature/Seguridad/*` | 23 |
+| **Total** | **143** |
 
 **Fortaleza:** la lógica de prestaciones e intereses ya tiene cobertura de dominio con fechas, tasas y salarios controlados: cierres de trimestre, ingresos a mitad de mes, 29 de febrero, 31 de mes, fracciones de egreso, días adicionales, topes, proyecciones y pagos.
 
-**Limitación:** no hay pruebas de vacaciones, liquidaciones, utilidades ni sueldos; tampoco pruebas HTTP de autorización por patrono/rol ni de todas las pantallas. La cobertura se concentra en el módulo que más se ha modificado, lo cual es correcto como prioridad, pero deja sin red de seguridad los demás cálculos.
+**Limitación:** no hay pruebas de vacaciones, liquidaciones, utilidades ni sueldos; la cobertura se concentra en prestaciones, intereses, filtros y ahora autorización. Ya existen pruebas HTTP de acceso por patrono y por rol (`tests/Feature/Seguridad`).
 
 ### 4.2 Aislamiento de pruebas
 
@@ -378,20 +379,20 @@ Esto mezcla “días de bonificación de fin de año” con “días de utilidad
 
 ## 8. Seguridad y cumplimiento
 
-### 8.1 Autorización y auditoría — **P0**
+### 8.1 Autorización y auditoría — **P0 resuelto en roles; auditoría pendiente**
 
-- No hay `app/Policies`, `Gate::` ni middleware de roles.
-- `users` solo tiene `id`, `name`, `email`, `email_verified_at`, `password`, `remember_token`, timestamps. No hay `patrono_id` ni `is_admin`.
-- Cualquier usuario autenticado puede:
-  - seleccionar cualquier patrono activo;
-  - ver/editar la nómina completa;
-  - aprobar/anular/borrar liquidaciones, vacaciones y bonificaciones;
-  - editar feriados, tasas BCV, tasas de interés y salarios mínimos (globales).
-- No hay campos `created_by`, `updated_by`, `approved_by`, `approved_at`, `annulled_by`, `annulled_at` ni historial de estados.
-- No hay borrado lógico (`deleted_at`) en los modelos revisados.
-- La cookie `scl_ctx` no está firmada/cifrada; contiene patrono/nombre y dura 30 días. Debe ligarse al usuario y firmarse.
+**Implementado el 28/10/2026:**
 
-**Acción:** definir roles (administrador, analista, consulta), asociar usuarios a patronos, implementar Policies, añadir auditoría y soft deletes, y restringir borrados físicos.
+- Roles en `users.rol`: `administrador`, `analista` y `consulta` (`App\Enums\RolUsuario`).
+- Tabla pivote `patrono_user`: cada usuario no administrador solo accede a los patronos asignados.
+- Policies `PatronoPolicy` y `EmpleadoPolicy`; Gates `administrar` y `gestionar`.
+- Middleware `contexto.patrono` valida el patrono de la sesión/cookie contra el usuario; `nomina.gestionar` bloquea las escrituras del rol Consulta.
+- Rutas globales (patronos, feriados, tasas BCV, tasas de interés, salarios mínimos y usuarios) restringidas a administradores.
+- Cookie `scl_ctx` cifrada y autenticada por `EncryptCookies`; solo contiene `patrono_id`.
+- Pantalla `/usuarios` para crear/editar usuarios, asignar rol y varios patronos; protección del último administrador y del propio usuario.
+- Los usuarios existentes conservan su acceso al migrar como administradores.
+
+**Pendiente:** auditoría (`created_by`, `updated_by`, `approved_by`, `annulled_by`, historial de estados), borrado lógico y revisión de permisos por acción específica.
 
 ### 8.2 Controles presentes
 
@@ -792,7 +793,7 @@ El empleado 10 sube porque el recálculo completó períodos faltantes; no se mo
 
 - Las **7 liquidaciones aprobadas antes del motor v2** no se recalcularon por decisión expresa; siguen con la fórmula anterior.
 - La interpretación legal de las reglas 1–10 debe ser firmada por contador/abogado antes de usarla masivamente en pagos.
-- Siguen pendientes: roles/auditoría, historial salarial y utilidades.
+- Siguen pendientes: auditoría, historial salarial y utilidades.
 - El respaldo `prestaciones_sociales_backup_20261023` se conserva en la base; no eliminar hasta validar los nuevos saldos.
 
 ---

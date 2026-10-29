@@ -11,9 +11,10 @@
 	@php
 		$currentRoute = request()->route()?->getName() ?? '';
 		$currentUser = auth()->user();
+		$menu = menu_para_usuario($currentUser);
 
 		$activeSection = null;
-		foreach (config('menu') as $section => $seccion) {
+		foreach ($menu as $section => $seccion) {
 			foreach ($seccion['opciones'] ?? [] as $op) {
 				$matches = false;
 				foreach ($op['activo'] ?? [] as $prefijo) {
@@ -41,7 +42,7 @@
 		sidebarColapsado: (window.innerWidth < 1024) ? false : (localStorage.getItem('sidebar_colapsado') === '1'),
 		estado: JSON.parse(localStorage.getItem('sidebar_estado_scl') || '{}'),
 		init() {
-			const secciones = Object.keys({{ Illuminate\Support\Js::from(config('menu')) }});
+			const secciones = Object.keys({{ Illuminate\Support\Js::from($menu) }});
 			secciones.forEach(s => {
 				if (this.estado[s] === undefined) {
 					this.estado[s] = s === '{{ $activeSection }}';

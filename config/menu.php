@@ -17,6 +17,7 @@ return [
                 'ruta' => 'patronos.index',
                 'activo' => ['patronos'],
                 'create' => 'patronos.create',
+                'solo_admin' => true,
                 'desc' => 'Gestión de empresas empleadoras',
             ],
             [
@@ -114,6 +115,7 @@ return [
                 'icono' => 'feriados',
                 'ruta' => 'feriados.index',
                 'activo' => ['feriados'],
+                'solo_admin' => true,
                 'desc' => 'Calendario laboral y días no laborables',
             ],
             [
@@ -121,6 +123,7 @@ return [
                 'icono' => 'tasas',
                 'ruta' => 'tasas.index',
                 'activo' => ['tasas.', 'tasas-bcv'],
+                'solo_admin' => true,
                 'desc' => 'Tasa de cambio del dólar publicada por el BCV',
             ],
             [
@@ -128,6 +131,7 @@ return [
                 'icono' => 'tasas-interes',
                 'ruta' => 'tasas-interes.index',
                 'activo' => ['tasas-interes'],
+                'solo_admin' => true,
                 'desc' => 'Tasa de interés sobre prestaciones sociales (BCV)',
             ],
             [
@@ -135,7 +139,17 @@ return [
                 'icono' => 'salarios-minimos',
                 'ruta' => 'salarios-minimos.index',
                 'activo' => ['salarios-minimos'],
+                'solo_admin' => true,
                 'desc' => 'Salarios mínimos legales vigentes',
+            ],
+            [
+                'label' => 'Usuarios',
+                'icono' => 'usuarios',
+                'ruta' => 'usuarios.index',
+                'activo' => ['usuarios'],
+                'create' => 'usuarios.create',
+                'solo_admin' => true,
+                'desc' => 'Roles, permisos y patronos asignados',
             ],
         ],
     ],

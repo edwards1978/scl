@@ -4,7 +4,9 @@
 <div class="p-4 mx-4">
 	<div class="flex items-center justify-between mb-1">
 		<h1 class="text-xl font-semibold">Liquidaciones de Prestaciones Sociales</h1>
-		<a href="{{ route('liquidaciones.create') }}" class="px-3 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700">+ Nueva liquidación</a>
+		@can('gestionar')
+			<a href="{{ route('liquidaciones.create') }}" class="px-3 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700">+ Nueva liquidación</a>
+		@endcan
 	</div>
 	<p class="text-sm text-gray-600 mb-4">
 		Liquidación de prestaciones sociales al terminar la relación laboral (Art. 142 lit. C LOTTT).

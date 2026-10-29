@@ -15,6 +15,7 @@ use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 
 class LiquidacionController extends Controller
@@ -72,6 +73,8 @@ class LiquidacionController extends Controller
     /** Pantalla para crear una liquidación (Livewire full-page). */
     public function create(): View
     {
+        Gate::authorize('gestionar');
+
         $patrono = $this->patronoActual();
 
         return view('liquidaciones.create', compact('patrono'));

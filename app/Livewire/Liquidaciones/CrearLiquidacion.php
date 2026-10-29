@@ -10,6 +10,7 @@ use App\Models\Patrono;
 use App\Services\DiasFeriadosService;
 use App\Services\LiquidacionService;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 use Livewire\Component;
 
@@ -26,6 +27,11 @@ class CrearLiquidacion extends Component
     public ?string $error = null;
 
     public bool $guardando = false;
+
+    public function mount(): void
+    {
+        Gate::authorize('gestionar');
+    }
 
     public function updatedEmpleadoId(): void
     {
@@ -91,6 +97,8 @@ class CrearLiquidacion extends Component
 
     public function guardar(): void
     {
+        Gate::authorize('gestionar');
+
         $this->guardando = true;
         $this->error = null;
 

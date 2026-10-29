@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\AutorizarGestionNomina;
 use App\Http\Middleware\ValidarContextoPatrono;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -16,6 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->alias([
             'contexto.patrono' => ValidarContextoPatrono::class,
+            'nomina.gestionar' => AutorizarGestionNomina::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

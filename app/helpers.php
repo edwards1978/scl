@@ -1,15 +1,19 @@
 <?php
 
 declare(strict_types=1);
+use App\Models\SalarioMinimo;
+use App\Models\User;
+use Carbon\Carbon;
+use Carbon\CarbonInterface;
 
-if (!function_exists('formato_monto')) {
+if (! function_exists('formato_monto')) {
     function formato_monto(float $valor, int $decimales = 2): string
     {
         return number_format($valor, $decimales, ',', '.');
     }
 }
 
-if (!function_exists('parsear_numero')) {
+if (! function_exists('parsear_numero')) {
     function parsear_numero(?string $valor): float
     {
         $valor = trim((string) $valor);
@@ -37,30 +41,30 @@ if (!function_exists('parsear_numero')) {
     }
 }
 
-if (!function_exists('salario_minimo_en')) {
+if (! function_exists('salario_minimo_en')) {
     /**
      * Salario mínimo vigente en o antes de una fecha (la fila más reciente).
      *
      * @return array{mensual_bs:float, diario_bs:float, gaceta:string, fecha_vigencia:?string}|null
      */
-    function salario_minimo_en(?\Carbon\CarbonInterface $fecha = null): ?array
+    function salario_minimo_en(?CarbonInterface $fecha = null): ?array
     {
-        $vigente = \App\Models\SalarioMinimo::vigenteEn($fecha ?? \Carbon\Carbon::now());
+        $vigente = SalarioMinimo::vigenteEn($fecha ?? Carbon::now());
 
         if (! $vigente) {
             return null;
         }
 
         return [
-            'mensual_bs'     => (float) $vigente->mensual_bs,
-            'diario_bs'      => (float) $vigente->diario_bs,
-            'gaceta'         => $vigente->gaceta_oficial,
+            'mensual_bs' => (float) $vigente->mensual_bs,
+            'diario_bs' => (float) $vigente->diario_bs,
+            'gaceta' => $vigente->gaceta_oficial,
             'fecha_vigencia' => $vigente->fecha_vigencia?->toDateString(),
         ];
     }
 }
 
-if (!function_exists('numero_a_letras')) {
+if (! function_exists('numero_a_letras')) {
     /**
      * Convierte un número entero a su representación en letras en español
      * (minúsculas y acentuadas). Soporta hasta millones.
@@ -137,7 +141,7 @@ if (!function_exists('numero_a_letras')) {
     }
 }
 
-if (!function_exists('monto_en_bolivares')) {
+if (! function_exists('monto_en_bolivares')) {
     /**
      * Escribe una cantidad en bolívares (VES) en letras.
      * Ej.: "ciento veinte mil bolívares con 30/100 céntimos." / "...bolívares exactos".
@@ -163,7 +167,7 @@ if (!function_exists('monto_en_bolivares')) {
     }
 }
 
-if (!function_exists('monto_en_dolares')) {
+if (! function_exists('monto_en_dolares')) {
     /**
      * Escribe una cantidad en dólares estadounidenses en minúsculas.
      * "cien veinte dólares estadounidenses exactos" / "... con cinco centavos".
@@ -192,7 +196,37 @@ if (!function_exists('monto_en_dolares')) {
     }
 }
 
-if (!function_exists('monto_en_letras')) {
+if (! function_exists('menu_para_usuario')) {
+    /**
+     * Menú de navegación filtrado según el rol del usuario autenticado.
+     *
+     * @return array<string, array{titulo:string, opciones:array<int, array<string, mixed>>}>
+     */
+    function menu_para_usuario(?User $user = null): array
+    {
+        $user ??= auth()->user();
+        $menu = config('menu', []);
+
+        foreach ($menu as $clave => $seccion) {
+            $opciones = array_values(array_filter(
+                $seccion['opciones'] ?? [],
+                fn (array $opcion): bool => ! ($opcion['solo_admin'] ?? false) || $user?->esAdministrador()
+            ));
+
+            if ($opciones === []) {
+                unset($menu[$clave]);
+
+                continue;
+            }
+
+            $menu[$clave]['opciones'] = $opciones;
+        }
+
+        return $menu;
+    }
+}
+
+if (! function_exists('monto_en_letras')) {
     /**
      * Escribe una cantidad en letras según la moneda ("USD" o "BS").
      */

@@ -22,6 +22,7 @@ use App\Services\EmpleadosImportExportService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -156,6 +157,8 @@ class EmpleadoController extends Controller
 
     public function create(): View
     {
+        Gate::authorize('create', Empleado::class);
+
         $patrono = $this->patronoActual();
 
         return view('empleados.create', compact('patrono'));
@@ -176,9 +179,13 @@ class EmpleadoController extends Controller
     public function edit(Empleado $empleado): View
     {
         $this->verificarPertenece($empleado);
+        Gate::authorize('update', $empleado);
 
         $patrono = $this->patronoActual();
-        $patronos = Patrono::where('estado', 'Activo')->orderBy('razon_social')->get();
+        $patronos = Patrono::where('estado', 'Activo')
+            ->whereIn('id', auth()->user()->idsDePatronosPermitidos())
+            ->orderBy('razon_social')
+            ->get();
 
         return view('empleados.edit', compact('empleado', 'patrono', 'patronos'));
     }
@@ -186,6 +193,7 @@ class EmpleadoController extends Controller
     public function update(UpdateEmpleadoRequest $request, Empleado $empleado): RedirectResponse
     {
         $this->verificarPertenece($empleado);
+        Gate::authorize('update', $empleado);
 
         $data = $request->validated();
         $data['patrono_id'] = $empleado->patrono_id;
@@ -199,6 +207,7 @@ class EmpleadoController extends Controller
     public function destroy(Empleado $empleado): RedirectResponse
     {
         $this->verificarPertenece($empleado);
+        Gate::authorize('delete', $empleado);
 
         $tieneHistorial = Vacacion::where('empleado_id', $empleado->id)->exists()
             || Sueldo::where('empleado_id', $empleado->id)->exists()
@@ -223,12 +232,16 @@ class EmpleadoController extends Controller
     public function cambiarPatrono(Request $request, Empleado $empleado): RedirectResponse
     {
         $this->verificarPertenece($empleado);
+        Gate::authorize('update', $empleado);
 
         $request->validate([
             'nuevo_patrono_id' => 'required|exists:patronos,id',
         ]);
 
         $nuevoPatrono = Patrono::findOrFail($request->integer('nuevo_patrono_id'));
+
+        // Un analista solo puede mover trabajadores entre sus patronos asignados.
+        Gate::authorize('view', $nuevoPatrono);
 
         if ($nuevoPatrono->estado !== 'Activo') {
             return back()->withErrors(['nuevo_patrono_id' => 'El patrono seleccionado no está activo.']);
@@ -276,5 +289,7 @@ class EmpleadoController extends Controller
     private function verificarPertenece(Empleado $empleado): void
     {
         abort_if((int) $empleado->patrono_id !== (int) session('patrono_id'), 404);
+
+        Gate::authorize('view', $empleado);
     }
 }

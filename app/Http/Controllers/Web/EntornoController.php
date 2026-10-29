@@ -8,28 +8,32 @@ use App\Http\Controllers\Controller;
 use App\Models\Patrono;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cookie;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 
 class EntornoController extends Controller
 {
-    public function seleccionar(Request $request): View|RedirectResponse
+    public function seleccionar(Request $request): View
     {
-        $patronos = Patrono::where('estado', 'Activo')->orderBy('razon_social')->get();
+        $user = $request->user();
+        $patronos = $user->patronosDisponibles();
 
-        if ($patronos->isEmpty()) {
-            return redirect()->route('patronos.create')
-                ->with('info', 'Registre el primer patrono para comenzar.');
-        }
-
-        $patronoId = (int) ($request->get('patrono', session('patrono_id', $patronos->first()->id)));
-
+        $patronoId = (int) $request->get('patrono', session('patrono_id', $patronos->first()?->id));
         $patrono = $patronos->firstWhere('id', $patronoId);
+
         if ($patrono) {
-            session()->put('patrono_id', $patrono->id);
-            session()->put('nombre_patrono', $patrono->razon_social);
+            session([
+                'patrono_id' => $patrono->id,
+                'nombre_patrono' => $patrono->razon_social,
+            ]);
         }
 
-        return view('entorno.seleccionar', compact('patronos', 'patronoId'));
+        return view('entorno.seleccionar', [
+            'patronos' => $patronos,
+            'patronoId' => $patrono?->id,
+            'puedeGestionarPatronos' => $user->esAdministrador(),
+        ]);
     }
 
     public function guardar(Request $request): RedirectResponse
@@ -42,15 +46,18 @@ class EntornoController extends Controller
             ->where('estado', 'Activo')
             ->firstOrFail();
 
+        Gate::authorize('view', $patrono);
+
         session([
-            'patrono_id'    => $patrono->id,
-            'nombre_patrono'=> $patrono->razon_social,
+            'patrono_id' => $patrono->id,
+            'nombre_patrono' => $patrono->razon_social,
         ]);
 
-        setcookie('scl_ctx', json_encode([
-            'patrono_id'    => $patrono->id,
-            'nombre_patrono'=> $patrono->razon_social,
-        ]), time() + 86400 * 30, '/', '', false, true);
+        // Cookie cifrada y autenticada por EncryptCookies: no se puede alterar
+        // el patrono sin la clave de la aplicación.
+        Cookie::queue(Cookie::make('scl_ctx', json_encode([
+            'patrono_id' => $patrono->id,
+        ]), 60 * 24 * 30, '/', null, $request->isSecure(), true));
 
         return redirect()->route('empleados.index')
             ->with('success', "Contexto seleccionado: {$patrono->razon_social}.");
@@ -59,7 +66,7 @@ class EntornoController extends Controller
     public function limpiar(): RedirectResponse
     {
         session()->forget(['patrono_id', 'nombre_patrono']);
-        setcookie('scl_ctx', '', time() - 3600, '/');
+        Cookie::queue(Cookie::forget('scl_ctx'));
 
         return redirect()->route('entorno.seleccionar');
     }

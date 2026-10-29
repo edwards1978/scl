@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Rules\RifVenezolanoRule;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Patrono extends Model
@@ -36,18 +37,18 @@ class Patrono extends Model
     protected function casts(): array
     {
         return [
-            'estado'                  => 'string',
-            'descuenta_ivss'          => 'boolean',
-            'descuenta_paro_fijo'     => 'boolean',
-            'descuenta_faov'          => 'boolean',
-            'descuenta_inces'         => 'boolean',
+            'estado' => 'string',
+            'descuenta_ivss' => 'boolean',
+            'descuenta_paro_fijo' => 'boolean',
+            'descuenta_faov' => 'boolean',
+            'descuenta_inces' => 'boolean',
             'mostrar_equivalencia_usd' => 'boolean',
-            'dias_bonificacion'       => 'integer',
-            'deposito_tipo'           => 'string',
-            'anticipos_max_anio'      => 'integer',
+            'dias_bonificacion' => 'integer',
+            'deposito_tipo' => 'string',
+            'anticipos_max_anio' => 'integer',
             'anticipos_pct_contabilidad' => 'integer',
             'anticipos_pct_fideicomiso' => 'integer',
-            'anticipos_pct_fondo'     => 'integer',
+            'anticipos_pct_fondo' => 'integer',
         ];
     }
 
@@ -59,5 +60,10 @@ class Patrono extends Model
     public function empleados(): HasMany
     {
         return $this->hasMany(Empleado::class);
+    }
+
+    public function users(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class)->withTimestamps();
     }
 }

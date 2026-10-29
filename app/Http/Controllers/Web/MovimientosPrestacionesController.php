@@ -14,6 +14,7 @@ use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -75,6 +76,8 @@ class MovimientosPrestacionesController extends Controller
     /** Pantalla para registrar un nuevo anticipo o préstamo. */
     public function create(Request $request): View
     {
+        Gate::authorize('gestionar');
+
         $patrono = $this->patronoActual();
 
         $empleado = null;

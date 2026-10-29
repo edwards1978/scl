@@ -15,6 +15,7 @@ use App\Http\Controllers\Web\SalarioMinimoController;
 use App\Http\Controllers\Web\SueldosController;
 use App\Http\Controllers\Web\TasasBcvController;
 use App\Http\Controllers\Web\TasasInteresController;
+use App\Http\Controllers\Web\UsuarioController;
 use App\Http\Controllers\Web\UtilidadesController;
 use App\Http\Controllers\Web\VacacionesController;
 use Illuminate\Support\Facades\Route;
@@ -40,13 +41,13 @@ Route::middleware('auth')->group(function () {
     });
 
     // Configuración del patrono en contexto (utilidades, recibos, prestaciones)
-    Route::prefix('configuracion')->name('configuracion.')->middleware('contexto.patrono')->group(function () {
+    Route::prefix('configuracion')->name('configuracion.')->middleware(['contexto.patrono', 'nomina.gestionar'])->group(function () {
         Route::get('/', [ConfiguracionController::class, 'index'])->name('index');
         Route::put('/', [ConfiguracionController::class, 'update'])->name('update');
     });
 
     // Días feriados (calendario laboral)
-    Route::prefix('feriados')->name('feriados.')->group(function () {
+    Route::prefix('feriados')->name('feriados.')->middleware('can:administrar')->group(function () {
         Route::get('/', [FeriadosController::class, 'index'])->name('index');
         Route::post('/', [FeriadosController::class, 'store'])->name('store');
         Route::put('{feriado}', [FeriadosController::class, 'update'])->name('update');
@@ -55,7 +56,7 @@ Route::middleware('auth')->group(function () {
     });
 
     // Patronos
-    Route::prefix('patronos')->name('patronos.')->group(function () {
+    Route::prefix('patronos')->name('patronos.')->middleware('can:administrar')->group(function () {
         Route::get('/', [PatronoController::class, 'index'])->name('index');
         Route::get('create', [PatronoController::class, 'create'])->name('create');
         Route::post('/', [PatronoController::class, 'store'])->name('store');
@@ -66,7 +67,7 @@ Route::middleware('auth')->group(function () {
     });
 
     // Empleados (requieren contexto patrono)
-    Route::prefix('empleados')->name('empleados.')->middleware('contexto.patrono')->group(function () {
+    Route::prefix('empleados')->name('empleados.')->middleware(['contexto.patrono', 'nomina.gestionar'])->group(function () {
         Route::get('/', [EmpleadoController::class, 'index'])->name('index');
         Route::get('create', [EmpleadoController::class, 'create'])->name('create');
         Route::post('/', [EmpleadoController::class, 'store'])->name('store');
@@ -80,7 +81,7 @@ Route::middleware('auth')->group(function () {
     });
 
     // Cálculo y control de vacaciones (LOTTT) — módulo global, bajo contexto patrono
-    Route::prefix('vacaciones')->name('vacaciones.')->middleware('contexto.patrono')->group(function () {
+    Route::prefix('vacaciones')->name('vacaciones.')->middleware(['contexto.patrono', 'nomina.gestionar'])->group(function () {
         Route::get('/', [VacacionesController::class, 'index'])->name('index');
         Route::get('crear', [VacacionesController::class, 'create'])->name('create');
         Route::get('{vacacion}', [VacacionesController::class, 'show'])->name('show');
@@ -90,13 +91,13 @@ Route::middleware('auth')->group(function () {
     });
 
     // Reportes (requieren contexto patrono)
-    Route::prefix('reportes')->name('reportes.')->middleware('contexto.patrono')->group(function () {
+    Route::prefix('reportes')->name('reportes.')->middleware(['contexto.patrono', 'nomina.gestionar'])->group(function () {
         Route::get('vacaciones', [ReportesController::class, 'vacaciones'])->name('vacaciones.index');
         Route::get('vacaciones/pdf', [ReportesController::class, 'vacacionesPdf'])->name('vacaciones.pdf');
     });
 
     // Sueldos y variaciones salariales (requieren contexto patrono)
-    Route::prefix('sueldos')->name('sueldos.')->middleware('contexto.patrono')->group(function () {
+    Route::prefix('sueldos')->name('sueldos.')->middleware(['contexto.patrono', 'nomina.gestionar'])->group(function () {
         Route::get('/', [SueldosController::class, 'index'])->name('index');
         Route::post('regenerar', [SueldosController::class, 'regenerar'])->name('regenerar');
         Route::get('variaciones', [SueldosController::class, 'variaciones'])->name('variaciones');
@@ -105,7 +106,7 @@ Route::middleware('auth')->group(function () {
     });
 
     // Utilidades/Bonificación de fin de año (requieren contexto patrono)
-    Route::prefix('utilidades')->name('utilidades.')->middleware('contexto.patrono')->group(function () {
+    Route::prefix('utilidades')->name('utilidades.')->middleware(['contexto.patrono', 'nomina.gestionar'])->group(function () {
         Route::get('/', [UtilidadesController::class, 'index'])->name('index');
         Route::post('calcular', [UtilidadesController::class, 'calcular'])->name('calcular');
         Route::post('aprobar-todas', [UtilidadesController::class, 'aprobarTodas'])->name('aprobar-todas');
@@ -117,7 +118,7 @@ Route::middleware('auth')->group(function () {
     });
 
     // Anticipos de prestaciones sociales y préstamos (Art. 144 LOTTT)
-    Route::prefix('movimientos-prestaciones')->name('movimientos-prestaciones.')->middleware('contexto.patrono')->group(function () {
+    Route::prefix('movimientos-prestaciones')->name('movimientos-prestaciones.')->middleware(['contexto.patrono', 'nomina.gestionar'])->group(function () {
         Route::get('/', [MovimientosPrestacionesController::class, 'index'])->name('index');
         Route::get('crear', [MovimientosPrestacionesController::class, 'create'])->name('create');
         Route::post('/', [MovimientosPrestacionesController::class, 'store'])->name('store');
@@ -131,7 +132,7 @@ Route::middleware('auth')->group(function () {
     });
 
     // Pagos de intereses sobre prestaciones sociales (Art. 143 LOTTT)
-    Route::prefix('intereses-prestaciones')->name('intereses-prestaciones.')->middleware('contexto.patrono')->group(function () {
+    Route::prefix('intereses-prestaciones')->name('intereses-prestaciones.')->middleware(['contexto.patrono', 'nomina.gestionar'])->group(function () {
         Route::get('/', [InteresesPrestacionesController::class, 'index'])->name('index');
         Route::get('crear', [InteresesPrestacionesController::class, 'create'])->name('create');
         Route::get('saldo/{empleadoId}', [InteresesPrestacionesController::class, 'saldo'])->name('saldo');
@@ -142,7 +143,7 @@ Route::middleware('auth')->group(function () {
     });
 
     // Prestaciones sociales: garantía e intereses (Arts. 142 y 143 LOTTT)
-    Route::prefix('prestaciones')->name('prestaciones.')->middleware('contexto.patrono')->group(function () {
+    Route::prefix('prestaciones')->name('prestaciones.')->middleware(['contexto.patrono', 'nomina.gestionar'])->group(function () {
         Route::get('/', [PrestacionesController::class, 'index'])->name('index');
         Route::post('proyectar', [PrestacionesController::class, 'proyectar'])->name('proyectar');
         Route::get('{empleadoId}', [PrestacionesController::class, 'show'])->name('show');
@@ -154,7 +155,7 @@ Route::middleware('auth')->group(function () {
     });
 
     // Liquidaciones de prestaciones sociales (Art. 142 lit. C LOTTT)
-    Route::prefix('liquidaciones')->name('liquidaciones.')->middleware('contexto.patrono')->group(function () {
+    Route::prefix('liquidaciones')->name('liquidaciones.')->middleware(['contexto.patrono', 'nomina.gestionar'])->group(function () {
         Route::get('/', [LiquidacionController::class, 'index'])->name('index');
         Route::get('crear', [LiquidacionController::class, 'create'])->name('create');
         Route::get('{id}', [LiquidacionController::class, 'show'])->name('show');
@@ -166,7 +167,7 @@ Route::middleware('auth')->group(function () {
     });
 
     // Tasas de cambio del BCV (no requieren patrono, son globales)
-    Route::prefix('tasas-bcv')->name('tasas.')->group(function () {
+    Route::prefix('tasas-bcv')->name('tasas.')->middleware('can:administrar')->group(function () {
         Route::get('/', [TasasBcvController::class, 'index'])->name('index');
         Route::post('/', [TasasBcvController::class, 'store'])->name('store');
         Route::post('importar', [TasasBcvController::class, 'importar'])->name('importar');
@@ -175,7 +176,7 @@ Route::middleware('auth')->group(function () {
     });
 
     // Tasas de interés sobre prestaciones sociales (BCV, globales)
-    Route::prefix('tasas-interes')->name('tasas-interes.')->group(function () {
+    Route::prefix('tasas-interes')->name('tasas-interes.')->middleware('can:administrar')->group(function () {
         Route::get('/', [TasasInteresController::class, 'index'])->name('index');
         Route::post('/', [TasasInteresController::class, 'store'])->name('store');
         Route::post('importar', [TasasInteresController::class, 'importar'])->name('importar');
@@ -183,11 +184,21 @@ Route::middleware('auth')->group(function () {
     });
 
     // Salarios mínimos legales (globales, de configuración, sin contexto patrono)
-    Route::prefix('salarios-minimos')->name('salarios-minimos.')->group(function () {
+    Route::prefix('salarios-minimos')->name('salarios-minimos.')->middleware('can:administrar')->group(function () {
         Route::get('/', [SalarioMinimoController::class, 'index'])->name('index');
         Route::post('/', [SalarioMinimoController::class, 'store'])->name('store');
         Route::put('{salario}', [SalarioMinimoController::class, 'update'])->name('update');
         Route::delete('{salario}', [SalarioMinimoController::class, 'destroy'])->name('destroy');
+    });
+
+    // Usuarios, roles y patronos asignados (solo administradores)
+    Route::prefix('usuarios')->name('usuarios.')->middleware('can:administrar')->group(function () {
+        Route::get('/', [UsuarioController::class, 'index'])->name('index');
+        Route::get('create', [UsuarioController::class, 'create'])->name('create');
+        Route::post('/', [UsuarioController::class, 'store'])->name('store');
+        Route::get('{usuario}/edit', [UsuarioController::class, 'edit'])->name('edit');
+        Route::put('{usuario}', [UsuarioController::class, 'update'])->name('update');
+        Route::delete('{usuario}', [UsuarioController::class, 'destroy'])->name('destroy');
     });
 });
 

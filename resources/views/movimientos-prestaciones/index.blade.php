@@ -4,7 +4,9 @@
 <div class="p-4 mx-4">
 	<div class="flex items-center justify-between mb-1">
 		<h1 class="text-xl font-semibold">Anticipos de Prestaciones y Préstamos</h1>
-		<a href="{{ route('movimientos-prestaciones.create') }}" class="px-3 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700">+ Nuevo movimiento</a>
+		@can('gestionar')
+			<a href="{{ route('movimientos-prestaciones.create') }}" class="px-3 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700">+ Nuevo movimiento</a>
+		@endcan
 	</div>
 	<p class="text-sm text-gray-600 mb-4">
 		Anticipos de prestaciones sociales (Art. 144 LOTTT) y préstamos contra el saldo de prestaciones.

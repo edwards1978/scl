@@ -4,7 +4,9 @@
 <div class="p-4 mx-4">
 	<div class="flex items-center justify-between mb-1">
 		<h1 class="text-xl font-semibold">Empleados</h1>
-		<a href="{{ route('empleados.create') }}" class="px-3 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700">+ Nuevo Empleado</a>
+		@can('gestionar')
+			<a href="{{ route('empleados.create') }}" class="px-3 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700">+ Nuevo Empleado</a>
+		@endcan
 	</div>
 <!-- 	<p class="text-sm text-gray-600 mb-4">
 		Patrono: <span class="font-medium">{{ $patrono->razon_social }}</span> ({{ $patrono->rif }})

@@ -4,7 +4,9 @@
 <div class="p-4 mx-4">
 	<div class="flex items-center justify-between mb-3">
 		<h1 class="text-xl font-semibold">Vacaciones (LOTTT)</h1>
-		<a href="{{ route('vacaciones.create') }}" class="px-3 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700">+ Nueva Vacación</a>
+		@can('gestionar')
+			<a href="{{ route('vacaciones.create') }}" class="px-3 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700">+ Nueva Vacación</a>
+		@endcan
 	</div>
 
 	<!-- <p class="text-sm text-gray-600 mb-4">

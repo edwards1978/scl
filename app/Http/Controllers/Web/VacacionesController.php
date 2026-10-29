@@ -5,21 +5,22 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
-use App\Models\Empleado;
 use App\Models\Patrono;
 use App\Models\Vacacion;
 use App\Services\VacacionesService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class VacacionesController extends Controller
 {
     public function __construct(
         private VacacionesService $service = new VacacionesService,
-    ) {
-    }
+    ) {}
 
     private function patronoActual(): Patrono
     {
@@ -68,6 +69,8 @@ class VacacionesController extends Controller
     /** Pantalla para crear una nueva vacación (formulario Livewire full-page). */
     public function create(): View
     {
+        Gate::authorize('gestionar');
+
         $patrono = $this->patronoActual();
 
         return view('vacaciones.create', compact('patrono'));
@@ -106,10 +109,10 @@ class VacacionesController extends Controller
         try {
             match ($action) {
                 'aprobar' => $this->accionAprobar($vacacion),
-                'anular'  => $this->accionAnular($vacacion),
-                'pagar'   => $this->accionPagar($vacacion),
+                'anular' => $this->accionAnular($vacacion),
+                'pagar' => $this->accionPagar($vacacion),
             };
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             return back()->with('error', $e->getMessage());
         }
 
@@ -136,16 +139,16 @@ class VacacionesController extends Controller
         $moneda = $this->service->formatearMonto($empleado, (float) $recibo->neto, (float) $recibo->tipo_cambio, null, $vacacion->moneda);
 
         return Pdf::loadView('vacaciones.pdf', [
-            'vacacion'  => $vacacion,
-            'empleado'  => $empleado,
-            'recibo'    => $recibo,
-            'moneda'    => $moneda,
+            'vacacion' => $vacacion,
+            'empleado' => $empleado,
+            'recibo' => $recibo,
+            'moneda' => $moneda,
             'asignaciones' => $recibo->asignaciones,
-            'deducciones'  => $recibo->deducciones,
+            'deducciones' => $recibo->deducciones,
             'total_asignaciones' => (float) $recibo->total_asignaciones,
-            'total_deducciones'  => (float) $recibo->total_deducciones,
+            'total_deducciones' => (float) $recibo->total_deducciones,
         ])->setPaper('letter', 'portrait')
-          ->stream("recibo-vacaciones-{$empleado->nombre_completo}.pdf");
+            ->stream("recibo-vacaciones-{$empleado->nombre_completo}.pdf");
     }
 
     /** Elimina un periodo pendiente sin recibo. */
@@ -169,7 +172,7 @@ class VacacionesController extends Controller
     private function accionAprobar(Vacacion $vacacion): void
     {
         if (! $vacacion->puedeAprobar()) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
                 'accion' => 'El cálculo no puede aprobarse: ya está aprobado o disfrutado.',
             ]);
         }
@@ -179,12 +182,12 @@ class VacacionesController extends Controller
     private function accionAnular(Vacacion $vacacion): void
     {
         if (! $vacacion->puedeAnular()) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
                 'accion' => 'No se puede anular: la vacación ya fue pagada o disfrutada.',
             ]);
         }
 
-        \Illuminate\Support\Facades\DB::transaction(function () use ($vacacion) {
+        DB::transaction(function () use ($vacacion) {
             $vacacion->recibos()->delete();
             $vacacion->update(['estatus_calculo' => 'no_aprobada']);
         });
@@ -193,7 +196,7 @@ class VacacionesController extends Controller
     private function accionPagar(Vacacion $vacacion): void
     {
         if (! $vacacion->puedePagar()) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
                 'accion' => 'El cálculo no se encuentra aprobado o ya fue pagado.',
             ]);
         }
@@ -202,7 +205,7 @@ class VacacionesController extends Controller
 
         $vacacion->update([
             'estatus_vacacion' => 'disfrutada',
-            'estatus_calculo'  => 'aprobada',
+            'estatus_calculo' => 'aprobada',
         ]);
 
         $recibo->update([

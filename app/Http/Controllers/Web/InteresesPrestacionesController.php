@@ -15,6 +15,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -79,6 +80,8 @@ class InteresesPrestacionesController extends Controller
     /** Pantalla para registrar un nuevo pago de intereses. */
     public function create(Request $request): View
     {
+        Gate::authorize('gestionar');
+
         $patrono = $this->patronoActual();
 
         $empleados = $patrono->empleados()

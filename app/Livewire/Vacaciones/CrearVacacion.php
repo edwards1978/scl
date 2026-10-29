@@ -10,19 +10,28 @@ use App\Models\Vacacion;
 use App\Services\DiasFeriadosService;
 use App\Services\VacacionesService;
 use Carbon\Carbon;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 use Livewire\Component;
 
 class CrearVacacion extends Component
 {
     public int $empleado_id = 0;
+
     public string $fecha_inicio = '';
 
     public ?array $preview = null;
+
     public ?string $error = null;
 
     public bool $guardando = false;
+
+    public function mount(): void
+    {
+        Gate::authorize('gestionar');
+    }
 
     public function updatedEmpleadoId(): void
     {
@@ -89,6 +98,8 @@ class CrearVacacion extends Component
 
     public function guardar(): void
     {
+        Gate::authorize('gestionar');
+
         $this->guardando = true;
         $this->error = null;
 
@@ -129,8 +140,8 @@ class CrearVacacion extends Component
 
         if ($yaExiste) {
             $this->error = 'Ese periodo de vacaciones ya está registrado ('.
-                \Carbon\Carbon::parse($carga['periodo_desde'])->format('d/m/Y').' — '.
-                \Carbon\Carbon::parse($carga['periodo_hasta'])->format('d/m/Y').').';
+                Carbon::parse($carga['periodo_desde'])->format('d/m/Y').' — '.
+                Carbon::parse($carga['periodo_hasta'])->format('d/m/Y').').';
             $this->guardando = false;
 
             return;
@@ -139,34 +150,34 @@ class CrearVacacion extends Component
         try {
             DB::transaction(function () use ($empleado, $carga) {
                 Vacacion::create([
-                    'patrono_id'                       => $empleado->patrono_id,
-                    'empleado_id'                      => $empleado->id,
-                    'fecha_calculo'                    => now()->toDateString(),
-                    'fecha_inicio'                     => $carga['fecha_inicio_user'],
-                    'fecha_inicio_real'                => $carga['fecha_inicio_real'],
-                    'fecha_fin_real'                   => $carga['fecha_fin_real'],
-                    'fecha_reintegro'                  => $carga['fecha_reintegro'],
-                    'nro_vacacion'                     => $carga['anio_servicio'],
-                    'periodo_desde'                    => $carga['periodo_desde'],
-                    'periodo_hasta'                    => $carga['periodo_hasta'],
-                    'dias_vacaciones'                  => (int) $carga['dias_vacaciones_base'],
-                    'dias_adicionales'                 => (int) $carga['dias_vacaciones_adic'],
-                    'dias_bono'                        => (int) $carga['dias_bono_base'],
-                    'dias_bono_adicionales'            => (int) $carga['dias_bono_adic'],
-                    'dias_descanso'                    => (int) $carga['dias_descanso'],
-                    'dias_feriados'                    => (int) $carga['dias_feriados'],
-                    'feriados_descanso_en_periodo'     => $carga['feriados_en_periodo'],
-                    'salario_normal'                   => $carga['salario_normal'],
-                    'moneda'                           => $carga['moneda'],
-                    'estatus_calculo'                  => 'por_aprobar',
-                    'estatus_vacacion'                 => 'pendiente',
+                    'patrono_id' => $empleado->patrono_id,
+                    'empleado_id' => $empleado->id,
+                    'fecha_calculo' => now()->toDateString(),
+                    'fecha_inicio' => $carga['fecha_inicio_user'],
+                    'fecha_inicio_real' => $carga['fecha_inicio_real'],
+                    'fecha_fin_real' => $carga['fecha_fin_real'],
+                    'fecha_reintegro' => $carga['fecha_reintegro'],
+                    'nro_vacacion' => $carga['anio_servicio'],
+                    'periodo_desde' => $carga['periodo_desde'],
+                    'periodo_hasta' => $carga['periodo_hasta'],
+                    'dias_vacaciones' => (int) $carga['dias_vacaciones_base'],
+                    'dias_adicionales' => (int) $carga['dias_vacaciones_adic'],
+                    'dias_bono' => (int) $carga['dias_bono_base'],
+                    'dias_bono_adicionales' => (int) $carga['dias_bono_adic'],
+                    'dias_descanso' => (int) $carga['dias_descanso'],
+                    'dias_feriados' => (int) $carga['dias_feriados'],
+                    'feriados_descanso_en_periodo' => $carga['feriados_en_periodo'],
+                    'salario_normal' => $carga['salario_normal'],
+                    'moneda' => $carga['moneda'],
+                    'estatus_calculo' => 'por_aprobar',
+                    'estatus_vacacion' => 'pendiente',
                 ]);
             });
 
             $this->reset(['empleado_id', 'fecha_inicio', 'preview']);
             $this->dispatch('vacacion-creada');
             $this->redirect(route('vacaciones.index'));
-        } catch (\Illuminate\Database\QueryException $e) {
+        } catch (QueryException $e) {
             $this->error = 'No se pudo guardar: ese periodo ya estaba registrado (dato duplicado).';
         } catch (\Throwable $e) {
             $this->error = $e->getMessage();

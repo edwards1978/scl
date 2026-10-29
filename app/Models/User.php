@@ -2,14 +2,18 @@
 
 namespace App\Models;
 
+use App\Enums\RolUsuario;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Collection;
 
 class User extends Authenticatable
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
+    /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
     /**
@@ -20,6 +24,7 @@ class User extends Authenticatable
     protected $fillable = [
         'name',
         'email',
+        'rol',
         'password',
     ];
 
@@ -43,6 +48,64 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'rol' => RolUsuario::class,
         ];
+    }
+
+    public function patronos(): BelongsToMany
+    {
+        return $this->belongsToMany(Patrono::class)->withTimestamps();
+    }
+
+    public function esAdministrador(): bool
+    {
+        return $this->rol === RolUsuario::Administrador;
+    }
+
+    public function puedeGestionar(): bool
+    {
+        return (bool) $this->rol?->puedeGestionar();
+    }
+
+    /** Indica si el usuario puede operar sobre el patrono indicado. */
+    public function tieneAcceso(Patrono|int $patrono): bool
+    {
+        if ($this->esAdministrador()) {
+            return true;
+        }
+
+        $patronoId = $patrono instanceof Patrono ? $patrono->id : $patrono;
+
+        return $this->patronos()->whereKey($patronoId)->exists();
+    }
+
+    /**
+     * Patronos activos que el usuario puede seleccionar como contexto.
+     *
+     * @return Collection<int, Patrono>
+     */
+    public function patronosDisponibles(): Collection
+    {
+        $query = Patrono::query()->where('estado', 'Activo')->orderBy('razon_social');
+
+        if (! $this->esAdministrador()) {
+            $query->whereIn('id', $this->patronos()->select('patronos.id'));
+        }
+
+        return $query->get();
+    }
+
+    /**
+     * Identificadores de patronos sobre los que el usuario puede operar.
+     *
+     * @return list<int>
+     */
+    public function idsDePatronosPermitidos(): array
+    {
+        if ($this->esAdministrador()) {
+            return Patrono::query()->pluck('id')->map(fn ($id) => (int) $id)->all();
+        }
+
+        return $this->patronos()->pluck('patronos.id')->map(fn ($id) => (int) $id)->all();
     }
 }
