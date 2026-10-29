@@ -85,12 +85,20 @@
 		</table>
 	@endif -->
 
+	@php
+		$montoInteres = (float) $pago->monto;
+		$montoLetras = monto_en_letras($montoInteres, $pago->moneda);
+		$montoEtiqueta = $pago->moneda === 'USD'
+			? 'USD '.formato_monto($montoInteres)
+			: 'Bs. '.formato_monto($montoInteres);
+	@endphp
+
 	<p style="margin-top:18px; line-height:1.5;">
-		Yo, <strong>{{ $pago->empleado->nombre_completo }}</strong>, titular de la cédula de identidad
-		<strong>{{ $pago->empleado->cedula }}</strong>, declaro haber recibido de
-		<strong>{{ $pago->patrono->razon_social }}</strong> la cantidad de
-		<strong>{{ $pago->moneda }} {{ formato_monto((float) $pago->monto) }}</strong>
-		por concepto de intereses sobre prestaciones sociales.
+		<strong>Recibí conforme.</strong> Yo, <strong>{{ $pago->empleado->nombre_completo }}</strong>,
+		titular de la cédula de identidad <strong>{{ $pago->empleado->cedula }}</strong>,
+		he recibido de <strong>{{ $pago->patrono->razon_social }}</strong> la cantidad de
+		<strong>{{ $montoLetras }} ({{ $montoEtiqueta }})</strong>,
+		por concepto de intereses sobre prestaciones sociales (Art. 143 LOTTT), a mi entera y cabal satisfacción.-
 	</p>
 
 	<table class="signatures">

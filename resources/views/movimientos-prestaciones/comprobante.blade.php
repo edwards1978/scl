@@ -87,12 +87,23 @@
 		</table>
 	@endif
 
+	@php
+		$montoMovimiento = (float) $movimiento->monto;
+		$montoLetras = monto_en_letras($montoMovimiento, $movimiento->moneda);
+		$montoEtiqueta = $movimiento->moneda === 'USD'
+			? 'USD '.formato_monto($montoMovimiento)
+			: 'Bs. '.formato_monto($montoMovimiento);
+		$conceptoLetras = $movimiento->esAnticipo()
+			? 'anticipo de prestaciones sociales'
+			: 'préstamo personal';
+	@endphp
+
 	<p style="margin-top:18px; line-height:1.5;">
-		Yo, <strong>{{ $movimiento->empleado->nombre_completo }}</strong>, titular de la cédula de identidad
-		<strong>{{ $movimiento->empleado->cedula }}</strong>, declaro haber recibido de
-		<strong>{{ $movimiento->patrono->razon_social }}</strong> la cantidad de
-		<strong>{{ $movimiento->moneda }} {{ formato_monto((float) $movimiento->monto) }}</strong>
-		por el concepto indicado en este comprobante.
+		<strong>Recibí conforme.</strong> Yo, <strong>{{ $movimiento->empleado->nombre_completo }}</strong>,
+		titular de la cédula de identidad <strong>{{ $movimiento->empleado->cedula }}</strong>,
+		he recibido de <strong>{{ $movimiento->patrono->razon_social }}</strong> la cantidad de
+		<strong>{{ $montoLetras }} ({{ $montoEtiqueta }})</strong>,
+		por concepto de {{ $conceptoLetras }}, a mi entera y cabal satisfacción.-
 	</p>
 
 <!-- 	<p class="note">

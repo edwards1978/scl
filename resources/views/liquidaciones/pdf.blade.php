@@ -114,7 +114,7 @@
 	@endphp
 
 	<p class="nota">
-		Yo, {{ $empleado->nombre_completo }}, titular de la cédula de identidad Nº {{ $empleado->cedula }},
+		<strong>Recibí conforme.</strong> Yo, {{ $empleado->nombre_completo }}, titular de la cédula de identidad Nº {{ $empleado->cedula }},
 		he recibido de: {{ $patrono->razon_social }}, la cantidad de: {{ $monedaLetras }}
 		({{ $montoEtiqueta }}), por concepto de liquidación de prestaciones sociales y otros conceptos laborales, a mi entera y cabal satisfacción.-
 	</p>
