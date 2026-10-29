@@ -81,9 +81,6 @@ jobs:
     name: Estilo (Pint)
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # Informativo mientras se aplica Pint a los archivos heredados.
-    # Quitar continue-on-error cuando el repositorio esté formateado.
-    continue-on-error: true
 
     steps:
       - name: Descargar el repositorio
