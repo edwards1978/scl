@@ -64,12 +64,29 @@
 		<p class="nota">Equivalencia informativa: {{ $equivalencia['moneda'] === 'USD' ? 'USD' : 'Bs.' }} {{ formato_monto($equivalencia['monto']) }} a la tasa BCV {{ formato_monto((float) $calculo->tasa_bcv) }}.</p>
 	@endif
 
-	<p class="nota">Este cálculo es independiente y no genera ni modifica renglones de prestaciones sociales, nómina, anticipos o liquidaciones de trabajadores registrados.</p>
+	@php
+		$neto = (float) $calculo->neto;
+		$montoLetras = monto_en_letras($neto, $calculo->moneda);
+		$montoEtiqueta = $calculo->moneda === 'USD'
+			? 'USD '.formato_monto($neto)
+			: 'Bs. '.formato_monto($neto);
+		$cedula = $calculo->trabajador_cedula
+			? 'titular de la cédula de identidad Nº '.$calculo->trabajador_cedula
+			: '';
+	@endphp
+
+	<p class="nota">
+		Yo, {{ $calculo->trabajador_nombre }} {{ $cedula }},
+		he recibido de {{ $calculo->patrono_nombre }} la cantidad de:
+		{{ $montoLetras }} ({{ $montoEtiqueta }}),
+		por concepto de liquidación de prestaciones sociales conforme al Artículo 142, literal c, de la LOTTT,
+		a mi entera y cabal satisfacción.-
+	</p>
 
 	<table class="firma">
 		<tr>
 			<td><div class="linea"></div>Firma del patrono<br>{{ $calculo->patrono_nombre }}</td>
-			<td><div class="linea"></div>Firma del trabajador<br>{{ $calculo->trabajador_nombre }}</td>
+			<td><div class="linea"></div>Recibí conforme<br>{{ $calculo->trabajador_nombre }}</td>
 		</tr>
 	</table>
 </body>
