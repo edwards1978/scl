@@ -19,6 +19,9 @@ use App\Models\PrestacionSocial;
 use App\Models\Sueldo;
 use App\Models\Vacacion;
 use App\Services\EmpleadosImportExportService;
+use App\Services\PrestacionesSocialesService;
+use App\Services\SueldosService;
+use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -33,6 +36,8 @@ class EmpleadoController extends Controller
 {
     public function __construct(
         private readonly EmpleadosImportExportService $importExport = new EmpleadosImportExportService,
+        private readonly SueldosService $sueldos = new SueldosService,
+        private readonly PrestacionesSocialesService $prestaciones = new PrestacionesSocialesService,
     ) {}
 
     private function patronoActual(): Patrono
@@ -168,9 +173,16 @@ class EmpleadoController extends Controller
     {
         $data = $request->validated();
         $data['patrono_id'] = (int) session('patrono_id');
-        $data['salario_inicial'] = $data['salario_inicial'] ?? $data['salario_base'];
+        $data['salario_inicial'] ??= $data['salario_base'];
 
-        $empleado = Empleado::create($data);
+        $empleado = DB::transaction(function () use ($data): Empleado {
+            $empleado = Empleado::create($data);
+
+            // Deja registrado el sueldo de ingreso en el historial salarial.
+            $this->sueldos->registrarIngreso($empleado);
+
+            return $empleado;
+        });
 
         return redirect()->route('empleados.index')
             ->with('success', "Empleado {$empleado->nombre_completo} creado exitosamente.");
@@ -198,7 +210,34 @@ class EmpleadoController extends Controller
         $data = $request->validated();
         $data['patrono_id'] = $empleado->patrono_id;
 
-        $empleado->update($data);
+        $fechaVigencia = Carbon::parse($data['fecha_vigencia_salario'] ?? now())->toDateString();
+        unset($data['fecha_vigencia_salario']);
+
+        $cambioSalarial = (float) $data['salario_base'] !== (float) $empleado->salario_base
+            || $data['moneda'] !== $empleado->moneda;
+        $salarioAnterior = (float) $empleado->salario_base;
+
+        DB::transaction(function () use ($empleado, $data, $cambioSalarial, $fechaVigencia, $salarioAnterior): void {
+            // Si la ficha es anterior al historial, el sueldo que había antes
+            // del cambio es el mejor punto de partida disponible.
+            if ($cambioSalarial && $empleado->salario_inicial === null) {
+                $empleado->update(['salario_inicial' => $salarioAnterior]);
+            }
+
+            $empleado->update($data);
+
+            if (! $cambioSalarial) {
+                return;
+            }
+
+            $this->sueldos->registrarCambio(
+                $empleado,
+                $fechaVigencia,
+                (float) $empleado->salario_base,
+                (string) $empleado->moneda,
+            );
+            $this->recalcularPrestaciones($empleado, Carbon::parse($fechaVigencia)->format('Y-m'));
+        });
 
         return redirect()->route('empleados.index')
             ->with('success', "Empleado {$empleado->nombre_completo} actualizado exitosamente.");
@@ -284,6 +323,16 @@ class EmpleadoController extends Controller
 
         return redirect()->route('empleados.index')
             ->with('success', "Empleado {$empleado->nombre_completo} transferido a {$nuevoPatrono->razon_social} exitosamente.");
+    }
+
+    /** Recalcula las prestaciones del trabajador si ya tiene periodos registrados. */
+    private function recalcularPrestaciones(Empleado $empleado, ?string $desdePeriodo = null): void
+    {
+        if (! $empleado->prestacionesSociales()->exists()) {
+            return;
+        }
+
+        $this->prestaciones->regenerar($empleado, $desdePeriodo);
     }
 
     private function verificarPertenece(Empleado $empleado): void

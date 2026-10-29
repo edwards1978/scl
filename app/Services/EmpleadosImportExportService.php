@@ -32,6 +32,11 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
  */
 class EmpleadosImportExportService
 {
+    public function __construct(
+        private SueldosService $sueldos = new SueldosService,
+        private PrestacionesSocialesService $prestaciones = new PrestacionesSocialesService,
+    ) {}
+
     /** Columnas del archivo, en el orden en que se exportan. */
     public const COLUMNAS = [
         'cedula' => 'Cédula',
@@ -390,8 +395,33 @@ class EmpleadosImportExportService
                     $cambios['capitalizacion_documento'] = null;
                 }
 
+                $salarioAnterior = (float) $empleado->salario_base;
+                $monedaAnterior = (string) $empleado->moneda;
+                $inicialEnArchivo = array_key_exists('salario_inicial', $cambios) && $cambios['salario_inicial'] !== null;
+
+                $cambioSalarial = (array_key_exists('salario_base', $cambios)
+                        && (float) $cambios['salario_base'] !== $salarioAnterior)
+                    || (array_key_exists('moneda', $cambios) && $cambios['moneda'] !== $monedaAnterior);
+
                 try {
                     $empleado->update($cambios);
+
+                    if ($cambioSalarial) {
+                        if (! $inicialEnArchivo && $empleado->salario_inicial === null) {
+                            $empleado->update(['salario_inicial' => $salarioAnterior]);
+                        }
+
+                        $this->sueldos->registrarCambio(
+                            $empleado,
+                            now(),
+                            (float) $empleado->salario_base,
+                            (string) $empleado->moneda,
+                        );
+
+                        if ($empleado->prestacionesSociales()->exists()) {
+                            $this->prestaciones->regenerar($empleado);
+                        }
+                    }
                 } catch (\Throwable $e) {
                     report($e);
                     $errores[] = "Fila {$fila} ({$cedula}): no se pudo actualizar el empleado.";
@@ -414,7 +444,8 @@ class EmpleadosImportExportService
             }
 
             try {
-                Empleado::create($datos);
+                $creado = Empleado::create($datos);
+                $this->sueldos->registrarIngreso($creado);
             } catch (\Throwable $e) {
                 report($e);
                 $errores[] = "Fila {$fila} ({$cedula}): no se pudo guardar el empleado.";

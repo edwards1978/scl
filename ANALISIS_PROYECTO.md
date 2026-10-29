@@ -31,7 +31,7 @@ SCL es una aplicación **Laravel 12 + Livewire 4 + Blade/Tailwind + MySQL/MariaD
 **Riesgos principales (en orden de impacto):**
 
 1. **Permisos por acción y borrado lógico pendientes.** Roles, Policies, aislamiento por patrono y auditoría ya están implementados; falta revisar permisos por acción específica y definir borrado lógico. **P2.**
-2. **Historial salarial insuficiente.** Hay **0 registros** en `cambios_salarios` y **22 de 24** empleados tienen `salario_inicial = NULL`. Los cálculos históricos se apoyan en el salario actual o en el primer sueldo disponible, no en la evolución real del salario. Editar la ficha del empleado no registra un cambio salarial ni regenera los cálculos. **P0/P1.**
+2. **Historial salarial — corregido el 29/10/2026.** Se completó `salario_inicial` en los 37 trabajadores y se registró el cambio de ingreso en `cambios_salarios` (37 registros). Alta, edición de ficha, variaciones e importación registran ahora el cambio con fecha de vigencia y recalculan sueldos y prestaciones. Queda cargar el historial real de aumentos anteriores, que no consta en el sistema. **P2.**
 3. **Fórmulas legales aún no firmadas.** La decisión de abonar el acumulado completo de días adicionales en cada aniversario, el tratamiento de los intereses cuando gana el literal c y la deducción de intereses de préstamos en la liquidación requieren validación legal/contable. **P1.**
 4. **La suite comparte la base de datos de producción** (`scl`) con prefijo `test_` y 28 tablas de prueba. El aislamiento funciona, pero un error de configuración podría tocar datos reales. Se recomienda una base `scl_test` separada. **P1.**
 5. **Trabajo sin commitear.** Hay 25 archivos modificados (+1.722/−980) y varios grupos de archivos nuevos (módulo de intereses, migración, vistas, pruebas, tooling) fuera de Git. El estado actual no es reproducible desde un commit. **P1.**
@@ -70,16 +70,16 @@ SCL es una aplicación **Laravel 12 + Livewire 4 + Blade/Tailwind + MySQL/MariaD
 
 | Tabla | Registros |
 |---|---:|
-| `patronos` | 9 |
-| `empleados` | 24 |
-| `users` | 2 |
+| `patronos` | 10 |
+| `empleados` | 37 |
+| `users` | 3 |
 | `vacaciones` | 32 |
 | `liquidaciones` | 8 (8 aprobadas) |
 | `prestaciones_sociales` | 733 (729 reales + 4 proyecciones) |
 | `movimientos_prestaciones` | 2 |
 | `pagos_interes_prestaciones` | 2 |
 | `bonificaciones_fin_ano` | 5 |
-| `sueldos` / `cambios_salarios` | 736 / **0** |
+| `sueldos` / `cambios_salarios` | 1.405 / **37** |
 | `feriados` | 84 |
 | `tasas_bcv` / `tasas_interes_prestaciones` | 915 / 350 |
 | `salarios_minimos` | 10 |
@@ -87,7 +87,7 @@ SCL es una aplicación **Laravel 12 + Livewire 4 + Blade/Tailwind + MySQL/MariaD
 **Anomalías de datos:**
 
 - Hay **8 liquidaciones aprobadas** y **7 empleados inactivos**. El empleado **10** conserva una liquidación aprobada (egreso 07/08/2026) pero sigue `Activo`. Puede ser una reincorporación no modelada; debe revisarse antes de permitir nuevos cálculos.
-- **22 de 24** empleados tienen `salario_inicial = NULL` y **0** cambios salariales registrados. Esto limita la calidad de cualquier cálculo histórico.
+- **Historial salarial completo desde el 29/10/2026:** los 37 trabajadores tienen `salario_inicial` y su cambio de ingreso registrado. El historial anterior a esa fecha es una reconstrucción con el salario actual, no la evolución real.
 - Las liquidaciones aprobadas **antes** del motor actual no se reescribieron. Hay **8 aprobadas** en total; la más reciente (empleado 32, 25/10/2026) es posterior al motor actual y las anteriores conservan la fórmula con la que se aprobaron.
 
 ---
@@ -358,13 +358,15 @@ La liquidación descuenta:
 
 ### 7.3 Historial salarial
 
-- **0 cambios salariales** registrados; **22 de 24** empleados con `salario_inicial = NULL`.
-- `SueldosService::sueldoDesdeFuente()` ahora usa `salario_inicial ?? salario_base` (mejora respecto al informe anterior), pero si no hay cambios, todos los meses históricos se generan con el salario inicial o el base actual.
-- `EmpleadoController@update()` permite editar `salario_base` pero **no** crea un `CambioSalario` ni regenera `sueldos`/prestaciones.
-- Siguen existiendo **dos vías de alta**: el controlador (`EmpleadoController@store`, que asigna `salario_inicial`) y el componente Livewire `CrearEmpleado`, que no lo asigna.
-- `regenerarSueldos()` y `regenerar()` de prestaciones borran y recrean dentro de transacción (mejora), pero siguen siendo operaciones síncronas y destructivas del histórico proyectado.
+**Implementado el 29/10/2026.**
 
-**Recomendación:** una sola vía de alta/edición; al cambiar el salario, registrar automáticamente un `CambioSalario` con fecha de vigencia y regenerar desde esa fecha; cargar el historial salarial real antes de presentar saldos históricos como definitivos.
+- `SueldosService::registrarCambio()` centraliza el registro: crea o actualiza el `CambioSalario`, sincroniza la ficha y regenera los sueldos desde el mes de vigencia. `registrarIngreso()` deja el cambio de ingreso con `fecha_ingreso`.
+- `EmpleadoController@store/update`, el componente Livewire `CrearEmpleado`, la importación `.ods` y el módulo de variaciones usan esa vía. La ficha permite indicar la **fecha de vigencia** del nuevo salario; si no se indica, se usa la fecha actual.
+- Al cambiar el salario se recalculan también las prestaciones desde ese mes cuando el trabajador ya tiene períodos registrados.
+- El comando `php artisan salarios:completar-historial [--aplicar]` completó los datos heredados: **37 cambios de ingreso** y **0 trabajadores sin `salario_inicial`**.
+- Al crear un trabajador no se materializan años de sueldos: se generan de forma perezosa al abrir el módulo. En cambios de sueldos existentes sí se regenera el histórico.
+
+**Pendiente:** cargar los aumentos reales anteriores al 29/10/2026. La reconstrucción actual usa el salario vigente como sueldo de ingreso, por lo que los meses previos a un aumento no registrado quedan sobreestimados.
 
 ### 7.4 Salario integral
 
@@ -491,7 +493,7 @@ La suite actual es una buena base, pero todavía no cubre los módulos donde que
 | # | Hallazgo | Probabilidad | Impacto | Prioridad |
 |---|---|---|---|---|
 | 1 | Permisos por acción y borrado lógico pendientes (roles y auditoría ya implementados) | Baja | Medio | **P2** |
-| 2 | Historial salarial vacío (0 cambios, 22/24 sin `salario_inicial`) y edición de salario inconsistente | Alta | Alto | **P0/P1** |
+| 2 | Historial salarial reconstruido (37 cambios de ingreso); faltan los aumentos reales anteriores al 29/10/2026 | Alta | Medio | **P2** |
 | 3 | Fórmulas pendientes de firma legal: días adicionales acumulativos, intereses vs. literal c, deducción de intereses de préstamos | Media | Muy alto | **P1** |
 | 4 | Suite comparte la base de producción con prefijo `test_` | Media | Alto | **P1** |
 | 5 | Estado reproducible desde Git y CI activo en GitHub Actions | Baja | Bajo | **Resuelto** |
@@ -536,7 +538,7 @@ La suite actual es una buena base, pero todavía no cubre los módulos donde que
 
 1. **Roles y Policies** mínimos — **implementado** el 28/10/2026.
 2. **Auditoría** (`created_by`, `updated_by`, `approved_by`, `approved_at`, `annulled_by`, `annulled_at`) e historial de estados — **implementada** el 29/10/2026; queda el borrado lógico.
-3. **Historial salarial:** una sola vía de alta/edición; registrar `CambioSalario` al editar salario con fecha de vigencia; regenerar sueldos y prestaciones desde esa fecha dentro de una transacción.
+3. **Historial salarial:** una sola vía de alta/edición; registrar `CambioSalario` al editar salario con fecha de vigencia; regenerar sueldos y prestaciones desde esa fecha dentro de una transacción — **implementado** el 29/10/2026; falta cargar los aumentos históricos reales.
 4. **Utilidades:** bloquear o versionar el recálculo de aprobadas; usar salario y tasa del período; promediar solo valores no nulos; aclarar que es bonificación fija y no participación sobre beneficios.
 5. **Vacaciones:** separar “pagada” de “disfrutada”; hacer el PDF idempotente sin efectos en GET; permitir recalcular un período anulado; documentar el pago de descansos/feriados y las deducciones.
 6. **Rendimiento:** eager loading/agregados en listados, caché de tasas/parámetros, índices compuestos y jobs para generaciones masivas.
@@ -574,7 +576,7 @@ php -l (todos los archivos de app/routes/database)
 
 ### 12.2 Resultados
 
-- `php artisan test --compact` → **90 passed (332 assertions)**, 21,8 s.
+- `php artisan test --compact` → **159 passed (671 assertions)**, 26,5 s.
 - `php artisan route:list --except-vendor` → **105 rutas propias** (117 totales).
 - `php artisan migrate:status` → **40 migraciones**, todas ejecutadas.
 - `php artisan view:cache` → **101 vistas compiladas** sin errores.
@@ -852,14 +854,14 @@ El empleado 10 sube porque el recálculo completó períodos faltantes; no se mo
 4. **El árbol de trabajo sigue sucio:** 25 archivos modificados y el módulo de intereses/pruebas sin commitear.
 5. **`i18n` sigue sin `lang/es`:** se confirmó que `validation.required` y `auth.failed` se muestran como claves.
 6. **`UtilidadesService` permite recalcular aprobadas** y las devuelve a `calculado`; no hay bloqueo por estatus.
-7. **`EmpleadoController@update()` no registra cambios salariales**; el historial sigue vacío (0 cambios, 22/24 sin `salario_inicial`).
+7. **`EmpleadoController@update()` ya registra cambios salariales** (corregido el 29/10/2026); el historial tiene 37 cambios de ingreso y 0 trabajadores sin `salario_inicial`.
 8. **La anomalía del empleado 10 persiste:** liquidación aprobada y estatus `Activo`.
 9. **Boost/OpenCode no funcionan en este entorno** porque `BoostServiceProvider::shouldRun()` exige `APP_ENV=local` o `APP_DEBUG=true`; con producción/debug false, `boost:mcp` no está disponible.
 10. **Quedan volcados HTML** en `storage/app/p32.html` y `p33.html`, además de `test.php` y Excel de ejemplo en la raíz.
 
 ### Estado de la suite y verificaciones
 
-- `php artisan test --compact` → **90 passed (332 assertions)**, 21,8 s.
+- `php artisan test --compact` → **159 passed (671 assertions)**, 26,5 s.
 - `php artisan view:cache` → 101 vistas compiladas.
 - `php artisan route:list --except-vendor` → 105 rutas propias.
 - `composer audit --locked --no-dev` → 19 avisos en 5 paquetes.

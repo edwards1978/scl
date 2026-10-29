@@ -9,16 +9,19 @@ use App\Models\CambioSalario;
 use App\Models\Empleado;
 use App\Models\Patrono;
 use App\Models\Sueldo;
+use App\Services\PrestacionesSocialesService;
 use App\Services\SueldosService;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class SueldosController extends Controller
 {
     public function __construct(
         private SueldosService $service = new SueldosService,
+        private PrestacionesSocialesService $prestaciones = new PrestacionesSocialesService,
     ) {}
 
     private function patronoActual(): Patrono
@@ -158,15 +161,19 @@ class SueldosController extends Controller
                 ->with('error', 'Ya existe un cambio salarial para esa fecha.');
         }
 
-        CambioSalario::create($data);
+        DB::transaction(function () use ($empleado, $data): void {
+            $this->service->registrarCambio(
+                $empleado,
+                $data['fecha_cambio'],
+                (float) $data['monto'],
+                $data['moneda'],
+            );
 
-        // La ficha del trabajador refleja el sueldo vigente más reciente.
-        $this->service->sincronizarFicha($empleado);
-        // Regenera los sueldos desde el mes del cambio en adelante.
-        $this->service->regenerarSueldos($empleado, Carbon::parse($data['fecha_cambio'])->format('Y-m'));
+            $this->recalcularPrestaciones($empleado, Carbon::parse($data['fecha_cambio'])->format('Y-m'));
+        });
 
         return redirect()->route('sueldos.variaciones', ['empleado_id' => $empleado->id])
-            ->with('success', 'Cambio salarial registrado y sueldos regenerados.');
+            ->with('success', 'Cambio salarial registrado; sueldos y prestaciones recalculados.');
     }
 
     /** Elimina un cambio salarial y regenera desde esa fecha. */
@@ -177,12 +184,25 @@ class SueldosController extends Controller
         $empleado = $cambio->empleado;
         $desde = $cambio->fecha_cambio;
 
-        $cambio->delete();
+        DB::transaction(function () use ($cambio, $empleado, $desde): void {
+            $cambio->delete();
 
-        $this->service->sincronizarFicha($empleado);
-        $this->service->regenerarSueldos($empleado, $desde->format('Y-m'));
+            $this->service->sincronizarFicha($empleado);
+            $this->service->regenerarSueldos($empleado, $desde->format('Y-m'));
+            $this->recalcularPrestaciones($empleado, $desde->format('Y-m'));
+        });
 
         return redirect()->route('sueldos.variaciones', ['empleado_id' => $empleado->id])
-            ->with('success', 'Cambio salarial eliminado y sueldos regenerados.');
+            ->with('success', 'Cambio salarial eliminado; sueldos y prestaciones recalculados.');
+    }
+
+    /** Recalcula las prestaciones del trabajador si ya tiene periodos registrados. */
+    private function recalcularPrestaciones(Empleado $empleado, ?string $desdePeriodo = null): void
+    {
+        if (! $empleado->prestacionesSociales()->exists()) {
+            return;
+        }
+
+        $this->prestaciones->regenerar($empleado, $desdePeriodo);
     }
 }

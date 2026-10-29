@@ -9,6 +9,7 @@ use App\Models\Empleado;
 use App\Models\Sueldo;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Servicio de sueldos mensuales.
@@ -257,6 +258,64 @@ class SueldosService
         }
 
         return $creados;
+    }
+
+    /**
+     * Registra (o actualiza) un cambio salarial con su fecha de vigencia,
+     * sincroniza la ficha y recalcula los sueldos desde ese mes.
+     *
+     * Si el trabajador todavía no tiene periodos de sueldo generados no se
+     * crean aquí: se generan de forma perezosa al consultar el módulo, para no
+     * materializar años de historial durante una importación masiva.
+     */
+    public function registrarCambio(
+        Empleado $empleado,
+        CarbonInterface|string $fechaVigencia,
+        float $monto,
+        string $moneda,
+    ): CambioSalario {
+        $fecha = Carbon::parse($fechaVigencia)->toDateString();
+
+        return DB::transaction(function () use ($empleado, $fecha, $monto, $moneda): CambioSalario {
+            $cambio = CambioSalario::updateOrCreate(
+                [
+                    'empleado_id' => $empleado->id,
+                    'fecha_cambio' => $fecha,
+                ],
+                [
+                    'monto' => $monto,
+                    'moneda' => $moneda,
+                ],
+            );
+
+            $this->sincronizarFicha($empleado);
+
+            if (Sueldo::where('empleado_id', $empleado->id)->exists()) {
+                $this->regenerarSueldos($empleado, Carbon::parse($fecha)->format('Y-m'));
+            }
+
+            return $cambio;
+        });
+    }
+
+    /**
+     * Registra el sueldo de ingreso de un trabajador nuevo: completa
+     * `salario_inicial` cuando falta y deja el primer cambio salarial con la
+     * fecha de ingreso.
+     */
+    public function registrarIngreso(Empleado $empleado): ?CambioSalario
+    {
+        $monto = (float) ($empleado->salario_inicial ?? $empleado->salario_base);
+
+        if ($monto <= 0) {
+            return null;
+        }
+
+        if ($empleado->salario_inicial === null) {
+            $empleado->update(['salario_inicial' => $monto]);
+        }
+
+        return $this->registrarCambio($empleado, $empleado->fecha_ingreso, $monto, $empleado->moneda);
     }
 
     /**

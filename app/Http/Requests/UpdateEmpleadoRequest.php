@@ -17,7 +17,10 @@ class UpdateEmpleadoRequest extends FormRequest
 
     public function rules(): array
     {
-        return StoreEmpleadoRequest::reglas();
+        return [
+            ...StoreEmpleadoRequest::reglas(),
+            'fecha_vigencia_salario' => ['nullable', 'date'],
+        ];
     }
 
     protected function prepareForValidation(): void

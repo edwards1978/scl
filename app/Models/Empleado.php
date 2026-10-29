@@ -86,6 +86,11 @@ class Empleado extends Model
         return $this->hasMany(BonificacionFinAno::class);
     }
 
+    public function prestacionesSociales(): HasMany
+    {
+        return $this->hasMany(PrestacionSocial::class);
+    }
+
     /** Días de vacaciones ya disfrutados/pagados (acumulados históricos). */
     public function getDiasVacacionesTomadosAttribute(): int
     {

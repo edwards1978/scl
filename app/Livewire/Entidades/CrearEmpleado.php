@@ -7,6 +7,8 @@ namespace App\Livewire\Entidades;
 use App\Models\Empleado;
 use App\Models\Patrono;
 use App\Rules\CedulaVenezolanaRule;
+use App\Services\SueldosService;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 use Livewire\Component;
@@ -75,29 +77,34 @@ class CrearEmpleado extends Component
 
         $this->validate();
 
-        Empleado::create([
-            'patrono_id' => (int) session('patrono_id'),
-            'nombres' => $this->nombres,
-            'apellidos' => $this->apellidos,
-            'cedula' => $this->cedula,
-            'fecha_nacimiento' => $this->fecha_nacimiento ?: null,
-            'genero' => $this->genero ?: null,
-            'telefono' => $this->telefono ?: null,
-            'correo' => $this->correo ?: null,
-            'direccion' => $this->direccion ?: null,
-            'fecha_ingreso' => $this->fecha_ingreso,
-            'cargo' => $this->cargo ?: null,
-            'departamento' => $this->departamento ?: null,
-            'tipo_contrato' => $this->tipo_contrato,
-            'tipo_salario' => $this->tipo_salario,
-            'jornada_laboral' => $this->jornada_laboral ?: null,
-            'salario_base' => (float) $this->salario_base,
-            'moneda' => $this->moneda,
-            'estatus' => $this->estatus,
-            'capitaliza_intereses' => $this->capitaliza_intereses,
-            'capitalizacion_autorizada_desde' => $this->capitaliza_intereses ? ($this->capitalizacion_autorizada_desde ?: null) : null,
-            'capitalizacion_documento' => $this->capitaliza_intereses ? ($this->capitalizacion_documento ?: null) : null,
-        ]);
+        DB::transaction(function (): void {
+            $empleado = Empleado::create([
+                'patrono_id' => (int) session('patrono_id'),
+                'nombres' => $this->nombres,
+                'apellidos' => $this->apellidos,
+                'cedula' => $this->cedula,
+                'fecha_nacimiento' => $this->fecha_nacimiento ?: null,
+                'genero' => $this->genero ?: null,
+                'telefono' => $this->telefono ?: null,
+                'correo' => $this->correo ?: null,
+                'direccion' => $this->direccion ?: null,
+                'fecha_ingreso' => $this->fecha_ingreso,
+                'cargo' => $this->cargo ?: null,
+                'departamento' => $this->departamento ?: null,
+                'tipo_contrato' => $this->tipo_contrato,
+                'tipo_salario' => $this->tipo_salario,
+                'jornada_laboral' => $this->jornada_laboral ?: null,
+                'salario_base' => (float) $this->salario_base,
+                'salario_inicial' => (float) $this->salario_base,
+                'moneda' => $this->moneda,
+                'estatus' => $this->estatus,
+                'capitaliza_intereses' => $this->capitaliza_intereses,
+                'capitalizacion_autorizada_desde' => $this->capitaliza_intereses ? ($this->capitalizacion_autorizada_desde ?: null) : null,
+                'capitalizacion_documento' => $this->capitaliza_intereses ? ($this->capitalizacion_documento ?: null) : null,
+            ]);
+
+            app(SueldosService::class)->registrarIngreso($empleado);
+        });
 
         $this->dispatch('empleado-creado');
         $this->exito = 'Empleado creado correctamente.';

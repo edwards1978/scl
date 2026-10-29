@@ -87,6 +87,14 @@
 						</select>
 					</div>
 				</div>
+				<div class="grid grid-cols-3 gap-3">
+					<div>
+						<label class="block text-xs font-medium text-gray-600 mb-0.5">Vigencia del nuevo salario</label>
+						<input type="date" name="fecha_vigencia_salario" value="{{ old('fecha_vigencia_salario', now()->format('Y-m-d')) }}" class="w-full border border-gray-300 px-2 py-1.5 text-sm">
+						<p class="text-xs text-gray-500 mt-0.5">Solo se aplica si cambia el salario base o la moneda.</p>
+						@error('fecha_vigencia_salario') <p class="text-xs text-red-500 mt-0.5">{{ $message }}</p> @enderror
+					</div>
+				</div>
 				<div class="grid grid-cols-2 gap-3">
 					<div>
 						<label class="block text-xs font-medium text-gray-600 mb-0.5">Cargo</label>
