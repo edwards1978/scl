@@ -58,6 +58,9 @@ jobs:
       - name: Instalar dependencias de Composer
         run: composer install --no-interaction --prefer-dist --no-progress
 
+      - name: Auditar dependencias de producción
+        run: composer audit --locked --no-dev
+
       - name: Configurar Node 22
         uses: actions/setup-node@v4
         with:
