@@ -6,7 +6,7 @@
 **Alcance:** arquitectura, módulos, lógica de cálculo, base de datos, seguridad, despliegue, pruebas y mantenibilidad.
 **Naturaleza:** auditoría técnica. Las fórmulas legales de días adicionales, Art. 143, indemnización y préstamos fueron decididas por el abogado del proyecto el 29/10/2026; este documento no sustituye la revisión de un contador público para los importes finales.
 
-> **Método (actualización 29/10/2026).** No se modificó información de producción. La suite se ejecutó contra `scl_test` (sin prefijo), con 223 pruebas y 948 aserciones. Los datos se consultaron con Laravel Boost y las validaciones de esquema/consultas se hicieron en modo lectura.
+> **Método (actualización 29/10/2026).** No se modificó información de producción. La suite se ejecutó contra `scl_test` (sin prefijo), con 223 pruebas y 949 aserciones. Los datos se consultaron con Laravel Boost y las validaciones de esquema/consultas se hicieron en modo lectura.
 >
 > **Vigencia.** La **sección 0** es el estado actual y prevalece sobre las secciones 1-11 y los anexos. Esas secciones conservan el análisis histórico del 23-29/10/2026; las cifras antiguas (90/150 pruebas, 733 filas, 37 empleados, 19 avisos de dependencias) no describen el estado actual.
 
@@ -16,7 +16,7 @@
 
 ### 0.1 Calidad y verificación
 
-- **Suite:** `php artisan test --compact` → **223 tests passed (948 assertions)**, ~55 s.
+- **Suite:** `php artisan test --compact` → **223 tests passed (949 assertions)**, ~55 s.
 - **Aislamiento:** `tests/bootstrap.php` fuerza `APP_ENV=testing`, `APP_URL=http://localhost`, `scl_test`, prefijo vacío y cachés de test propias. Ya no usa la caché de producción con `/scl`.
 - **Formato:** `vendor/bin/pint --dirty` pasa.
 - **Dependencias:** `composer audit` no reporta avisos.
@@ -79,11 +79,11 @@ Las decisiones fueron tomadas y validadas con el abogado del proyecto:
 
 SCL es una aplicación **Laravel 12 + Livewire 4 + Blade/Tailwind + MySQL/MariaDB** para administrar patronos, empleados, sueldos, vacaciones, prestaciones sociales, anticipos/préstamos, pagos de intereses, liquidaciones, utilidades, tasas BCV, tasas de interés, feriados y salarios mínimos, con generación de PDF y exportación a hoja de cálculo.
 
-**Balance general (29/10/2026):** el proyecto está más maduro y la suite está en verde con **223 pruebas y 948 aserciones**. Se incorporaron pagos de intereses del Art. 143, proyecciones, capitalización autorizada, comparación garantía vs. literal c, auditoría, roles/policies y aislamiento de pruebas. El siguiente riesgo ya no es la falta de tests ni las fórmulas legales, sino el historial salarial, la explotación fuera de la red local y la traducción de mensajes.
+**Balance general (29/10/2026):** el proyecto está más maduro y la suite está en verde con **223 pruebas y 949 aserciones**. Se incorporaron pagos de intereses del Art. 143, proyecciones, capitalización autorizada, comparación garantía vs. literal c, auditoría, roles/policies y aislamiento de pruebas. El siguiente riesgo ya no es la falta de tests ni las fórmulas legales, sino el historial salarial, la explotación fuera de la red local y la traducción de mensajes.
 
 **Lo que está bien:**
 
-- La aplicación **funciona**: 223 pruebas, 948 aserciones, ~55 s; Pint pasa y el CI está configurado para `scl_test`.
+- La aplicación **funciona**: 223 pruebas, 949 aserciones, ~55 s; Pint pasa y el CI está configurado para `scl_test`.
 - Separación razonable en capas: 18 controladores web, 4 componentes Livewire, 13 servicios de dominio, 21 modelos, 44 migraciones y 121 rutas propias.
 - El listado de prestaciones ya no tiene N+1: saldos y cierres se cargan en dos consultas, con prueba de regresión.
 - Motor de prestaciones documentado y cubierto con pruebas de dominio: trimestres, aniversarios, fracción de egreso, días adicionales, intereses, capitalización, anticipos, proyecciones y pagos de intereses.
@@ -647,7 +647,7 @@ php -l (todos los archivos de app/routes/database)
 
 ### 12.2 Resultados
 
-- `php artisan test --compact` → **223 passed (948 assertions)**, ~55 s.
+- `php artisan test --compact` → **223 passed (949 assertions)**, ~55 s.
 - `php artisan route:list --except-vendor` → **121 rutas propias**.
 - `php artisan migrate:status` → **44 migraciones**, todas ejecutadas.
 - `composer audit --locked --no-dev` → **sin avisos**.
@@ -930,7 +930,7 @@ El empleado 10 sube porque el recálculo completó períodos faltantes; no se mo
 
 ### Estado de la suite y verificaciones
 
-- `php artisan test --compact` → **223 passed (948 assertions)**, ~55 s.
+- `php artisan test --compact` → **223 passed (949 assertions)**, ~55 s.
 - `php artisan route:list --except-vendor` → 121 rutas propias.
 - `composer audit --locked --no-dev` → sin avisos.
 - `vendor/bin/pint --dirty` → pasa.

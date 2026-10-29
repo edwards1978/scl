@@ -109,7 +109,8 @@ class CalculoLiquidacionLiteralCTest extends TestCase
         $this->actingAs($usuario)
             ->get(route('calculos-literal-c.pdf', $calculo))
             ->assertOk()
-            ->assertHeader('content-type', 'application/pdf');
+            ->assertHeader('content-type', 'application/pdf')
+            ->assertDownload('Liq-142-c Patrono independiente Trabajador independiente '.$calculo->id.'.pdf');
 
         $netoAnterior = (float) $calculo->neto;
 

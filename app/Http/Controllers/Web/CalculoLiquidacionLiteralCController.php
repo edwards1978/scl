@@ -12,6 +12,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class CalculoLiquidacionLiteralCController extends Controller
@@ -141,7 +142,24 @@ class CalculoLiquidacionLiteralCController extends Controller
 
         return Pdf::loadView('calculos-literal-c.pdf', compact('calculo', 'equivalencia'))
             ->setPaper('letter', 'portrait')
-            ->stream("calculo-liquidacion-c-{$calculo->id}.pdf");
+            ->download($this->nombrePdf($calculo));
+    }
+
+    /** Nombre de descarga: Liq-142-c Patrono Trabajador ID.pdf */
+    private function nombrePdf(CalculoLiquidacionLiteralC $calculo): string
+    {
+        $limpiar = function (string $valor): string {
+            $valor = Str::ascii($valor);
+            $valor = preg_replace('/[^A-Za-z0-9 _-]+/', '', $valor) ?? '';
+            $valor = preg_replace('/\s+/', ' ', $valor) ?? '';
+
+            return trim($valor);
+        };
+
+        $patrono = $limpiar((string) $calculo->patrono_nombre);
+        $trabajador = $limpiar((string) $calculo->trabajador_nombre);
+
+        return trim("Liq-142-c {$patrono} {$trabajador} {$calculo->id}").'.pdf';
     }
 
     /**
