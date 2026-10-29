@@ -9,6 +9,8 @@ use App\Models\MovimientoPrestacionInteres;
 use App\Models\Patrono;
 use App\Models\TasaInteresPrestaciones;
 use App\Services\LiquidacionService;
+use App\Services\PrestacionesSocialesService;
+use App\Services\SalarioIntegralService;
 use Carbon\Carbon;
 use Tests\TestCase;
 
@@ -101,6 +103,35 @@ class LiquidacionLegalTest extends TestCase
         $this->assertFalse(collect($datos['deducciones'])->contains('concepto', 'Pago de intereses'));
     }
 
+    public function test_antes_de_tres_meses_paga_literal_e(): void
+    {
+        [$patrono, $empleado] = $this->crearEscenario('2026-09-05', 'V-20202020');
+
+        $datos = $this->calcular($empleado);
+
+        $this->assertSame('literal_e', $datos['prestaciones_origen']);
+        $this->assertSame(10, $datos['dias_prestaciones']);
+        $this->assertGreaterThan(0, $datos['garantia_ab']);
+        $this->assertStringContainsString('literal e', $this->baseLegal($datos, 'Prestaciones sociales'));
+    }
+
+    public function test_el_trimestre_en_curso_se_paga_completo_al_egreso(): void
+    {
+        [$patrono, $empleado] = $this->crearEscenario('2026-06-01', 'V-30303030');
+
+        $egreso = Carbon::parse('2026-10-20');
+        $datos = $this->calcular($empleado);
+        $integral = app(SalarioIntegralService::class)->diario($empleado, $egreso);
+        $detalle = app(PrestacionesSocialesService::class)->garantiaDetalladaAlEgreso($empleado, $egreso);
+
+        $this->assertSame('garantia', $datos['prestaciones_origen']);
+        $this->assertEqualsWithDelta(
+            round(30 * (float) $integral['salario_diario_integral'], 2),
+            $detalle['capital'],
+            0.01
+        );
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -158,7 +189,7 @@ class LiquidacionLegalTest extends TestCase
     /**
      * @return array{0: Patrono, 1: Empleado}
      */
-    private function crearEscenario(): array
+    private function crearEscenario(string $fechaIngreso = '2020-01-15', string $cedula = 'V-10101010'): array
     {
         $patrono = Patrono::create([
             'rif' => 'J-10101010-1',
@@ -174,8 +205,8 @@ class LiquidacionLegalTest extends TestCase
             'patrono_id' => $patrono->id,
             'nombres' => 'Ana',
             'apellidos' => 'Legal',
-            'cedula' => 'V-10101010',
-            'fecha_ingreso' => '2020-01-15',
+            'cedula' => $cedula,
+            'fecha_ingreso' => $fechaIngreso,
             'tipo_contrato' => 'Indeterminado',
             'tipo_salario' => 'Fijo',
             'salario_inicial' => 300,

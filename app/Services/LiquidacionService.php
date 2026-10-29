@@ -16,7 +16,8 @@ use Illuminate\Validation\ValidationException;
  * Servicio de liquidación de prestaciones sociales (Art. 142 literal c LOTTT).
  *
  * - Prestaciones sociales: 30 días por año completo + 30 días si la fracción
- *   supera los 6 meses, al último salario integral diario.
+ *   supera los 6 meses, al último salario integral diario. Si la relación
+ *   termina antes de 3 meses, aplica el literal e: 5 días por mes o fracción.
  * - Indemnización por terminación (Art. 92 LOTTT): se dispara sólo cuando el
  *   motivo es por causa ajena a la voluntad del trabajador, y equivale al
  *   VALOR de las prestaciones sociales (no se expresa en días). Se muestra
@@ -234,7 +235,10 @@ class LiquidacionService
         $anios = $antiguedad['anios'];
         $mesesFraccion = $antiguedad['meses'];
 
-        $diasPrestaciones = $this->diasPrestaciones($anios, $mesesFraccion);
+        $esLiteralE = $this->prestaciones->menosDeTresMeses($empleado, $egreso);
+        $diasPrestaciones = $esLiteralE
+            ? $this->prestaciones->mesesServicio($empleado, $egreso) * 5
+            : $this->diasPrestaciones($anios, $mesesFraccion);
         $aplicaIndemnizacion = $this->aplicaIndemnizacion($motivo);
 
         $integral = $this->salarioIntegral->diario($empleado, $egreso);
@@ -248,8 +252,13 @@ class LiquidacionService
         $garantia = $this->prestaciones->garantiaDetalladaAlEgreso($empleado, $egreso);
         $garantiaBruta = $garantia['total'];
         $interesPrestaciones = $garantia['interes'];
-        $usaGarantia = $garantiaBruta > $importeLiteralC;
-        $importePrestaciones = $usaGarantia ? $garantia['capital'] : $importeLiteralC;
+        $usaGarantia = ! $esLiteralE && $garantiaBruta > $importeLiteralC;
+        $importePrestaciones = $esLiteralE
+            ? $importeLiteralC
+            : ($usaGarantia ? $garantia['capital'] : $importeLiteralC);
+        $origenPrestaciones = $esLiteralE
+            ? 'literal_e'
+            : ($usaGarantia ? 'garantia' : 'literal_c');
 
         $fracVac = $this->fraccionVacacional($empleado, $egreso, $mesesFraccion);
         $importeVacaciones = round($fracVac['vacaciones'] * $salarioDiarioNormal, 2);
@@ -262,9 +271,11 @@ class LiquidacionService
             [
                 'orden' => 10,
                 'concepto' => 'Prestaciones sociales',
-                'base_legal' => $usaGarantia
-                    ? 'Art. 142 literal C LOTTT - capital de garantía (mayor)'
-                    : 'Art. 142 literal C LOTTT - 30 días por año (mayor)',
+                'base_legal' => $esLiteralE
+                    ? 'Art. 142 literal e LOTTT - 5 días por mes o fracción'
+                    : ($usaGarantia
+                        ? 'Art. 142 literal C LOTTT - capital de garantía (mayor)'
+                        : 'Art. 142 literal C LOTTT - 30 días por año (mayor)'),
                 'dias' => $usaGarantia ? null : $diasPrestaciones,
                 'salario_diario' => $usaGarantia ? null : $salarioDiarioIntegral,
                 'tipo_salario' => $usaGarantia ? null : 'integral',
@@ -374,7 +385,7 @@ class LiquidacionService
             'garantia_ab' => $garantiaBruta,
             'literal_c' => $importeLiteralC,
             'prestaciones_mayor' => $importePrestaciones,
-            'prestaciones_origen' => $usaGarantia ? 'garantia' : 'literal_c',
+            'prestaciones_origen' => $origenPrestaciones,
             'prestaciones_diferencia' => round(abs($garantiaBruta - $importeLiteralC), 2),
             'asignaciones' => $asignaciones,
             'deducciones' => $deducciones,

@@ -50,14 +50,17 @@
 	@if ($liquidacion->garantia_ab !== null && $liquidacion->literal_c !== null)
 		@php
 			$esGarantia = $liquidacion->prestaciones_origen === 'garantia';
-			$origenLabel = $esGarantia ? 'Garantía Art. 142 a+b' : 'Literal c (30 días por año)';
+			$esLiteralE = $liquidacion->prestaciones_origen === 'literal_e';
+			$origenLabel = $esGarantia
+				? 'Garantía Art. 142 a+b'
+				: ($esLiteralE ? 'Literal e (5 días por mes o fracción)' : 'Literal c (30 días por año)');
 		@endphp
 		<table>
 			<tr><th colspan="4">Comparativo Art. 142 LOTTT — prestaciones sin intereses</th></tr>
 			<tr>
 				<td class="bold">Art. 142 literales a+b<br><span class="sub">Garantía acumulada</span></td>
 				<td class="right">{{ $liquidacion->moneda === 'USD' ? 'USD' : 'Bs.' }} {{ formato_monto((float) $liquidacion->garantia_ab) }}</td>
-				<td class="bold">Art. 142 literal c<br><span class="sub">30 días por año</span></td>
+				<td class="bold">Art. 142 {{ $esLiteralE ? 'literal e' : 'literal c' }}<br><span class="sub">{{ $esLiteralE ? '5 días por mes o fracción' : '30 días por año' }}</span></td>
 				<td class="right">{{ $liquidacion->moneda === 'USD' ? 'USD' : 'Bs.' }} {{ formato_monto((float) $liquidacion->literal_c) }}</td>
 			</tr>
 			<tr class="total">

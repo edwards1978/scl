@@ -32,11 +32,18 @@
     @endif
 
 	@if ($liquidacion->garantia_ab !== null && $liquidacion->literal_c !== null)
+		@php
+			$esGarantia = $liquidacion->prestaciones_origen === 'garantia';
+			$esLiteralE = $liquidacion->prestaciones_origen === 'literal_e';
+			$origenLabel = $esGarantia
+				? 'Garantía Art. 142 a+b'
+				: ($esLiteralE ? 'Literal e (5 días por mes o fracción)' : 'Literal c (30 días por año)');
+		@endphp
 		<div class="bg-white border border-gray-200 p-4 mb-4">
 			<div class="flex flex-wrap items-center justify-between gap-2 mb-3">
 				<h2 class="text-sm font-semibold text-gray-800">Comparativo Art. 142 LOTTT</h2>
 				<span class="px-2 py-1 text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-					Se aplica el mayor; intereses aparte
+					Regla aplicada; intereses aparte
 				</span>
 			</div>
 			<div class="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -47,8 +54,8 @@
 					<p class="text-[11px] text-gray-500 mt-1">Capital e intereses, antes de anticipos</p>
 				</div>
 				<div class="border p-3 {{ ! $esGarantia ? 'border-emerald-400 bg-emerald-50' : 'border-gray-200' }}">
-					<p class="text-xs text-gray-500">Art. 142 literal c</p>
-					<p class="text-sm font-medium text-gray-700">30 días por año</p>
+					<p class="text-xs text-gray-500">Art. 142 {{ $esLiteralE ? 'literal e' : 'literal c' }}</p>
+					<p class="text-sm font-medium text-gray-700">{{ $esLiteralE ? '5 días por mes o fracción' : '30 días por año' }}</p>
 					<p class="text-lg font-semibold mt-1">{{ $liquidacion->moneda }} {{ formato_monto((float) $liquidacion->literal_c) }}</p>
 					<p class="text-[11px] text-gray-500 mt-1">{{ $liquidacion->dias_prestaciones }} días × salario integral</p>
 				</div>

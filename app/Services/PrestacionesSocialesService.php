@@ -375,6 +375,33 @@ class PrestacionesSocialesService
     }
 
     /**
+     * Meses de servicio contando cualquier fracción de mes como mes completo.
+     * Se usa para el literal e del Art. 142 (5 días por mes o fracción).
+     */
+    public function mesesServicio(Empleado $empleado, CarbonInterface $fecha): int
+    {
+        $ingreso = Carbon::instance($empleado->fecha_ingreso)->startOfDay();
+        $fin = Carbon::instance($fecha)->startOfDay();
+        $meses = (int) $ingreso->diffInMonths($fin);
+        $resto = $ingreso->copy()->addMonthsNoOverflow($meses);
+
+        if ($resto->lt($fin)) {
+            $meses++;
+        }
+
+        return max(1, $meses);
+    }
+
+    /** Indica si la relación termina antes de completar los tres primeros meses. */
+    public function menosDeTresMeses(Empleado $empleado, CarbonInterface $fecha): bool
+    {
+        $ingreso = Carbon::instance($empleado->fecha_ingreso)->startOfDay();
+        $fin = Carbon::instance($fecha)->startOfDay();
+
+        return $ingreso->copy()->addMonthsNoOverflow(3)->gt($fin);
+    }
+
+    /**
      * Número de año de servicio que se completa con el cierre del período;
      * null si el período no completa un año.
      *
@@ -558,8 +585,9 @@ class PrestacionesSocialesService
             $diasDeposito += self::DIAS_TRIMESTRE;
         }
 
-        // Fracción del trimestre en curso al egreso: si la relación termina
-        // antes de completarlo, se abona una sola vez la fracción de 15 días.
+        // El derecho al depósito del trimestre nace al iniciarlo. Si la
+        // relación termina antes de completarlo, se abona completo (15 días);
+        // la salida y el literal e se resuelven en la liquidación.
         if ($esPeriodoEgreso) {
             $inicioContrato = Carbon::instance($empleado->fecha_ingreso)->startOfDay();
             $hayFraccion = $finUltimoTrimestre

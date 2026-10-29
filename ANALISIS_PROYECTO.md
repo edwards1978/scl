@@ -6,7 +6,7 @@
 **Alcance:** arquitectura, módulos, lógica de cálculo, base de datos, seguridad, despliegue, pruebas y mantenibilidad.
 **Naturaleza:** auditoría técnica. Las fórmulas legales de días adicionales, Art. 143, indemnización y préstamos fueron decididas por el abogado del proyecto el 29/10/2026; este documento no sustituye la revisión de un contador público para los importes finales.
 
-> **Método (actualización 29/10/2026).** No se modificó información de producción. La suite se ejecutó contra `scl_test` (sin prefijo), con 204 pruebas y 865 aserciones. Los datos se consultaron con Laravel Boost y las validaciones de esquema/consultas se hicieron en modo lectura.
+> **Método (actualización 29/10/2026).** No se modificó información de producción. La suite se ejecutó contra `scl_test` (sin prefijo), con 206 pruebas y 872 aserciones. Los datos se consultaron con Laravel Boost y las validaciones de esquema/consultas se hicieron en modo lectura.
 >
 > **Vigencia.** La **sección 0** es el estado actual y prevalece sobre las secciones 1-11 y los anexos. Esas secciones conservan el análisis histórico del 23-29/10/2026; las cifras antiguas (90/150 pruebas, 733 filas, 37 empleados, 19 avisos de dependencias) no describen el estado actual.
 
@@ -16,7 +16,7 @@
 
 ### 0.1 Calidad y verificación
 
-- **Suite:** `php artisan test --compact` → **204 tests passed (865 assertions)**, ~39 s.
+- **Suite:** `php artisan test --compact` → **206 tests passed (872 assertions)**, ~55 s.
 - **Aislamiento:** `tests/bootstrap.php` fuerza `APP_ENV=testing`, `APP_URL=http://localhost`, `scl_test`, prefijo vacío y cachés de test propias. Ya no usa la caché de producción con `/scl`.
 - **Formato:** `vendor/bin/pint --dirty` pasa.
 - **Dependencias:** `composer audit` no reporta avisos.
@@ -48,7 +48,7 @@ No hay empleados activos con liquidación aprobada. Las 30 proyecciones pertenec
 1. **Bootstrap de pruebas corregido.** El 404 masivo era la URL de producción `http://localhost/scl` cargada desde `bootstrap/cache/config.php`; no era un problema de permisos ni de `scl_test`.
 2. **N+1 del listado de prestaciones eliminado.** `PrestacionesController@index()` ya no consulta por cada empleado; `PrestacionesSocialesService::saldosConCierrePara()` carga egresos y períodos en dos consultas. Hay prueba de regresión con conteo de consultas.
 3. **Proyecciones revisadas.** No se eliminó ninguna: las 30 son vigentes y se usan en anticipos/pagos futuros.
-4. **Documentación actualizada.** README y DEPLOY reflejan `scl_test` y 204 pruebas. Este documento registra el estado actual.
+4. **Documentación actualizada.** README y DEPLOY reflejan `scl_test` y 206 pruebas. Este documento registra el estado actual.
 5. **Red local:** la app queda accesible por `http://192.168.1.104/scl`; IP fija, nombre local y HTTPS quedaron pendientes por decisión del usuario.
 
 ### 0.4 Fórmulas legales: decisiones cerradas (29/10/2026)
@@ -58,6 +58,8 @@ Las decisiones fueron tomadas y validadas con el abogado del proyecto:
 | Tema | Decisión | Implementación |
 |---|---|---|
 | Días adicionales (Art. 142.b) | Mantener el abono del acumulado completo en cada aniversario: 2, 4, 6… con tope de 30 | Sin cambio; pruebas de dominio existentes |
+| Garantía trimestral (Art. 142.a) | El derecho nace al iniciar el trimestre; si la relación termina antes de completarlo, se abona completo en la garantía | Sin cambio: el cuadro de prestaciones no decide la salida |
+| Salida antes de 3 meses (Art. 142.e) | La liquidación paga 5 días por mes o fracción; reemplaza la garantía del trimestre | Implementado en `LiquidacionService`; el cuadro mantiene sus depósitos normales |
 | Intereses vs. literal c (Art. 143) | Pagar siempre los intereses, aunque gane el literal c | Implementado: la garantía se desglosa en capital e interés; si gana el literal c, el interés se suma aparte |
 | Garantía ganadora | Mostrar el interés siempre como línea separada, sin aumentar el total de la garantía | Implementado |
 | Indemnización (Art. 92) | Se calcula solo sobre prestaciones, sin intereses | Implementado |
@@ -73,11 +75,11 @@ Las decisiones fueron tomadas y validadas con el abogado del proyecto:
 
 SCL es una aplicación **Laravel 12 + Livewire 4 + Blade/Tailwind + MySQL/MariaDB** para administrar patronos, empleados, sueldos, vacaciones, prestaciones sociales, anticipos/préstamos, pagos de intereses, liquidaciones, utilidades, tasas BCV, tasas de interés, feriados y salarios mínimos, con generación de PDF y exportación a hoja de cálculo.
 
-**Balance general (29/10/2026):** el proyecto está más maduro y la suite está en verde con **204 pruebas y 865 aserciones**. Se incorporaron pagos de intereses del Art. 143, proyecciones, capitalización autorizada, comparación garantía vs. literal c, auditoría, roles/policies y aislamiento de pruebas. El siguiente riesgo ya no es la falta de tests ni las fórmulas legales, sino el historial salarial, la explotación fuera de la red local y la traducción de mensajes.
+**Balance general (29/10/2026):** el proyecto está más maduro y la suite está en verde con **206 pruebas y 872 aserciones**. Se incorporaron pagos de intereses del Art. 143, proyecciones, capitalización autorizada, comparación garantía vs. literal c, auditoría, roles/policies y aislamiento de pruebas. El siguiente riesgo ya no es la falta de tests ni las fórmulas legales, sino el historial salarial, la explotación fuera de la red local y la traducción de mensajes.
 
 **Lo que está bien:**
 
-- La aplicación **funciona**: 204 pruebas, 865 aserciones, ~39 s; Pint pasa y el CI está configurado para `scl_test`.
+- La aplicación **funciona**: 206 pruebas, 872 aserciones, ~55 s; Pint pasa y el CI está configurado para `scl_test`.
 - Separación razonable en capas: 18 controladores web, 4 componentes Livewire, 13 servicios de dominio, 21 modelos, 44 migraciones y 121 rutas propias.
 - El listado de prestaciones ya no tiene N+1: saldos y cierres se cargan en dos consultas, con prueba de regresión.
 - Motor de prestaciones documentado y cubierto con pruebas de dominio: trimestres, aniversarios, fracción de egreso, días adicionales, intereses, capitalización, anticipos, proyecciones y pagos de intereses.
@@ -572,7 +574,7 @@ La suite actual cubre prestaciones y las decisiones legales de liquidación; que
 - Cambio de patrono sin mover historial (P1 anterior) — **corregido**.
 - Recibos duplicados y borrados destructivos (P1 anterior) — **mitigado**; queda separar “pagada”/“disfrutada”.
 - Feriados delete+insert en cada request (P2 anterior) — **corregido**; `asegurarAnio()` solo materializa si el año no existe.
-- Suite en rojo por caché de configuración (P2 anterior) — **corregido**; 204/204 con `scl_test` y URL de test aislada.
+- Suite en rojo por caché de configuración (P2 anterior) — **corregido**; 206/206 con `scl_test` y URL de test aislada.
 - Roles, Policies y aislamiento por patrono (P0 anterior) — **corregido** el 28/10/2026.
 - Auditoría de creación, modificación, aprobación, anulación e historial de estados (P0 anterior) — **implementada** el 29/10/2026.
 - CI con pruebas y Pint bloqueantes (P3 anterior) — **activo** en GitHub Actions.
@@ -641,7 +643,7 @@ php -l (todos los archivos de app/routes/database)
 
 ### 12.2 Resultados
 
-- `php artisan test --compact` → **204 passed (865 assertions)**, ~39 s.
+- `php artisan test --compact` → **206 passed (872 assertions)**, ~55 s.
 - `php artisan route:list --except-vendor` → **121 rutas propias**.
 - `php artisan migrate:status` → **44 migraciones**, todas ejecutadas.
 - `composer audit --locked --no-dev` → **sin avisos**.
@@ -924,7 +926,7 @@ El empleado 10 sube porque el recálculo completó períodos faltantes; no se mo
 
 ### Estado de la suite y verificaciones
 
-- `php artisan test --compact` → **204 passed (865 assertions)**, ~39 s.
+- `php artisan test --compact` → **206 passed (872 assertions)**, ~55 s.
 - `php artisan route:list --except-vendor` → 121 rutas propias.
 - `composer audit --locked --no-dev` → sin avisos.
 - `vendor/bin/pint --dirty` → pasa.
