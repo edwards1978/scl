@@ -16,6 +16,7 @@ use App\Services\MovimientosPrestacionesService;
 use App\Services\PrestacionesSocialesService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use Tests\TestCase;
 
@@ -282,6 +283,43 @@ class PrestacionesSocialesTest extends TestCase
             $prestaciones->capitalEn($empleado, Carbon::parse('2026-10-31')),
             0.01
         );
+    }
+
+    public function test_el_resumen_de_saldos_evita_consultas_por_empleado(): void
+    {
+        [$patrono, $empleado] = $this->crearEmpleado();
+
+        $otro = Empleado::create([
+            'patrono_id' => $patrono->id,
+            'nombres' => 'Luis',
+            'apellidos' => 'Gómez',
+            'cedula' => 'V-87654321',
+            'fecha_ingreso' => '2024-01-15',
+            'tipo_contrato' => 'Indeterminado',
+            'tipo_salario' => 'Fijo',
+            'salario_inicial' => 300,
+            'moneda' => 'USD',
+            'estatus' => 'Activo',
+        ]);
+
+        $prestaciones = app(PrestacionesSocialesService::class);
+        $prestaciones->regenerar($empleado);
+        $prestaciones->regenerar($otro);
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $resumen = $prestaciones->saldosConCierrePara(collect([$empleado, $otro]));
+        $consultas = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        $this->assertCount(2, $resumen);
+        $this->assertLessThanOrEqual(3, $consultas);
+        $this->assertEqualsWithDelta(
+            $prestaciones->saldoConProyeccion($empleado),
+            $resumen[$empleado->id]['saldo'],
+            0.01
+        );
+        $this->assertNotNull($resumen[$empleado->id]['cierre']);
     }
 
     public function test_el_cierre_por_defecto_excluye_las_proyecciones(): void

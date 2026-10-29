@@ -80,11 +80,12 @@ class PrestacionesController extends Controller
 
         $saldos = [];
         $calculadoHasta = [];
+        $resumen = $this->service->saldosConCierrePara($empleados->getCollection());
         foreach ($empleados as $empleado) {
             // El saldo debe corresponder al cierre indicado en "Calculado hasta":
             // último período guardado, real o proyectado.
-            $saldos[$empleado->id] = $this->service->saldoConProyeccion($empleado);
-            $calculadoHasta[$empleado->id] = $this->service->ultimoCierreConProyeccion($empleado);
+            $saldos[$empleado->id] = $resumen[$empleado->id]['saldo'] ?? 0.0;
+            $calculadoHasta[$empleado->id] = $resumen[$empleado->id]['cierre'] ?? null;
         }
 
         $activos = $patrono->empleados()->where('estatus', 'Activo')->count();

@@ -1040,6 +1040,57 @@ class PrestacionesSocialesService
         return (float) ($this->ultimoRegistro($empleado, true)?->saldo_final ?? 0);
     }
 
+    /**
+     * Saldos y cierres del último período guardado (real o proyectado) para
+     * varios empleados. Evita dos consultas por trabajador en el listado.
+     *
+     * @param  Collection<int, Empleado>  $empleados
+     * @return array<int, array{saldo: float, cierre: Carbon|null}>
+     */
+    public function saldosConCierrePara(Collection $empleados): array
+    {
+        $ids = $empleados->pluck('id')->map(fn ($id) => (int) $id)->all();
+
+        if ($ids === []) {
+            return [];
+        }
+
+        $egresos = Liquidacion::whereIn('empleado_id', $ids)
+            ->where('estatus', 'aprobada')
+            ->selectRaw('empleado_id, MAX(fecha_egreso) as fecha_egreso')
+            ->groupBy('empleado_id')
+            ->pluck('fecha_egreso', 'empleado_id');
+
+        $registros = PrestacionSocial::whereIn('empleado_id', $ids)
+            ->orderBy('empleado_id')
+            ->orderBy('periodo')
+            ->get(['empleado_id', 'periodo', 'saldo_final', 'fecha_cierre'])
+            ->groupBy('empleado_id');
+
+        $resultado = [];
+
+        foreach ($empleados as $empleado) {
+            $egreso = $egresos[$empleado->id] ?? null;
+            $hasta = $egreso
+                ? $this->periodoDeFecha($empleado, Carbon::parse($egreso))
+                : null;
+
+            $filas = $registros[$empleado->id] ?? collect();
+            if ($hasta !== null) {
+                $filas = $filas->filter(fn (PrestacionSocial $fila) => $fila->periodo <= $hasta);
+            }
+
+            $ultimo = $filas->last();
+
+            $resultado[$empleado->id] = [
+                'saldo' => (float) ($ultimo?->saldo_final ?? 0),
+                'cierre' => $ultimo?->fecha_cierre,
+            ];
+        }
+
+        return $resultado;
+    }
+
     private function ultimoPeriodo(Empleado $empleado, bool $incluirProyeccion): ?string
     {
         return $this->ultimoRegistro($empleado, $incluirProyeccion)?->periodo;

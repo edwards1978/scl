@@ -2,13 +2,67 @@
 
 **Sistema:** SCL — Sistema de Cálculos Laborales (LOTTT)
 **Ruta analizada:** `/var/www/html/scl`
-**Fecha del análisis:** 27/10/2026
+**Fecha del análisis:** 29/10/2026 (actualizado desde el 27/10/2026)
 **Alcance:** arquitectura, módulos, lógica de cálculo, base de datos, seguridad, despliegue, pruebas y mantenibilidad.
 **Naturaleza:** auditoría técnica. No sustituye la validación de un abogado laboral ni de un contador público; las fórmulas legales deben firmarse con casos de prueba antes de usarse para pagos reales.
 
-> **Método.** No se modificó información de producción. Las comprobaciones de escritura se hicieron con la suite (`DatabaseTransactions`) y con lecturas controladas. La suite se ejecutó con `DB_PREFIX=test_`; la compilación de vistas se validó con `php artisan view:cache`.
+> **Método (actualización 29/10/2026).** No se modificó información de producción. La suite se ejecutó contra `scl_test` (sin prefijo), con 201 pruebas y 846 aserciones. Los datos se consultaron con Laravel Boost y las validaciones de esquema/consultas se hicieron en modo lectura.
 >
-> Los **anexos A, B y C** documentan incidentes y decisiones del 23/10/2026. Se conservan como historial. Las cifras de pruebas de esos anexos (28/28) son históricas; el estado actual es **90/90**.
+> **Vigencia.** La **sección 0** es el estado actual y prevalece sobre las secciones 1-11 y los anexos. Esas secciones conservan el análisis histórico del 23-29/10/2026; las cifras antiguas (90/150 pruebas, 733 filas, 37 empleados, 19 avisos de dependencias) no describen el estado actual.
+
+---
+
+## 0. Estado actual (29/10/2026)
+
+### 0.1 Calidad y verificación
+
+- **Suite:** `php artisan test --compact` → **201 tests passed (846 assertions)**, ~39 s.
+- **Aislamiento:** `tests/bootstrap.php` fuerza `APP_ENV=testing`, `APP_URL=http://localhost`, `scl_test`, prefijo vacío y cachés de test propias. Ya no usa la caché de producción con `/scl`.
+- **Formato:** `vendor/bin/pint --dirty` pasa.
+- **Dependencias:** `composer audit` no reporta avisos.
+- **Rutas propias:** 121.
+- **Migraciones:** 44.
+- **Controladores web:** 18.
+- **Servicios:** 13.
+- **Modelos:** 21.
+
+### 0.2 Datos actuales
+
+| Tabla | Registros |
+|---|---:|
+| Patronos | 10 |
+| Empleados | 38 (30 activos, 8 inactivos) |
+| Usuarios | 3 |
+| Liquidaciones aprobadas | 8 |
+| Prestaciones sociales | 1.511 |
+| Proyecciones | 30 |
+| Movimientos de prestaciones | 4 |
+| Pagos de intereses | 4 |
+| Cambios salariales | 37 |
+| Empleados con capitalización autorizada | 0 |
+
+No hay empleados activos con liquidación aprobada. Las 30 proyecciones pertenecen a 15 empleados activos, cubren noviembre-diciembre de 2026, no están huérfanas ni vencidas y dos movimientos futuros las usan. Se conservan.
+
+### 0.3 Cambios de esta iteración
+
+1. **Bootstrap de pruebas corregido.** El 404 masivo era la URL de producción `http://localhost/scl` cargada desde `bootstrap/cache/config.php`; no era un problema de permisos ni de `scl_test`.
+2. **N+1 del listado de prestaciones eliminado.** `PrestacionesController@index()` ya no consulta por cada empleado; `PrestacionesSocialesService::saldosConCierrePara()` carga egresos y períodos en dos consultas. Hay prueba de regresión con conteo de consultas.
+3. **Proyecciones revisadas.** No se eliminó ninguna: las 30 son vigentes y se usan en anticipos/pagos futuros.
+4. **Documentación actualizada.** README y DEPLOY reflejan `scl_test` y 201 pruebas. Este documento registra el estado actual.
+5. **Red local:** la app queda accesible por `http://192.168.1.104/scl`; IP fija, nombre local y HTTPS quedaron pendientes por decisión del usuario.
+
+### 0.4 Fórmulas legales: estado y recomendación
+
+No se cambiaron fórmulas sin firma legal/contable. Quedan como decisiones explícitas:
+
+| Tema | Comportamiento actual | Riesgo | Recomendación |
+|---|---|---|---|
+| Días adicionales (Art. 142.b) | Se abona el acumulado completo 2, 4, 6… en cada aniversario | Puede sobreestimar si la norma se interpreta como 2 días por año incrementales | Firmar la interpretación; si es incremental, cambiar `diasAdicionalesDelAniversario()` y recalcular |
+| Intereses vs. literal c (Art. 143) | La línea de intereses queda en 0; el interés se considera absorbido por la garantía comparada | Si el Art. 143 es un derecho independiente, el trabajador pierde intereses cuando gana el literal c | Definir si se paga siempre el interés devengado; si sí, separar la línea y no compararla dentro de la garantía |
+| Intereses de préstamos | La liquidación descuenta los registros de `movimiento_prestaciones_intereses` como “Pago de intereses” | Los registros son pagos; volver a descontarlos puede ser doble cobro | Separar interés devengado no pagado de interés pagado; no deducir lo ya pagado |
+| Capitalización | Solo con autorización escrita, modalidad contabilidad y aniversario | Decisión ya tomada (Opción B); no capitalización automática | Mantener y auditar la autorización |
+
+**Cierre de este paso:** las tres fórmulas quedan documentadas y probadas en su comportamiento actual, pero **no se consideran firmadas legalmente**. No deben usarse para pagos reales sin aprobación de abogado/contador.
 
 ---
 
@@ -16,34 +70,35 @@
 
 SCL es una aplicación **Laravel 12 + Livewire 4 + Blade/Tailwind + MySQL/MariaDB** para administrar patronos, empleados, sueldos, vacaciones, prestaciones sociales, anticipos/préstamos, pagos de intereses, liquidaciones, utilidades, tasas BCV, tasas de interés, feriados y salarios mínimos, con generación de PDF y exportación a hoja de cálculo.
 
-**Balance general:** el proyecto está **mejor que en el informe del 23/10/2026**. La suite creció de 28 a **90 pruebas** y pasa completa; se incorporó el módulo de pagos de intereses del Art. 143 LOTTT, las proyecciones de prestaciones, la capitalización autorizada por escrito, la comparación garantía vs. 30 días/año en la liquidación y la regeneración de períodos al aprobar/anular liquidaciones. También se corrigieron los permisos de despliegue y se versionaron archivos que antes no estaban en Git.
+**Balance general (29/10/2026):** el proyecto está más maduro y la suite está en verde con **201 pruebas y 846 aserciones**. Se incorporaron pagos de intereses del Art. 143, proyecciones, capitalización autorizada, comparación garantía vs. literal c, auditoría, roles/policies y aislamiento de pruebas. El siguiente riesgo ya no es la falta de tests, sino las decisiones legales y la explotación fuera de la red local.
 
 **Lo que está bien:**
 
-- La aplicación **funciona**: 150 pruebas, 632 aserciones, ~27 s; las vistas Blade compilan sin errores y el pipeline de GitHub Actions está en verde.
-- Separación razonable en capas: 17 controladores web, 4 componentes Livewire, 12 servicios de dominio, 21 modelos, 43 migraciones y 131 rutas (contando las de vendor).
+- La aplicación **funciona**: 201 pruebas, 846 aserciones, ~39 s; Pint pasa y el CI está configurado para `scl_test`.
+- Separación razonable en capas: 18 controladores web, 4 componentes Livewire, 13 servicios de dominio, 21 modelos, 44 migraciones y 121 rutas propias.
+- El listado de prestaciones ya no tiene N+1: saldos y cierres se cargan en dos consultas, con prueba de regresión.
 - Motor de prestaciones documentado y cubierto con pruebas de dominio: trimestres, aniversarios, fracción de egreso, días adicionales, intereses, capitalización, anticipos, proyecciones y pagos de intereses.
 - Aislamiento por patrono en la mayoría de consultas mediante `patrono_id` de sesión; se validan cédula/RIF, duplicados y períodos.
 - Buenas prácticas presentes: `APP_DEBUG=false`, registro público deshabilitado, throttling de login, CSRF, regeneración de sesión, `Hash` de contraseñas y cabeceras de seguridad en Apache.
 - Despliegue con permisos coherentes: `www-data` puede leer `.env` y escribir en `storage/` y `bootstrap/cache/`.
 - Documentación de despliegue (`DEPLOY.md`) y scripts en `deploy/`.
 
-**Riesgos principales (en orden de impacto):**
+**Riesgos principales (estado 29/10/2026):**
 
-1. **Permisos por acción y borrado lógico pendientes.** Roles, Policies, aislamiento por patrono y auditoría ya están implementados; falta revisar permisos por acción específica y definir borrado lógico. **P2.**
-2. **Historial salarial — corregido el 29/10/2026.** Se completó `salario_inicial` en los 37 trabajadores y se registró el cambio de ingreso en `cambios_salarios` (37 registros). Alta, edición de ficha, variaciones e importación registran ahora el cambio con fecha de vigencia y recalculan sueldos y prestaciones. Queda cargar el historial real de aumentos anteriores, que no consta en el sistema. **P2.**
-3. **Fórmulas legales aún no firmadas.** La decisión de abonar el acumulado completo de días adicionales en cada aniversario, el tratamiento de los intereses cuando gana el literal c y la deducción de intereses de préstamos en la liquidación requieren validación legal/contable. **P1.**
-4. **Aislamiento de pruebas — corregido el 29/10/2026.** La suite usa la base `scl_test` (sin prefijo) y el CI crea esa base; las tablas `test_*` de producción se eliminaron. **Resuelto.**
-5. **Trabajo sin commitear.** Hay 25 archivos modificados (+1.722/−980) y varios grupos de archivos nuevos (módulo de intereses, migración, vistas, pruebas, tooling) fuera de Git. El estado actual no es reproducible desde un commit. **P1.**
-6. **Dependencias con avisos de seguridad.** `composer audit --locked --no-dev` reporta **19 avisos en 5 paquetes**, incluido un XSS de Livewire 4.3.3. **P2.**
-7. **Despliegue sobre HTTP.** `SESSION_SECURE_COOKIE=false`, `APP_URL=http://localhost/scl`, `MAIL_MAILER=log`, sin CSP/HSTS ni `TrustProxies`. Aceptable en red interna, insuficiente si se publica. **P2.**
-8. **Anomalía de datos.** El empleado 10 tiene una liquidación aprobada y sigue `Activo`; puede generar nuevos cálculos y otra liquidación. **P2.**
-9. **Mensajes sin traducir.** No existe `lang/`; con locale `es` la interfaz sigue mostrando claves como `validation.required` y `auth.failed`. **P3.**
-10. **Rendimiento y mantenibilidad.** N+1 en listados/reportes, generación síncrona de períodos, `PrestacionesSocialesService` de 1.251 líneas, 77 archivos con problemas de estilo y ausencia de CI. **P3.**
+1. **Fórmulas legales sin firma.** Días adicionales acumulativos, intereses cuando gana el literal c y deducción de intereses de préstamos siguen requiriendo validación legal/contable. **P1.**
+2. **Intereses de préstamos.** La liquidación descuenta pagos de intereses; si ya fueron pagados, puede ser doble cobro. Separar devengado/pagado. **P1/P2.**
+3. **Historial salarial.** Se completaron los 37 cambios de ingreso, pero faltan los aumentos reales anteriores al 29/10/2026. **P2.**
+4. **HTTP en red local.** `SESSION_SECURE_COOKIE=false`, sin HTTPS ni certificado; aceptable solo en red de confianza. **P2.**
+5. **IP/nombre local.** `APP_URL` usa `192.168.1.104`, una IP dinámica; falta reserva DHCP o nombre `scl.lan`. **P2.**
+6. **Mensajes sin traducir.** No existe `lang/`; se muestran claves como `validation.required` y `auth.failed`. **P3.**
+7. **Mantenibilidad.** `PrestacionesSocialesService` supera 1.300 líneas y mezcla cálculo, persistencia y presentación. **P3.**
+8. **Documentación histórica.** Las secciones antiguas de este informe conservan cifras del 27/10/2026; la sección 0 es la vigente. **P3.**
 
 ---
 
 ## 2. Ficha técnica
+
+> **Nota histórica:** esta ficha conserva el estado del 27/10/2026. Los valores vigentes están en la sección 0.1.
 
 | Elemento | Valor |
 |---|---|
@@ -66,7 +121,9 @@ SCL es una aplicación **Laravel 12 + Livewire 4 + Blade/Tailwind + MySQL/MariaD
 | Pruebas | 90 (332 aserciones) |
 | Estado de Git | 34 commits, rama `main`, árbol de trabajo con cambios sin commitear |
 
-### Datos actuales en la base
+### Datos en la base (histórico 27/10/2026)
+
+> Los datos vigentes están en la sección 0.2.
 
 | Tabla | Registros |
 |---|---:|
@@ -86,7 +143,7 @@ SCL es una aplicación **Laravel 12 + Livewire 4 + Blade/Tailwind + MySQL/MariaD
 
 **Anomalías de datos:**
 
-- Hay **8 liquidaciones aprobadas** y **7 empleados inactivos**. El empleado **10** conserva una liquidación aprobada (egreso 07/08/2026) pero sigue `Activo`. Puede ser una reincorporación no modelada; debe revisarse antes de permitir nuevos cálculos.
+- Hay **8 liquidaciones aprobadas**. El empleado **10** conservaba una liquidación aprobada y estatus `Activo`; fue corregido el 29/10/2026 y ahora está inactivo.
 - **Historial salarial completo desde el 29/10/2026:** los 37 trabajadores tienen `salario_inicial` y su cambio de ingreso registrado. El historial anterior a esa fecha es una reconstrucción con el salario actual, no la evolución real.
 - Las liquidaciones aprobadas **antes** del motor actual no se reescribieron. Hay **8 aprobadas** en total; la más reciente (empleado 32, 25/10/2026) es posterior al motor actual y las anteriores conservan la fórmula con la que se aprobaron.
 
@@ -445,7 +502,7 @@ Esto mezcla “días de bonificación de fin de año” con “días de utilidad
 
 ### 9.1 Rendimiento
 
-- `PrestacionesController@index()` ejecuta, por cada empleado de la página, `saldoConProyeccion()` y `ultimoCierreConProyeccion()`: **2 consultas por fila**. Con 100 filas son ~200 consultas.
+- `PrestacionesController@index()` ejecutaba `saldoConProyeccion()` y `ultimoCierreConProyeccion()` por cada empleado: **2 consultas por fila**. **Corregido el 29/10/2026** con `saldosConCierrePara()`: 2 consultas para toda la página.
 - `estadoDeCuenta()` carga todos los períodos y calcula `tiempoServicio()` por fila; es CPU/iteración, no N+1 de BD, pero crece con la antigüedad.
 - `asegurarPeriodos()` / `regenerar()` recorren cada período y `registrarMes()` hace varias consultas por período (salario, tasa, registro previo, `updateOrCreate`). Para 10 años de historia es costoso y síncrono.
 - `proyectarActivos()` genera la proyección de toda la nómina dentro de la petición.
@@ -492,18 +549,19 @@ La suite actual es una buena base, pero todavía no cubre los módulos donde que
 
 | # | Hallazgo | Probabilidad | Impacto | Prioridad |
 |---|---|---|---|---|
-| 1 | Permisos por acción y borrado lógico pendientes (roles y auditoría ya implementados) | Baja | Medio | **P2** |
-| 2 | Historial salarial reconstruido (37 cambios de ingreso); faltan los aumentos reales anteriores al 29/10/2026 | Alta | Medio | **P2** |
-| 3 | Fórmulas pendientes de firma legal: días adicionales acumulativos, intereses vs. literal c, deducción de intereses de préstamos | Media | Muy alto | **P1** |
-| 4 | Suite aislada en `scl_test` (sin prefijo) y CI sobre esa base | Baja | Bajo | **Resuelto** |
-| 5 | Estado reproducible desde Git y CI activo en GitHub Actions | Baja | Bajo | **Resuelto** |
-| 6 | 19 avisos de dependencias, incluido XSS de Livewire 4.3.3 | Media | Medio | **P2** |
-| 7 | HTTP, `SESSION_SECURE_COOKIE=false`, `MAIL_MAILER=log`, sin CSP/HSTS/TrustProxies | Alta | Medio | **P2** |
-| 8 | Empleado 10 activo con liquidación aprobada | Media | Medio | **P2** |
-| 9 | Mensajes `validation.required` / `auth.failed` sin traducir | Alta | Bajo-Medio | **P3** |
-| 10 | N+1 y generación síncrona de períodos/proyecciones | Media | Medio | **P3** |
-| 11 | Mantenibilidad: servicio de 1.251 líneas y strings sin traducir; Pint y CI ya activos | Media | Medio | **P3** |
-| 12 | README desactualizado y archivos de tasas BCV en la raíz | Alta | Bajo | **P3** |
+| 1 | Fórmulas legales sin firma: días adicionales, intereses vs. literal c, intereses de préstamos | Media | Muy alto | **P1** |
+| 2 | Posible doble cobro al deducir intereses de préstamos ya pagados | Media | Alto | **P1/P2** |
+| 3 | Historial salarial: faltan aumentos reales anteriores al 29/10/2026 | Alta | Medio | **P2** |
+| 4 | HTTP en LAN, `SESSION_SECURE_COOKIE=false`, sin certificado | Alta | Medio | **P2** |
+| 5 | `APP_URL` con IP dinámica; falta IP fija o nombre `scl.lan` | Media | Bajo-Medio | **P2** |
+| 6 | Mensajes `validation.required` / `auth.failed` sin traducir | Alta | Bajo-Medio | **P3** |
+| 7 | Mantenibilidad: servicio de más de 1.300 líneas | Media | Medio | **P3** |
+| 8 | Secciones históricas del informe con cifras anteriores | Alta | Bajo | **P3** |
+| 9 | Suite y bootstrap de pruebas | Baja | Bajo | **Resuelto** |
+| 10 | N+1 del listado de prestaciones | Baja | Bajo | **Resuelto** |
+| 11 | Dependencias con avisos de seguridad | Baja | Bajo | **Resuelto** |
+| 12 | Empleado 10 activo con liquidación aprobada | Baja | Bajo | **Resuelto** |
+
 
 **Riesgos cerrados o mitigados desde el 23/10/2026:**
 
@@ -514,14 +572,20 @@ La suite actual es una buena base, pero todavía no cubre los módulos donde que
 - Cambio de patrono sin mover historial (P1 anterior) — **corregido**.
 - Recibos duplicados y borrados destructivos (P1 anterior) — **mitigado**; queda separar “pagada”/“disfrutada”.
 - Feriados delete+insert en cada request (P2 anterior) — **corregido**; `asegurarAnio()` solo materializa si el año no existe.
-- Suite en rojo por caché de configuración (P2 anterior) — **corregido**; 150/150.
+- Suite en rojo por caché de configuración (P2 anterior) — **corregido**; 201/201 con `scl_test` y URL de test aislada.
 - Roles, Policies y aislamiento por patrono (P0 anterior) — **corregido** el 28/10/2026.
 - Auditoría de creación, modificación, aprobación, anulación e historial de estados (P0 anterior) — **implementada** el 29/10/2026.
 - CI con pruebas y Pint bloqueantes (P3 anterior) — **activo** en GitHub Actions.
+- N+1 del listado de prestaciones — **corregido** con `saldosConCierrePara()` y prueba de regresión.
+- Dependencias con 19 avisos — **corregido**; `composer audit` limpio.
+- Empleado 10 activo con liquidación aprobada — **corregido**; ahora está inactivo.
+- Árbol de trabajo sucio — **corregido**; commits realizados.
 
 ---
 
 ## 11. Plan de acción recomendado
+
+> **Nota:** este plan conserva los pendientes del 27-29/10/2026. El estado vigente está en la sección 0.
 
 ### Fase 0 — Inmediato (esta semana)
 
@@ -576,20 +640,18 @@ php -l (todos los archivos de app/routes/database)
 
 ### 12.2 Resultados
 
-- `php artisan test --compact` → **159 passed (671 assertions)**, 26,5 s.
-- `php artisan route:list --except-vendor` → **105 rutas propias** (117 totales).
-- `php artisan migrate:status` → **40 migraciones**, todas ejecutadas.
-- `php artisan view:cache` → **101 vistas compiladas** sin errores.
-- `composer validate` → válido.
-- `composer audit --locked --no-dev` → **19 avisos en 5 paquetes**.
+- `php artisan test --compact` → **201 passed (846 assertions)**, ~39 s.
+- `php artisan route:list --except-vendor` → **121 rutas propias**.
+- `php artisan migrate:status` → **44 migraciones**, todas ejecutadas.
+- `composer audit --locked --no-dev` → **sin avisos**.
 - `npm audit --omit=dev` → **0 vulnerabilidades**.
-- `vendor/bin/pint --test` → **77 archivos** con estilo a corregir.
+- `vendor/bin/pint --dirty` → **pasa**.
 - `php -l` → sin errores de sintaxis.
 
 ### 12.3 Comprobaciones de datos (solo lectura)
 
 - `prestaciones_sociales`: 733 filas (729 reales + 4 proyecciones).
-- `liquidaciones`: 8 aprobadas; 7 empleados inactivos; empleado 10 activo con liquidación aprobada.
+- `liquidaciones`: 8 aprobadas; 8 empleados inactivos; empleado 10 corregido a inactivo.
 - `cambios_salarios`: 0; empleados con `salario_inicial` nulo: 22/24.
 - `pagos_interes_prestaciones`: 2; `movimientos_prestaciones`: 2.
 - `feriados`: 84; `tasas_bcv`: 915; `tasas_interes_prestaciones`: 350; `salarios_minimos`: 10.
@@ -855,20 +917,19 @@ El empleado 10 sube porque el recálculo completó períodos faltantes; no se mo
 5. **`i18n` sigue sin `lang/es`:** se confirmó que `validation.required` y `auth.failed` se muestran como claves.
 6. **`UtilidadesService` permite recalcular aprobadas** y las devuelve a `calculado`; no hay bloqueo por estatus.
 7. **`EmpleadoController@update()` ya registra cambios salariales** (corregido el 29/10/2026); el historial tiene 37 cambios de ingreso y 0 trabajadores sin `salario_inicial`.
-8. **La anomalía del empleado 10 persiste:** liquidación aprobada y estatus `Activo`.
-9. **Boost/OpenCode no funcionan en este entorno** porque `BoostServiceProvider::shouldRun()` exige `APP_ENV=local` o `APP_DEBUG=true`; con producción/debug false, `boost:mcp` no está disponible.
+8. **Empleado 10:** la anomalía quedó corregida; está inactivo y no tiene cálculos nuevos.
+9. **Boost está activo:** el servidor MCP responde con datos reales del proyecto.
 10. **Quedan volcados HTML** en `storage/app/p32.html` y `p33.html`, además de `test.php` y Excel de ejemplo en la raíz.
 
 ### Estado de la suite y verificaciones
 
-- `php artisan test --compact` → **159 passed (671 assertions)**, 26,5 s.
-- `php artisan view:cache` → 101 vistas compiladas.
-- `php artisan route:list --except-vendor` → 105 rutas propias.
-- `composer audit --locked --no-dev` → 19 avisos en 5 paquetes.
-- `vendor/bin/pint --test` → 77 archivos con estilo a corregir.
+- `php artisan test --compact` → **201 passed (846 assertions)**, ~39 s.
+- `php artisan route:list --except-vendor` → 121 rutas propias.
+- `composer audit --locked --no-dev` → sin avisos.
+- `vendor/bin/pint --dirty` → pasa.
 - `npm audit --omit=dev` → 0 vulnerabilidades.
 - `php -l` → sin errores.
 
 ### Recomendación inmediata
 
-Commitear el estado actual, aislar la suite en una base de pruebas separada, revisar la deducción de intereses de préstamos y la interpretación del Art. 143 frente al literal c, y resolver el historial salarial antes de usar los saldos históricos para pagos.
+Firmar las fórmulas legales con abogado/contador; separar intereses devengados de intereses pagados en préstamos; definir IP fija/HTTPS si se publica; completar `lang/es`; y cargar el historial real de aumentos salariales anterior al 29/10/2026.
