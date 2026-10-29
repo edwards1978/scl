@@ -35,7 +35,7 @@
 
 	<div class="header">
 		<h1>{{ $movimiento->patrono->razon_social }}</h1>
-		<h2>RIF ({{ $movimiento->patrono->rif }})</h2>
+		<h2>RIF {{ $movimiento->patrono->rif }}</h2>
 		<p class="muted" style="margin:4px 0 0;">Comprobante de pago de {{ strtolower($movimiento->labelTipo()) }} de prestaciones sociales</p>
 	</div>
 
@@ -44,7 +44,7 @@
 			<td class="label">Comprobante N.º</td>
 			<td><strong>MOV-{{ str_pad((string) $movimiento->id, 6, '0', STR_PAD_LEFT) }}</strong></td>
 			<td class="label">Fecha de emisión</td>
-			<td>{{ now()->format('d/m/Y') }}</td>
+			<td>{{ ($movimiento->fecha_comprobante ?? now())->format('d/m/Y') }}</td>
 		</tr>
 		<tr>
 			<td class="label">Trabajador</td>
@@ -95,11 +95,11 @@
 		por el concepto indicado en este comprobante.
 	</p>
 
-	<p class="note">
+<!-- 	<p class="note">
 		Este comprobante se emite como constancia del movimiento registrado en SCL. No sustituye los documentos
 		contables, bancarios o legales que correspondan. Generado el {{ now()->format('d/m/Y H:i') }}.
 	</p>
-
+ -->
 	<table class="signatures">
 		<tr>
 			<td>
@@ -109,7 +109,8 @@
 			</td>
 			<td>
 				<div class="sign-line"></div>
-				<div class="sign-name">{{ $movimiento->patrono->representante_legal ?: $movimiento->patrono->razon_social }}</div>
+<!-- 				<div class="sign-name">{{ $movimiento->patrono->representante_legal ?: "Firma Autorizada" }}</div> -->
+				<div class="sign-name">Firma Autorizada</div>
 				<div class="sign-role">Por {{ $movimiento->patrono->razon_social }}</div>
 			</td>
 		</tr>

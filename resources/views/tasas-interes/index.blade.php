@@ -71,7 +71,8 @@
 		@endif
 	</form>
 
-	<div class="mb-2 flex justify-end items-center">
+	<div class="mb-2 flex items-center justify-between">
+		<x-orden-indicador campo="Periodo" direccion="desc" />
 		<div class="flex items-center gap-2 text-xs text-gray-500">
 			<span>Filas por página:</span>
 			<select onchange="window.location='{{ route('tasas-interes.index') }}'+'?porPagina='+this.value

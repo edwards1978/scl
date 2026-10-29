@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\ImportarEmpleadosRequest;
 use App\Http\Requests\StoreEmpleadoRequest;
 use App\Http\Requests\UpdateEmpleadoRequest;
 use App\Models\BonificacionFinAno;
@@ -13,17 +14,26 @@ use App\Models\Empleado;
 use App\Models\Liquidacion;
 use App\Models\MovimientoPrestaciones;
 use App\Models\Parametro;
-use App\Models\PrestacionSocial;
 use App\Models\Patrono;
+use App\Models\PrestacionSocial;
 use App\Models\Sueldo;
 use App\Models\Vacacion;
+use App\Services\EmpleadosImportExportService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Ods;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class EmpleadoController extends Controller
 {
+    public function __construct(
+        private readonly EmpleadosImportExportService $importExport = new EmpleadosImportExportService,
+    ) {}
+
     private function patronoActual(): Patrono
     {
         return Patrono::findOrFail((int) session('patrono_id'));
@@ -40,16 +50,108 @@ class EmpleadoController extends Controller
         if ($buscar = $request->get('buscar')) {
             $query->where(function ($q) use ($buscar) {
                 $q->where('nombres', 'like', "%{$buscar}%")
-                  ->orWhere('apellidos', 'like', "%{$buscar}%")
-                  ->orWhere('cedula', 'like', "%{$buscar}%");
+                    ->orWhere('apellidos', 'like', "%{$buscar}%")
+                    ->orWhere('cedula', 'like', "%{$buscar}%");
             });
         }
 
-        $empleados = $query->orderBy('apellidos')->orderBy('nombres')->paginate($porPagina);
+        $empleados = $query->orderBy('nombres')->orderBy('apellidos')->paginate($porPagina);
 
         $tasaDolar = (float) Parametro::get('tasa_dolar', 0.0);
 
         return view('empleados.index', compact('empleados', 'patrono', 'tasaDolar'));
+    }
+
+    /** Exporta los empleados del patrono actual a OpenDocument Spreadsheet (.ods). */
+    public function exportar(Request $request): StreamedResponse
+    {
+        $patrono = $this->patronoActual();
+        $buscar = $request->string('buscar')->trim()->toString();
+
+        $spreadsheet = $this->importExport->exportar($patrono, $buscar !== '' ? $buscar : null);
+
+        $filename = 'empleados-'.(Str::slug($patrono->razon_social) ?: 'patrono')
+            .'-'.now()->format('Ymd').'.ods';
+
+        return $this->descargarOds($spreadsheet, $filename);
+    }
+
+    /** Descarga una plantilla .ods con los encabezados e instrucciones de importación. */
+    public function plantilla(): StreamedResponse
+    {
+        $spreadsheet = $this->importExport->plantilla($this->patronoActual());
+
+        return $this->descargarOds($spreadsheet, 'plantilla-empleados.ods');
+    }
+
+    /** Importa empleados desde un archivo .ods, creando los nuevos y actualizando los ya registrados por cédula. */
+    public function importar(ImportarEmpleadosRequest $request): RedirectResponse
+    {
+        $patrono = $this->patronoActual();
+
+        try {
+            $resultado = $this->importExport->importar(
+                $request->file('archivo')->getRealPath(),
+                $patrono
+            );
+        } catch (\Throwable $e) {
+            return redirect()->route('empleados.index')
+                ->with('error', 'No se pudo importar el archivo: '.$e->getMessage());
+        }
+
+        $resumen = [];
+
+        if ($resultado['creados'] > 0) {
+            $resumen[] = "{$resultado['creados']} empleado(s) creado(s)";
+        }
+
+        if ($resultado['actualizados'] > 0) {
+            $resumen[] = "{$resultado['actualizados']} empleado(s) actualizado(s)";
+        }
+
+        if ($resultado['omitidos'] > 0) {
+            $resumen[] = "{$resultado['omitidos']} omitido(s) por cédula repetida en el archivo";
+        }
+
+        $mensaje = 'Importación completada: '.($resumen !== [] ? implode(', ', $resumen) : 'sin cambios').'.';
+
+        $redireccion = redirect()->route('empleados.index');
+
+        if ($resultado['errores'] !== [] || $resultado['cedulas_omitidas'] !== [] || $resultado['cedulas_actualizadas'] !== []) {
+            $redireccion->with('importacion_detalle', [
+                'errores' => array_slice($resultado['errores'], 0, 20),
+                'errores_total' => count($resultado['errores']),
+                'omitidos' => array_slice($resultado['cedulas_omitidas'], 0, 20),
+                'omitidos_total' => count($resultado['cedulas_omitidas']),
+                'actualizados' => array_slice($resultado['cedulas_actualizadas'], 0, 20),
+                'actualizados_total' => count($resultado['cedulas_actualizadas']),
+            ]);
+        }
+
+        if ($resultado['creados'] === 0 && $resultado['actualizados'] === 0 && $resultado['errores'] === [] && $resultado['omitidos'] === 0) {
+            return $redireccion->with('info', 'El archivo no contiene filas de datos para importar.');
+        }
+
+        if ($resultado['errores'] !== [] && $resultado['creados'] === 0 && $resultado['actualizados'] === 0) {
+            return $redireccion->with('error', $mensaje);
+        }
+
+        if ($resultado['errores'] !== [] || $resultado['omitidos'] > 0) {
+            return $redireccion->with('info', $mensaje);
+        }
+
+        return $redireccion->with('success', $mensaje);
+    }
+
+    private function descargarOds(Spreadsheet $spreadsheet, string $filename): StreamedResponse
+    {
+        $writer = new Ods($spreadsheet);
+
+        return response()->streamDownload(function () use ($writer): void {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.oasis.opendocument.spreadsheet',
+        ]);
     }
 
     public function create(): View

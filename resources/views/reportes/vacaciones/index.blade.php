@@ -88,6 +88,9 @@
 	@if ($vacaciones->isEmpty())
 		<div class="text-center py-8 text-gray-400"><p class="text-sm">No hay periodos de vacaciones que coincidan con los filtros.</p></div>
 	@else
+		<div class="mb-1 flex justify-end">
+			<x-orden-indicador campo="Fecha de cálculo" direccion="desc" />
+		</div>
 		<div class="bg-white border border-gray-200 overflow-x-auto">
 			<table class="w-full text-xs">
 				<thead class="bg-gray-50 text-gray-500 uppercase">

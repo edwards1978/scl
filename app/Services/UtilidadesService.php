@@ -6,10 +6,9 @@ namespace App\Services;
 
 use App\Models\BonificacionFinAno;
 use App\Models\Empleado;
-use App\Models\Patrono;
 use App\Models\Parametro;
+use App\Models\Patrono;
 use Carbon\Carbon;
-use Carbon\CarbonInterface;
 
 /**
  * Utilidades y Bonificación de Fin de Año (anticipo de utilidades).
@@ -28,12 +27,12 @@ class UtilidadesService
     public const INCES_PCT = 0.005; // Aporte del trabajador al INCES — 0,5%
 
     public const DIAS_MES = 30;
+
     public const DIAS_MAXIMO = 120;
 
     public function __construct(
         private SueldosService $sueldos = new SueldosService,
-    ) {
-    }
+    ) {}
 
     /**
      * Periodo de cálculo de un año: 01/01/X — 31/12/X.
@@ -44,7 +43,7 @@ class UtilidadesService
     {
         return [
             'inicio' => Carbon::create($anio, 1, 1),
-            'fin'    => Carbon::create($anio, 12, 31),
+            'fin' => Carbon::create($anio, 12, 31),
         ];
     }
 
@@ -101,9 +100,10 @@ class UtilidadesService
         if (! $sueldo) {
             // Sin historial: se calcula/consulta el sueldo actual.
             $dato = $this->sueldos->sueldoEn($empleado, now());
+
             return [
                 'usd' => $dato['monto_usd'] !== null ? (float) $dato['monto_usd'] : null,
-                'bs'  => $dato['monto_bs'] !== null ? (float) $dato['monto_bs'] : null,
+                'bs' => $dato['monto_bs'] !== null ? (float) $dato['monto_bs'] : null,
             ];
         }
 
@@ -114,7 +114,7 @@ class UtilidadesService
         // 'ultimo': último sueldo registrado.
         return [
             'usd' => $sueldo->monto_usd !== null ? (float) $sueldo->monto_usd : null,
-            'bs'  => $sueldo->monto_bs !== null ? (float) $sueldo->monto_bs : null,
+            'bs' => $sueldo->monto_bs !== null ? (float) $sueldo->monto_bs : null,
         ];
     }
 
@@ -133,9 +133,10 @@ class UtilidadesService
 
         if ($rows->isEmpty()) {
             $dato = $this->sueldos->sueldoEn($empleado, now());
+
             return [
                 'usd' => $dato['monto_usd'] !== null ? (float) $dato['monto_usd'] : null,
-                'bs'  => $dato['monto_bs'] !== null ? (float) $dato['monto_bs'] : null,
+                'bs' => $dato['monto_bs'] !== null ? (float) $dato['monto_bs'] : null,
             ];
         }
 
@@ -145,7 +146,7 @@ class UtilidadesService
 
         return [
             'usd' => $n ? round($usd / $n, 2) : null,
-            'bs'  => $n ? round($bs / $n, 2) : null,
+            'bs' => $n ? round($bs / $n, 2) : null,
         ];
     }
 
@@ -163,7 +164,7 @@ class UtilidadesService
         $salario = $this->salarioBase($empleado, $anio, $tipoBase);
 
         $salarioDiarioUsd = $salario['usd'] !== null ? round($salario['usd'] / self::DIAS_MES, 2) : null;
-        $salarioDiarioBs  = $salario['bs']  !== null ? round($salario['bs']  / self::DIAS_MES, 2) : null;
+        $salarioDiarioBs = $salario['bs'] !== null ? round($salario['bs'] / self::DIAS_MES, 2) : null;
 
         // Tasa BCV del día del cálculo (o la fecha anterior más reciente si hoy no emitió)
         // con respaldo al parámetro global.
@@ -189,37 +190,37 @@ class UtilidadesService
         $neto = round($totalAsignaciones - $totalDeducciones, 2);
 
         $asignaciones = [[
-            'concepto'   => 'Bonificación de Fin de Año',
+            'concepto' => 'Bonificación de Fin de Año',
             'base_legal' => 'Art. 132 LOTTT - anticipo de utilidades',
-            'dias'       => $dias,
-            'importe'    => $totalAsignaciones,
+            'dias' => $dias,
+            'importe' => $totalAsignaciones,
             'observacion' => "{$meses} mes(es) laborados — {$dias} días de bono",
         ]];
 
         return BonificacionFinAno::updateOrCreate(
             ['empleado_id' => $empleado->id, 'anio' => $anio],
             [
-                'patrono_id'          => $patrono->id,
-                'periodo_inicio'     => $periodo['inicio']->toDateString(),
-                'periodo_fin'        => $periodo['fin']->toDateString(),
-                'meses_laborados'    => $meses,
-                'dias_base'          => $diasBase,
-                'dias_a_pagar'       => $dias,
-                'tipo_base'          => $tipoBase,
-                'salario_mensual_usd'=> $salario['usd'] ?? null,
+                'patrono_id' => $patrono->id,
+                'periodo_inicio' => $periodo['inicio']->toDateString(),
+                'periodo_fin' => $periodo['fin']->toDateString(),
+                'meses_laborados' => $meses,
+                'dias_base' => $diasBase,
+                'dias_a_pagar' => $dias,
+                'tipo_base' => $tipoBase,
+                'salario_mensual_usd' => $salario['usd'] ?? null,
                 'salario_mensual_bs' => $salario['bs'] ?? null,
-                'salario_diario_usd'=> $salarioDiarioUsd,
+                'salario_diario_usd' => $salarioDiarioUsd,
                 'salario_diario_bs' => $salarioDiarioBs,
-                'bono_usd'           => $bonoUsd,
-                'bono_bs'            => $bonoBs,
-                'tasa_cambio'        => $tasa,
-                'asignaciones'       => $asignaciones,
-                'deducciones'        => $deducciones,
+                'bono_usd' => $bonoUsd,
+                'bono_bs' => $bonoBs,
+                'tasa_cambio' => $tasa,
+                'asignaciones' => $asignaciones,
+                'deducciones' => $deducciones,
                 'total_asignaciones' => $totalAsignaciones,
-                'total_deducciones'  => $totalDeducciones,
-                'neto'               => $neto,
-                'moneda'             => $moneda,
-                'estatus'            => 'calculado',
+                'total_deducciones' => $totalDeducciones,
+                'neto' => $neto,
+                'moneda' => $moneda,
+                'estatus' => 'calculado',
             ]
         );
     }
@@ -243,10 +244,10 @@ class UtilidadesService
 
         if ($patrono->descuenta_inces && $empleadosActivos >= 5) {
             $deducciones[] = [
-                'concepto'   => 'INCES (Ley INCES)',
+                'concepto' => 'INCES (Ley INCES)',
                 'base_legal' => '0,5% sobre la bonificación (5 o más trabajadores)',
                 'porcentaje' => self::INCES_PCT,
-                'importe'    => round($base * self::INCES_PCT, 2),
+                'importe' => round($base * self::INCES_PCT, 2),
             ];
         }
 
@@ -264,14 +265,34 @@ class UtilidadesService
             $tasa = $tasaBcv ?? (float) Parametro::get('tasa_dolar', 0.0);
 
             $bonificacion->update([
-                'estatus'        => 'aprobado',
+                'estatus' => 'aprobado',
                 'fecha_aprobacion' => now()->toDateString(),
-                'fecha_emision'  => now()->toDateString(),
-                'tasa_cambio'    => $tasa,
+                'fecha_emision' => now()->toDateString(),
+                'tasa_cambio' => $tasa,
             ]);
         }
 
         return $bonificacion->fresh();
+    }
+
+    /**
+     * Aprueba en bloque todas las bonificaciones pendientes del patrono,
+     * opcionalmente limitadas a un año. Devuelve la cantidad aprobada.
+     */
+    public function aprobarPendientes(Patrono $patrono, ?int $anio = null): int
+    {
+        $tasaBcv = (new TasasBcvService)->tasaEn(Carbon::now());
+        $tasa = $tasaBcv ?? (float) Parametro::get('tasa_dolar', 0.0);
+
+        return BonificacionFinAno::where('patrono_id', $patrono->id)
+            ->when($anio !== null, fn ($query) => $query->where('anio', $anio))
+            ->where('estatus', 'calculado')
+            ->update([
+                'estatus' => 'aprobado',
+                'fecha_aprobacion' => now()->toDateString(),
+                'fecha_emision' => now()->toDateString(),
+                'tasa_cambio' => $tasa,
+            ]);
     }
 
     /**
@@ -296,15 +317,15 @@ class UtilidadesService
             $tasa = $tasa ?? $this->tasaDia();
 
             return [
-                'moneda'      => 'USD',
-                'principal'   => 'USD '.formato_monto($monto),
+                'moneda' => 'USD',
+                'principal' => 'USD '.formato_monto($monto),
                 'equivalente' => ($tasa > 0 && $mostrar) ? '≈ Bs. '.formato_monto($monto * $tasa) : null,
             ];
         }
 
         return [
-            'moneda'      => 'BS',
-            'principal'   => 'Bs. '.formato_monto($monto),
+            'moneda' => 'BS',
+            'principal' => 'Bs. '.formato_monto($monto),
             'equivalente' => null,
         ];
     }

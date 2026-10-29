@@ -7,8 +7,11 @@ namespace App\Services;
 use App\Models\Empleado;
 use App\Models\MovimientoPrestaciones;
 use App\Models\Patrono;
+use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Servicio de anticipos y préstamos sobre prestaciones sociales.
@@ -26,8 +29,8 @@ class MovimientosPrestacionesService
 {
     public function __construct(
         private TasasBcvService $tasas = new TasasBcvService,
-    ) {
-    }
+        private PrestacionesSocialesService $prestaciones = new PrestacionesSocialesService,
+    ) {}
 
     /**
      * Total acumulado (Bs o USD, en moneda de origen) otorgado al empleado.
@@ -68,8 +71,8 @@ class MovimientosPrestacionesService
     {
         return match ($patrono->deposito_tipo) {
             'fideicomiso' => (int) $patrono->anticipos_pct_fideicomiso,
-            'fondo'       => (int) $patrono->anticipos_pct_fondo,
-            default       => (int) $patrono->anticipos_pct_contabilidad,
+            'fondo' => (int) $patrono->anticipos_pct_fondo,
+            default => (int) $patrono->anticipos_pct_contabilidad,
         };
     }
 
@@ -78,18 +81,17 @@ class MovimientosPrestacionesService
      * Los anticipos ya vienen descontados; los préstamos son deuda separada.
      *
      * @return array{anios:int, dias:int, salario_integral_diario:float,
-     *               moneda:string, tasa:?float, saldo:float}
+     *               moneda:string, tasa:?float, saldo:float, es_proyeccion:bool}
      */
     public function saldoPrestaciones(Empleado $empleado, ?CarbonInterface $fecha = null): array
     {
         $fecha = $fecha ?: now();
         $integral = app(SalarioIntegralService::class)->diario($empleado, $fecha);
         $anios = app(SalarioIntegralService::class)->aniosServicio($empleado, $fecha);
-        $prestaciones = app(PrestacionesSocialesService::class);
-        $prestaciones->asegurarPeriodos($empleado, $fecha);
-        // Para anticipos sí se permite leer una proyección guardada; si no
-        // existe, se usa el último período real disponible.
-        $registro = $prestaciones->registroEn($empleado, $fecha, true);
+        // Solo lectura: los períodos se generan en la operación que registra
+        // el anticipo, nunca en una consulta GET. Se incluyen las proyecciones
+        // para que una fecha futura use el saldo proyectado como base operativa.
+        $registro = $this->prestaciones->registroEn($empleado, $fecha, true);
         $capital = $registro
             ? (float) ($registro->capital_final ?? $registro->saldo_final)
             : 0.0;
@@ -99,12 +101,13 @@ class MovimientosPrestacionesService
             : 0;
 
         return [
-            'anios'                  => $anios,
-            'dias'                   => $dias,
-            'salario_integral_diario'=> $integral['salario_diario_integral'],
-            'moneda'                 => $integral['moneda'],
-            'tasa'                   => $integral['tasa'],
-            'saldo'                  => round($capital, 2),
+            'anios' => $anios,
+            'dias' => $dias,
+            'salario_integral_diario' => $integral['salario_diario_integral'],
+            'moneda' => $integral['moneda'],
+            'tasa' => $integral['tasa'],
+            'saldo' => round($capital, 2),
+            'es_proyeccion' => (bool) $registro?->es_proyeccion,
         ];
     }
 
@@ -119,7 +122,7 @@ class MovimientosPrestacionesService
 
         return [
             ...$saldo,
-            'pct'    => $pct,
+            'pct' => $pct,
             'maximo' => round($max, 2),
         ];
     }
@@ -137,32 +140,49 @@ class MovimientosPrestacionesService
         $monto = (float) $data['monto'];
         $fecha = $data['fecha'] instanceof CarbonInterface
             ? $data['fecha']
-            : \Carbon\Carbon::parse($data['fecha']);
+            : Carbon::parse($data['fecha']);
 
-        if ($tipo === MovimientoPrestaciones::TIPO_ANTICIPO) {
-            $this->validarAnticipo($empleado, $monto, $moneda, $fecha, $data['motivo'] ?? null);
-        }
+        return DB::transaction(function () use ($empleado, $data, $tipo, $moneda, $monto, $fecha) {
+            if ($tipo === MovimientoPrestaciones::TIPO_ANTICIPO) {
+                // El saldo de la garantía debe estar calculado al día del
+                // movimiento para validar el máximo legal del anticipo. Si la
+                // fecha es futura, se proyecta hasta su mes para que el saldo
+                // operativo (y el máximo) incluya lo proyectado.
+                $this->prestaciones->asegurarPeriodos($empleado, $fecha);
+                $this->prestaciones->asegurarProyeccionHasta($empleado, $fecha);
+                $this->validarAnticipo($empleado, $monto, $moneda, $fecha, $data['motivo'] ?? null);
+            }
 
-        $tasa = $this->tasas->tasaEn($fecha);
+            $tasa = $this->tasas->tasaEn($fecha);
 
-        $payload = [
-            'patrono_id'   => $empleado->patrono_id,
-            'empleado_id'  => $empleado->id,
-            'tipo'         => $tipo,
-            'fecha'        => $fecha,
-            'concepto'     => $data['concepto'] ?? null,
-            'motivo'       => $data['motivo'] ?? null,
-            'monto'        => $monto,
-            'moneda'       => $moneda,
-            'tasa_cambio'  => $moneda === 'USD' ? $tasa : null,
-            'plazo_meses'  => $data['plazo_meses'] ?? null,
-            'interes_anual'=> $data['interes_anual'] ?? null,
-            'cuota'        => $data['cuota'] ?? null,
-            'saldo'        => $monto,
-            'observacion'  => $data['observacion'] ?? null,
-        ];
+            $payload = [
+                'patrono_id' => $empleado->patrono_id,
+                'empleado_id' => $empleado->id,
+                'tipo' => $tipo,
+                'fecha' => $fecha,
+                'fecha_comprobante' => $data['fecha_comprobante'] ?? now()->toDateString(),
+                'concepto' => $data['concepto'] ?? null,
+                'motivo' => $data['motivo'] ?? null,
+                'monto' => $monto,
+                'moneda' => $moneda,
+                'tasa_cambio' => $moneda === 'USD' ? $tasa : null,
+                'plazo_meses' => $data['plazo_meses'] ?? null,
+                'interes_anual' => $data['interes_anual'] ?? null,
+                'cuota' => $data['cuota'] ?? null,
+                'saldo' => $monto,
+                'observacion' => $data['observacion'] ?? null,
+            ];
 
-        return MovimientoPrestaciones::create($payload);
+            $movimiento = MovimientoPrestaciones::create($payload);
+
+            if ($tipo === MovimientoPrestaciones::TIPO_ANTICIPO) {
+                $periodo = $this->prestaciones->periodoDeFecha($empleado, $fecha)
+                    ?? $fecha->format('Y-m');
+                $this->prestaciones->recalcularDesde($empleado, $periodo);
+            }
+
+            return $movimiento;
+        });
     }
 
     /**
@@ -194,7 +214,7 @@ class MovimientosPrestacionesService
         }
 
         if (! empty($errores)) {
-            throw \Illuminate\Validation\ValidationException::withMessages(['monto' => $errores]);
+            throw ValidationException::withMessages(['monto' => $errores]);
         }
     }
 
@@ -226,11 +246,11 @@ class MovimientosPrestacionesService
         $tasa = $this->tasas->tasaEn($fecha);
 
         $movimiento->intereses()->create([
-            'fecha'      => $fecha->toDateString(),
-            'monto'      => $monto,
-            'moneda'     => $moneda,
-            'tasa_cambio'=> $moneda === 'USD' ? $tasa : null,
-            'concepto'   => $concepto,
+            'fecha' => $fecha->toDateString(),
+            'monto' => $monto,
+            'moneda' => $moneda,
+            'tasa_cambio' => $moneda === 'USD' ? $tasa : null,
+            'concepto' => $concepto,
         ]);
     }
 
@@ -243,22 +263,62 @@ class MovimientosPrestacionesService
         $nuevoSaldo = max(0, (float) $movimiento->saldo - $pago);
 
         $movimiento->update([
-            'saldo'   => $nuevoSaldo,
+            'saldo' => $nuevoSaldo,
             'estatus' => $nuevoSaldo <= 0 ? 'pagado' : 'activo',
         ]);
     }
 
     /**
-     * Anula un movimiento pendiente (no pagado).
+     * Anula un movimiento pendiente (no pagado) y recalcula la garantía desde
+     * el mes del movimiento cuando se trata de un anticipo.
      */
     public function anular(MovimientoPrestaciones $movimiento): void
     {
         if ($movimiento->estatus === 'pagado') {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
                 'estatus' => ['No se puede anular un movimiento ya pagado.'],
             ]);
         }
 
-        $movimiento->update(['estatus' => 'anulado']);
+        if ($movimiento->estatus === 'anulado') {
+            return;
+        }
+
+        DB::transaction(function () use ($movimiento) {
+            $esAnticipo = $movimiento->tipo === MovimientoPrestaciones::TIPO_ANTICIPO;
+            $empleado = $movimiento->empleado;
+            $periodo = $empleado
+                ? ($this->prestaciones->periodoDeFecha($empleado, $movimiento->fecha)
+                    ?? $movimiento->fecha->format('Y-m'))
+                : $movimiento->fecha->format('Y-m');
+
+            $movimiento->update(['estatus' => 'anulado']);
+
+            if ($esAnticipo && $empleado) {
+                $this->prestaciones->recalcularDesde($empleado, $periodo);
+            }
+        });
+    }
+
+    /**
+     * Elimina definitivamente un movimiento anulado, recalculando la garantía
+     * desde el mes del movimiento cuando se trata de un anticipo.
+     */
+    public function eliminar(MovimientoPrestaciones $movimiento): void
+    {
+        DB::transaction(function () use ($movimiento) {
+            $esAnticipo = $movimiento->tipo === MovimientoPrestaciones::TIPO_ANTICIPO;
+            $empleado = $movimiento->empleado;
+            $periodo = $empleado
+                ? ($this->prestaciones->periodoDeFecha($empleado, $movimiento->fecha)
+                    ?? $movimiento->fecha->format('Y-m'))
+                : $movimiento->fecha->format('Y-m');
+
+            $movimiento->delete();
+
+            if ($esAnticipo && $empleado) {
+                $this->prestaciones->recalcularDesde($empleado, $periodo);
+            }
+        });
     }
 }

@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
+use App\Models\Empleado;
 use App\Models\Liquidacion;
 use App\Models\Patrono;
 use App\Services\LiquidacionService;
+use App\Services\PrestacionesSocialesService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
@@ -19,8 +21,8 @@ class LiquidacionController extends Controller
 {
     public function __construct(
         private LiquidacionService $service = new LiquidacionService,
-    ) {
-    }
+        private PrestacionesSocialesService $prestaciones = new PrestacionesSocialesService,
+    ) {}
 
     private function patronoActual(): Patrono
     {
@@ -79,7 +81,6 @@ class LiquidacionController extends Controller
     public function show(int $id): View
     {
         $liquidacion = $this->liquidacionDePatrono($id);
-        $this->repararSiEsNecesario($liquidacion);
         $liquidacion->load(['empleado', 'asignaciones', 'deducciones']);
         $empleado = $liquidacion->empleado;
 
@@ -102,6 +103,10 @@ class LiquidacionController extends Controller
         DB::transaction(function () use ($liquidacion) {
             $liquidacion->update(['estatus' => 'aprobada']);
             $liquidacion->empleado->update(['estatus' => 'Inactivo']);
+
+            // Con el egreso ya vigente, los períodos se recalculan con corte en
+            // esa fecha para guardar la fracción del último trimestre.
+            $this->prestaciones->regenerar($liquidacion->empleado);
         });
 
         return redirect()->route('liquidaciones.show', $liquidacion->id)
@@ -120,6 +125,9 @@ class LiquidacionController extends Controller
         DB::transaction(function () use ($liquidacion) {
             $liquidacion->update(['estatus' => 'anulada']);
             $this->reactivarSiCorresponde($liquidacion->empleado, $liquidacion->id);
+
+            // Sin el egreso vigente se restablecen los períodos posteriores.
+            $this->prestaciones->regenerar($liquidacion->empleado);
         });
 
         return redirect()->route('liquidaciones.show', $liquidacion->id)
@@ -145,8 +153,8 @@ class LiquidacionController extends Controller
         $request->merge(['conceptos' => $conceptosData]);
 
         $conceptos = $request->validate([
-            'conceptos'   => ['required', 'array'],
-            'conceptos.*.dias'    => ['nullable', 'numeric', 'min:0'],
+            'conceptos' => ['required', 'array'],
+            'conceptos.*.dias' => ['nullable', 'numeric', 'min:0'],
             'conceptos.*.importe' => ['required', 'numeric', 'min:0'],
         ])['conceptos'];
 
@@ -160,21 +168,20 @@ class LiquidacionController extends Controller
     public function pdf(int $id)
     {
         $liquidacion = $this->liquidacionDePatrono($id);
-        $this->repararSiEsNecesario($liquidacion);
         $liquidacion->load(['empleado', 'asignaciones', 'deducciones', 'patrono']);
         $empleado = $liquidacion->empleado;
 
         return Pdf::loadView('liquidaciones.pdf', [
             'liquidacion' => $liquidacion,
-            'empleado'    => $empleado,
-            'patrono'     => $liquidacion->patrono,
-            'asignaciones'=> $liquidacion->asignaciones,
+            'empleado' => $empleado,
+            'patrono' => $liquidacion->patrono,
+            'asignaciones' => $liquidacion->asignaciones,
             'deducciones' => $liquidacion->deducciones,
             'total_asignaciones' => (float) $liquidacion->total_asignaciones,
-            'total_deducciones'  => (float) $liquidacion->total_deducciones,
-            'fecha_emision'      => Carbon::now(),
+            'total_deducciones' => (float) $liquidacion->total_deducciones,
+            'fecha_emision' => Carbon::now(),
         ])->setPaper('letter', 'portrait')
-          ->stream("liquidacion-{$empleado->nombre_completo}.pdf");
+            ->stream("liquidacion-{$empleado->nombre_completo}.pdf");
     }
 
     /** Elimina una liquidación pendiente; las aprobadas deben anularse. */
@@ -190,6 +197,7 @@ class LiquidacionController extends Controller
         DB::transaction(function () use ($liquidacion, $empleado) {
             $liquidacion->delete();
             $this->reactivarSiCorresponde($empleado);
+            $this->prestaciones->regenerar($empleado);
         });
 
         return redirect()->route('liquidaciones.index')
@@ -200,7 +208,7 @@ class LiquidacionController extends Controller
      * Reactiva al trabajador solo si no le queda otra liquidación vigente.
      * Evita reactivarlo cuando existe otra liquidación por aprobar o aprobada.
      */
-    private function reactivarSiCorresponde(\App\Models\Empleado $empleado, ?int $excluirId = null): void
+    private function reactivarSiCorresponde(Empleado $empleado, ?int $excluirId = null): void
     {
         $otraVigente = Liquidacion::where('empleado_id', $empleado->id)
             ->when($excluirId, fn ($q) => $q->where('id', '!=', $excluirId))
@@ -209,40 +217,6 @@ class LiquidacionController extends Controller
 
         if (! $otraVigente && $empleado->estatus === 'Inactivo') {
             $empleado->update(['estatus' => 'Activo']);
-        }
-    }
-
-    /**
-     * Regenera los conceptos de liquidaciones creadas antes de que existieran
-     * los campos salario_diario / tipo_salario. Nunca modifica una liquidación
-     * aprobada: un documento pagado/aprobado debe permanecer inmutable.
-     */
-    private function repararSiEsNecesario(Liquidacion $liquidacion): void
-    {
-        if ($liquidacion->estatus === 'aprobada') {
-            return;
-        }
-
-        $faltante = $liquidacion->conceptos()
-            ->where('tipo', 'asignacion')
-            ->whereIn('concepto', [
-                'Prestaciones sociales',
-                'Vacaciones fraccionadas',
-                'Bono vacacional fraccionado',
-                'Utilidades fraccionadas',
-            ])
-            ->whereNull('salario_diario')
-            ->whereNotNull('dias')
-            ->exists();
-
-        $indemnizacionMalTipo = $liquidacion->conceptos()
-            ->where('tipo', 'asignacion')
-            ->where('concepto', 'Indemnización por terminación')
-            ->whereNotNull('tipo_salario')
-            ->exists();
-
-        if ($faltante || $indemnizacionMalTipo) {
-            $this->service->recalcular($liquidacion);
         }
     }
 }

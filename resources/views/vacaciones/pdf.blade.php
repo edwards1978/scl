@@ -30,7 +30,7 @@
 <body>
 	<div class="header">
 		<h1 class="h1">{{ $vacacion->patrono->razon_social }}</h1>
-		<h2 class="h2">RIF ({{ $vacacion->patrono->rif }})</h2>
+		<h2 class="h2">RIF {{ $vacacion->patrono->rif }}</h2>
 		<p class="sub">Recibo de Vacaciones y Bono Vacacional (LOTTT)</p>
 	</div>
 

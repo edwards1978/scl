@@ -18,8 +18,7 @@ class UtilidadesController extends Controller
 {
     public function __construct(
         private UtilidadesService $service = new UtilidadesService,
-    ) {
-    }
+    ) {}
 
     private function patronoActual(): Patrono
     {
@@ -58,12 +57,14 @@ class UtilidadesController extends Controller
             $query->where('anio', (int) $anio);
         }
 
+        $pendientes = (clone $query)->where('estatus', 'calculado')->count();
+
         $bonificaciones = $query->paginate($porPagina)->withQueryString();
 
         $anios = $this->service->aniosDisponibles((int) $patrono->id);
 
         return view('utilidades.index', compact(
-            'patrono', 'bonificaciones', 'anios', 'anio', 'porPagina'
+            'patrono', 'bonificaciones', 'anios', 'anio', 'porPagina', 'pendientes'
         ));
     }
 
@@ -76,7 +77,7 @@ class UtilidadesController extends Controller
         $patrono = $this->patronoActual();
 
         $data = $request->validate([
-            'anio'      => ['required', 'integer', 'min:2000', 'max:2200'],
+            'anio' => ['required', 'integer', 'min:2000', 'max:2200'],
             'tipo_base' => ['required', 'in:ultimo,promedio'],
         ]);
 
@@ -126,6 +127,33 @@ class UtilidadesController extends Controller
             ->with('success', 'Bonificación aprobada.');
     }
 
+    /**
+     * Aprueba en bloque las bonificaciones pendientes del patrono,
+     * respetando el filtro de año activo en el listado.
+     */
+    public function aprobarTodas(Request $request): RedirectResponse
+    {
+        $patrono = $this->patronoActual();
+
+        $anio = $request->input('anio');
+        $anio = in_array($anio, [null, '', 'todos'], true) ? null : (int) $anio;
+
+        $aprobadas = $this->service->aprobarPendientes($patrono, $anio);
+
+        $redireccion = redirect()->route('utilidades.index', ['anio' => $anio ?? 'todos']);
+
+        if ($aprobadas === 0) {
+            return $redireccion->with('info', 'No hay bonificaciones pendientes por aprobar.');
+        }
+
+        $mensaje = "Se aprobaron {$aprobadas} bonificación(es) pendiente(s)";
+
+        return $redireccion->with(
+            'success',
+            $anio !== null ? "{$mensaje} del año {$anio}." : "{$mensaje}."
+        );
+    }
+
     /** Vista del recibo (pantalla) de una bonificación aprobada. */
     public function show(int $id): View
     {
@@ -149,17 +177,17 @@ class UtilidadesController extends Controller
         $patrono = $bonificacion->patrono;
 
         return Pdf::loadView('utilidades.pdf', [
-            'bonificacion'        => $bonificacion,
-            'empleado'            => $empleado,
-            'patrono'             => $patrono,
-            'moneda'              => $moneda,
-            'asignaciones'        => $bonificacion->asignaciones ?? [],
-            'deducciones'         => $bonificacion->deducciones ?? [],
-            'total_asignaciones'  => (float) $bonificacion->total_asignaciones,
-            'total_deducciones'   => (float) $bonificacion->total_deducciones,
-            'fecha_emision'       => $bonificacion->fecha_emision ?? Carbon::now(),
+            'bonificacion' => $bonificacion,
+            'empleado' => $empleado,
+            'patrono' => $patrono,
+            'moneda' => $moneda,
+            'asignaciones' => $bonificacion->asignaciones ?? [],
+            'deducciones' => $bonificacion->deducciones ?? [],
+            'total_asignaciones' => (float) $bonificacion->total_asignaciones,
+            'total_deducciones' => (float) $bonificacion->total_deducciones,
+            'fecha_emision' => $bonificacion->fecha_emision ?? Carbon::now(),
         ])->setPaper('letter', 'portrait')
-          ->stream("bono-fin-anio-{$empleado->nombre_completo}.pdf");
+            ->stream("bono-fin-anio-{$empleado->nombre_completo}.pdf");
     }
 
     /** Elimina el cálculo de bonificación de un trabajador (individual). */

@@ -5,19 +5,24 @@ declare(strict_types=1);
 namespace App\Livewire\Liquidaciones;
 
 use App\Models\Empleado;
+use App\Models\Liquidacion;
 use App\Models\Patrono;
 use App\Services\DiasFeriadosService;
 use App\Services\LiquidacionService;
+use Carbon\Carbon;
 use Illuminate\View\View;
 use Livewire\Component;
 
 class CrearLiquidacion extends Component
 {
     public int $empleado_id = 0;
+
     public string $fecha_egreso = '';
-    public string $motivo = 'renuncia';
+
+    public string $motivo = 'retiro_voluntario';
 
     public ?array $preview = null;
+
     public ?string $error = null;
 
     public bool $guardando = false;
@@ -47,6 +52,10 @@ class CrearLiquidacion extends Component
         $this->preview = null;
         $this->error = null;
 
+        if (! $this->motivoValido()) {
+            return;
+        }
+
         $service = app(LiquidacionService::class);
         $empleado = Empleado::with('patrono')->find($this->empleado_id);
 
@@ -75,7 +84,7 @@ class CrearLiquidacion extends Component
 
         $this->preview = $service->calcular(
             $empleado,
-            \Carbon\Carbon::parse($egreso),
+            Carbon::parse($egreso),
             $this->motivo
         );
     }
@@ -84,6 +93,12 @@ class CrearLiquidacion extends Component
     {
         $this->guardando = true;
         $this->error = null;
+
+        if (! $this->motivoValido()) {
+            $this->guardando = false;
+
+            return;
+        }
 
         $service = app(LiquidacionService::class);
         $empleado = Empleado::with('patrono')->find($this->empleado_id);
@@ -111,14 +126,14 @@ class CrearLiquidacion extends Component
 
         $carga = $this->preview ?? $service->calcular(
             $empleado,
-            \Carbon\Carbon::parse($this->fecha_egreso ?: now()->toDateString()),
+            Carbon::parse($this->fecha_egreso ?: now()->toDateString()),
             $this->motivo
         );
 
         try {
             $service->crear(
                 $empleado,
-                \Carbon\Carbon::parse($this->fecha_egreso),
+                Carbon::parse($this->fecha_egreso),
                 $this->motivo
             );
 
@@ -130,6 +145,20 @@ class CrearLiquidacion extends Component
         }
 
         $this->guardando = false;
+    }
+
+    /**
+     * Valida que el motivo pertenezca a los motivos de terminación admitidos.
+     */
+    private function motivoValido(): bool
+    {
+        if (! in_array($this->motivo, Liquidacion::MOTIVOS, true)) {
+            $this->error = 'El motivo de terminación seleccionado no es válido.';
+
+            return false;
+        }
+
+        return true;
     }
 
     /**
@@ -154,7 +183,7 @@ class CrearLiquidacion extends Component
             return false;
         }
 
-        $egreso = \Carbon\Carbon::createFromFormat('Y-m-d', $this->fecha_egreso)->startOfDay();
+        $egreso = Carbon::createFromFormat('Y-m-d', $this->fecha_egreso)->startOfDay();
 
         if ($anio < DiasFeriadosService::ANIO_MIN || $anio > DiasFeriadosService::ANIO_MAX) {
             $this->error = sprintf(
@@ -166,7 +195,7 @@ class CrearLiquidacion extends Component
             return false;
         }
 
-        if ($empleado->fecha_ingreso && $egreso->lt(\Carbon\Carbon::instance($empleado->fecha_ingreso))) {
+        if ($empleado->fecha_ingreso && $egreso->lt(Carbon::instance($empleado->fecha_ingreso))) {
             $this->error = 'La fecha de egreso no puede ser anterior a la fecha de ingreso del trabajador.';
 
             return false;

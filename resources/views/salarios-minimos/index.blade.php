@@ -56,7 +56,10 @@
 	</fieldset>
 
 	<fieldset class="bg-white border border-gray-200">
-		<legend class="text-sm font-semibold text-gray-700 px-1">Histórico (vigencia desc)</legend>
+		<legend class="text-sm font-semibold text-gray-700 px-1">Histórico</legend>
+		<div class="mb-1 flex justify-end">
+			<x-orden-indicador campo="Vigencia" direccion="desc" />
+		</div>
 		@if ($salarios->isEmpty())
 			<p class="text-xs text-gray-400 py-2 px-2">No hay salarios mínimos registrados.</p>
 		@else

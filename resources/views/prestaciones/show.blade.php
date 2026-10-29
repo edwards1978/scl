@@ -5,10 +5,13 @@
 	$moneda = $empleado->moneda;
 	$exportParams = array_filter(['empleadoId' => $empleado->id, 'desde' => $desde, 'hasta' => $hasta, 'incluir_anteriores' => $incluirAnteriores ? 1 : 0], fn ($v) => $v !== null);
 @endphp
-<div class="p-4 mx-auto max-w-6xl">
-	<div class="flex items-center justify-between mb-1">
+<div class="p-4 mx-4">
+	<div class="flex items-center justify-between mb-1 gap-2">
 		<h1 class="text-xl font-semibold">Estado de Cuenta de Prestaciones Sociales</h1>
-		<a href="{{ route('prestaciones.index') }}" class="px-3 py-1.5 text-sm border border-gray-300 text-gray-600 hover:bg-gray-50">← Volver</a>
+		<div class="flex items-center gap-2">
+			<a href="{{ route('intereses-prestaciones.index', ['empleado_id' => $empleado->id]) }}" class="px-3 py-1.5 text-sm border border-gray-300 text-gray-600 hover:bg-gray-50">Pagos de intereses</a>
+			<a href="{{ route('prestaciones.index') }}" class="px-3 py-1.5 text-sm border border-gray-300 text-gray-600 hover:bg-gray-50">← Volver</a>
+		</div>
 	</div>
 	<p class="text-sm text-gray-600 mb-4">
 		{{ $empleado->nombre_completo }} · C.I. {{ $empleado->cedula }} · Ingreso {{ $empleado->fecha_ingreso?->format('d/m/Y') }}
@@ -50,7 +53,7 @@
 					<input id="desde" type="text" name="desde" value="{{ $desdeValor }}"
 						placeholder="AAAA-MM" pattern="\d{4}-(0[1-9]|1[0-2])" inputmode="numeric" autocomplete="off"
 						onfocus="this.type='month'" onblur="if(!this.value)this.type='text'"
-						min="2000-01" max="{{ now()->format('Y-m') }}"
+						min="2000-01" max="{{ $maxProyeccion }}"
 						title="Seleccione el mes y año en formato AAAA-MM"
 						class="w-full border border-gray-300 px-2 py-1.5 pr-8 text-sm">
 				</div>
@@ -61,7 +64,7 @@
 					<input id="hasta" type="text" name="hasta" value="{{ $hastaValor }}"
 						placeholder="AAAA-MM" pattern="\d{4}-(0[1-9]|1[0-2])" inputmode="numeric" autocomplete="off"
 						onfocus="this.type='month'" onblur="if(!this.value)this.type='text'"
-						min="2000-01" max="{{ now()->format('Y-m') }}"
+						min="2000-01" max="{{ $maxProyeccion }}"
 						title="Seleccione el mes y año en formato AAAA-MM"
 						class="w-full border border-gray-300 px-2 py-1.5 pr-8 text-sm">
 				</div>
@@ -88,37 +91,18 @@
 		</p>
 	</form>
 
-	@if ($empleado->estaActivo())
-		<div class="bg-white border border-gray-200 p-3 mb-4">
-			<div class="flex flex-wrap items-end gap-3">
-				<form method="POST" action="{{ route('prestaciones.proyectar', $empleado->id) }}" class="flex flex-wrap items-end gap-3">
-					@csrf
-					<div>
-						<label for="hasta_proyeccion" class="block text-xs text-gray-500 mb-1">Proyectar / calcular hasta</label>
-						<input id="hasta_proyeccion" type="month" name="hasta" required
-							min="{{ $minProyeccion }}" max="{{ $maxProyeccion }}"
-							value="{{ old('hasta', $proyeccionHasta ?? $minProyeccion) }}"
-							class="border border-gray-300 px-2 py-1.5 text-sm">
-					</div>
-					<button class="px-4 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700">
-						{{ $proyeccionHasta ? 'Reproyectar' : 'Proyectar' }}
-					</button>
-				</form>
-				@if ($proyeccionHasta)
-					<form method="POST" action="{{ route('prestaciones.proyeccion.destroy', $empleado->id) }}">
-						@csrf @method('DELETE')
-						<button class="px-3 py-1.5 text-sm border border-red-300 text-red-600 hover:bg-red-50">Eliminar proyección</button>
-					</form>
-					@if (! $incluyeProyeccion)
-						<a href="{{ route('prestaciones.show', ['empleadoId' => $empleado->id, 'hasta' => $proyeccionHasta, 'incluir_anteriores' => 1]) }}" class="px-3 py-1.5 text-sm border border-blue-300 text-blue-700 hover:bg-blue-50">Ver proyección</a>
-					@endif
-				@endif
-			</div>
-			<p class="text-[11px] text-gray-500 mt-2">
-				Máximo 12 meses hacia adelante. La proyección usa la última tasa BCV disponible y el último salario registrado; queda guardada como informativa y no se usa en liquidaciones.
-				@if ($proyeccionHasta) Proyección guardada hasta <strong>{{ $proyeccionHasta }}</strong>. @endif
+	@if ($proyeccionHasta)
+		<div class="bg-white border border-gray-200 px-3 py-2 mb-4 flex flex-wrap items-center gap-3">
+			<p class="text-xs text-gray-600">
+				Proyección guardada hasta <strong>{{ $proyeccionHasta }}</strong>.
+				Para reproyectar, use la opción del listado de prestaciones, que se aplica a todos los trabajadores activos.
 			</p>
-			@error('hasta') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+			@if ($empleado->estaActivo())
+				<form method="POST" action="{{ route('prestaciones.proyeccion.destroy', $empleado->id) }}" class="ml-auto">
+					@csrf @method('DELETE')
+					<button class="px-3 py-1.5 text-sm border border-red-300 text-red-600 hover:bg-red-50">Eliminar proyección</button>
+				</form>
+			@endif
 		</div>
 	@endif
 
@@ -178,7 +162,7 @@
 		</div>
 		<p class="text-xs text-gray-500 mt-3">
 			Los totales de movimientos son siempre del período seleccionado. El saldo inicial incluye los períodos anteriores solo si el checkbox está marcado; si no, empieza en cero.
-			El saldo final es la suma del saldo inicial más el neto del período.
+			El neto del período es la variación real del saldo (capital más interés pendiente); los pagos de intereses que exceden el interés pendiente y el capital disponible no se aplican al saldo.
 			Intereses pagados del período: {{ $moneda }} {{ formato_monto($totalInteresesPagados) }}.
 			La tabla inferior muestra los saldos acumulados reales de cada mes.
 		</p>
@@ -188,50 +172,72 @@
 		<table class="w-full text-sm">
 			<thead class="bg-gray-50 text-gray-600 text-xs uppercase">
 				<tr>
-					<th class="text-center px-3 py-2 w-12">Nº</th>
-					<th class="text-left px-3 py-2">Periodo</th>
-					<th class="text-right px-3 py-2">Sal. integral</th>
-					<th class="text-right px-3 py-2">Saldo inicial período</th>
-					<th class="text-right px-3 py-2">Capital período</th>
-					<th class="text-right px-3 py-2">Depósito trim.</th>
-					<th class="text-right px-3 py-2">Días adic.</th>
-					<th class="text-right px-3 py-2">Interés</th>
-					<th class="text-right px-3 py-2">Tasa interés %</th>
-					<th class="text-right px-3 py-2">Int. pend. período</th>
-					<th class="text-right px-3 py-2">Int. pag.</th>
-					<th class="text-right px-3 py-2">Anticipos</th>
-					<th class="text-right px-3 py-2">Saldo final período</th>
+					<th rowspan="2" class="text-center px-3 py-2 w-12 align-middle">Nº</th>
+					<th colspan="2" class="text-center px-3 py-2 border-l border-gray-200">Periodo</th>
+					<th rowspan="2" class="text-center px-3 py-2 border-l border-gray-200">Tiempo de servicio</th>
+					<th rowspan="2" class="text-right px-3 py-2 align-middle border-l border-gray-200">Sal. integral</th>
+					<th rowspan="2" class="text-right px-3 py-2 align-middle">Saldo inicial período</th>
+					<th rowspan="2" class="text-right px-3 py-2 align-middle">Depósito trim.</th>
+					<th rowspan="2" class="text-right px-3 py-2 align-middle">Días adic.</th>
+					<th rowspan="2" class="text-right px-3 py-2 align-middle">Anticipos</th>
+					<th rowspan="2" class="text-right px-3 py-2 align-middle">Capital período</th>
+					<th rowspan="2" class="text-right px-3 py-2 align-middle">Tasa interés %</th>
+					<th rowspan="2" class="text-right px-3 py-2 align-middle">Interés</th>
+					<th rowspan="2" class="text-right px-3 py-2 align-middle">Int. pag.</th>
+					<th rowspan="2" class="text-right px-3 py-2 align-middle">Int. pend. período</th>
+					<th rowspan="2" class="text-right px-3 py-2 align-middle">Saldo final período</th>
+					<th rowspan="2" class="text-center px-2 py-2 align-middle border-l border-gray-200">Acción</th>
+				</tr>
+				<tr>
+					<th class="text-left px-3 py-2 border-l border-gray-200">Desde</th>
+					<th class="text-left px-3 py-2">Hasta</th>
 				</tr>
 			</thead>
 			<tbody class="divide-y divide-gray-100">
 				@forelse ($cuenta as $c)
 					<tr class="hover:bg-gray-50">
-						<td class="px-3 py-2 text-center text-gray-500">{{ $loop->index }}</td>
-						<td class="px-3 py-2">
-							{{ \Carbon\Carbon::createFromFormat('Y-m', $c->periodo)->format('m/Y') }}
+						<td class="px-3 py-2 text-center text-gray-500">{{ $loop->iteration }}</td>
+						<td class="px-3 py-2 whitespace-nowrap">{{ $c->periodo_inicio?->format('d/m/Y') }}</td>
+						<td class="px-3 py-2 whitespace-nowrap">
+							{{ $c->periodo_fin?->format('d/m/Y') }}
+						</td>
+						<td class="px-3 py-2 text-center whitespace-nowrap">
+							{{ $c->servicio_anios }} a · {{ $c->servicio_meses }} m · {{ $c->servicio_dias }} d
 							@if ($c->es_proyeccion)
+								<br>
 								<span class="ml-1 inline-block text-[10px] px-1.5 py-0.5 bg-blue-100 text-blue-700">proyección</span>
 							@endif
 						</td>
 						<td class="px-3 py-2 text-right text-gray-600">{{ formato_monto((float) $c->salario_integral_diario) }}</td>
 						<td class="px-3 py-2 text-right">{{ formato_monto((float) $c->saldo_inicial_periodo) }}</td>
-						<td class="px-3 py-2 text-right">{{ formato_monto((float) $c->capital_periodo) }}</td>
 						<td class="px-3 py-2 text-right">{{ $c->deposito_trimestre > 0 ? $c->dias_deposito.' d · '.formato_monto((float) $c->deposito_trimestre) : '—' }}</td>
 						<td class="px-3 py-2 text-right">{{ $c->dias_adicionales > 0 ? $c->dias_adicionales_cont.' d · '.formato_monto((float) $c->dias_adicionales) : '—' }}</td>
+						<td class="px-3 py-2 text-right text-red-600">{{ $c->anticipos > 0 ? '- '.formato_monto((float) $c->anticipos) : '—' }}</td>
+						<td class="px-3 py-2 text-right">{{ formato_monto((float) $c->capital_periodo) }}</td>
+						<td class="px-3 py-2 text-right">{{ $c->tasa_interes !== null ? formato_monto((float) $c->tasa_interes, 4) : '—' }}</td>
 						<td class="px-3 py-2 text-right">
 							{{ $c->interes_mes > 0 ? formato_monto((float) $c->interes_mes) : '—' }}
 							@if ((float) ($c->interes_capitalizado ?? 0) > 0)
 								<div class="text-[10px] text-amber-600">cap. {{ formato_monto((float) $c->interes_capitalizado) }}</div>
 							@endif
 						</td>
-						<td class="px-3 py-2 text-right">{{ $c->tasa_interes !== null ? formato_monto((float) $c->tasa_interes, 4) : '—' }}</td>
+						<td class="px-3 py-2 text-right text-red-600">{{ (float) ($c->interes_pagado ?? 0) > 0 ? '- '.formato_monto((float) $c->interes_pagado) : '—' }}</td>
 						<td class="px-3 py-2 text-right">{{ (float) $c->interes_pendiente_periodo > 0 ? formato_monto((float) $c->interes_pendiente_periodo) : '—' }}</td>
-						<td class="px-3 py-2 text-right">{{ (float) ($c->interes_pagado ?? 0) > 0 ? formato_monto((float) $c->interes_pagado) : '—' }}</td>
-						<td class="px-3 py-2 text-right text-red-600">{{ $c->anticipos > 0 ? '- '.formato_monto((float) $c->anticipos) : '—' }}</td>
 						<td class="px-3 py-2 text-right font-medium">{{ formato_monto((float) $c->saldo_final_periodo) }}</td>
+						<td class="px-2 py-2 text-center">
+							@if ($c->es_proyeccion && $empleado->estaActivo())
+								<form method="POST" action="{{ route('prestaciones.proyeccion.periodo.destroy', [$empleado->id, $c->id]) }}"
+									onsubmit="return confirm('¿Eliminar el período proyectado {{ $c->periodo }}?')">
+									@csrf @method('DELETE')
+									<button class="p-1 text-gray-400 hover:text-red-500" title="Eliminar período proyectado">🗑</button>
+								</form>
+							@else
+								<span class="text-gray-300">—</span>
+							@endif
+						</td>
 					</tr>
 				@empty
-					<tr><td colspan="13" class="text-center py-8 text-gray-400">{{ $hayRango ? 'Sin períodos en el rango seleccionado.' : 'Sin periodos calculados.' }}</td></tr>
+					<tr><td colspan="16" class="text-center py-8 text-gray-400">{{ $hayRango ? 'Sin períodos en el rango seleccionado.' : 'Sin periodos calculados.' }}</td></tr>
 				@endforelse
 			</tbody>
 		</table>

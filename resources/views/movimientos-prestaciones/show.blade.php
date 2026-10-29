@@ -45,7 +45,8 @@
 	<div class="bg-white border border-gray-200 p-5 mb-4">
 		<h2 class="text-sm font-semibold text-gray-700 mb-3">Datos del movimiento</h2>
 		<div class="grid grid-cols-2 gap-3 text-sm">
-			<div><span class="text-gray-500">Fecha:</span> {{ $movimiento->fecha->format('d/m/Y') }}</div>
+			<div><span class="text-gray-500">Fecha del movimiento:</span> {{ $movimiento->fecha->format('d/m/Y') }}</div>
+			<div><span class="text-gray-500">Fecha del comprobante:</span> {{ $movimiento->fecha_comprobante?->format('d/m/Y') ?? '—' }}</div>
 			<div><span class="text-gray-500">Tipo:</span> {{ $movimiento->labelTipo() }}</div>
 			<div><span class="text-gray-500">Moneda:</span> {{ $movimiento->moneda }}</div>
 			@if ($movimiento->tasa_cambio)

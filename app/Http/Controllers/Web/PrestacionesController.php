@@ -10,25 +10,25 @@ use App\Models\PagoInteresPrestaciones;
 use App\Models\Patrono;
 use App\Models\PrestacionSocial;
 use App\Services\PrestacionesSocialesService;
-use App\Services\TasasBcvService;
 use Barryvdh\DomPDF\Facade\Pdf;
-use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
 use PhpOffice\PhpSpreadsheet\Writer\Ods;
 
 class PrestacionesController extends Controller
 {
     public function __construct(
         private PrestacionesSocialesService $service = new PrestacionesSocialesService,
-    ) {
-    }
+    ) {}
 
     private function patronoActual(): Patrono
     {
@@ -58,20 +58,47 @@ class PrestacionesController extends Controller
         $patrono = $this->patronoActual();
         $porPagina = (int) min(max($request->integer('porPagina', 15), 5), 100);
 
-        $empleados = $patrono->empleados()
-            ->orderBy('apellidos')
+        $query = $patrono->empleados();
+
+        if ($buscar = trim((string) $request->get('buscar'))) {
+            $query->where(function ($q) use ($buscar) {
+                $q->where('nombres', 'like', "%{$buscar}%")
+                    ->orWhere('apellidos', 'like', "%{$buscar}%")
+                    ->orWhere('cedula', 'like', "%{$buscar}%");
+            });
+        }
+
+        if (in_array($request->get('estatus'), ['Activo', 'Inactivo', 'Suspendido'], true)) {
+            $query->where('estatus', $request->get('estatus'));
+        }
+
+        $empleados = $query
             ->orderBy('nombres')
+            ->orderBy('apellidos')
             ->paginate($porPagina)
             ->withQueryString();
 
         $saldos = [];
+        $calculadoHasta = [];
         foreach ($empleados as $empleado) {
-            // El saldo histórico también es válido para trabajadores inactivos;
-            // el detalle permite consultarlo. No mostrar 0 solo por el estatus.
-            $saldos[$empleado->id] = $this->service->saldoEn($empleado);
+            // El saldo debe corresponder al cierre indicado en "Calculado hasta":
+            // último período guardado, real o proyectado.
+            $saldos[$empleado->id] = $this->service->saldoConProyeccion($empleado);
+            $calculadoHasta[$empleado->id] = $this->service->ultimoCierreConProyeccion($empleado);
         }
 
-        return view('prestaciones.index', compact('patrono', 'empleados', 'saldos', 'porPagina'));
+        $activos = $patrono->empleados()->where('estatus', 'Activo')->count();
+        $proyeccionHasta = PrestacionSocial::where('patrono_id', $patrono->id)
+            ->where('es_proyeccion', true)
+            ->whereHas('empleado', fn ($query) => $query->where('estatus', 'Activo'))
+            ->max('periodo');
+        $minProyeccion = now()->addMonth()->format('Y-m');
+        $maxProyeccion = now()->addMonths(12)->format('Y-m');
+
+        return view('prestaciones.index', compact(
+            'patrono', 'empleados', 'saldos', 'calculadoHasta', 'porPagina',
+            'activos', 'proyeccionHasta', 'minProyeccion', 'maxProyeccion'
+        ));
     }
 
     /** Estado de cuenta mensual de un empleado, con filtro opcional por período. */
@@ -79,12 +106,9 @@ class PrestacionesController extends Controller
     {
         $empleado = $this->empleadoDePatrono($empleadoId);
         $filtros = $this->filtrosPeriodo($request);
-        $hastaConsulta = $filtros['hasta'];
-        if ($hastaConsulta === null) {
-            $hastaConsulta = PrestacionSocial::where('empleado_id', $empleado->id)
-                ->where('es_proyeccion', false)
-                ->max('periodo');
-        }
+        // La pantalla muestra por defecto hasta la última proyección guardada:
+        // así la proyección persiste visible hasta eliminarla o recalcular.
+        $hastaConsulta = $filtros['hasta'] ?? $this->service->ultimoPeriodoConProyeccion($empleado);
         $rango = $this->service->estadoDeCuentaEnRango($empleado, $filtros['desde'], $hastaConsulta);
         $incluyeProyeccion = $rango['filas']->contains(fn ($c) => (bool) $c->es_proyeccion);
 
@@ -104,7 +128,7 @@ class PrestacionesController extends Controller
         $saldoInicialRango = ($hayRango && $incluirAnteriores)
             ? $rango['saldo_inicial']
             : 0.0;
-        $saldoFinalRango = round($saldoInicialRango + $netoPeriodo, 2);
+        $saldoFinalRango = $this->saldoFinalDeRango($cuenta, $saldoInicialRango);
         $saldoActual = $saldoFinalRango;
         $interesPendiente = $rango['interes_pendiente'];
         $totalDepositos = $totales['depositos'];
@@ -122,7 +146,6 @@ class PrestacionesController extends Controller
         $proyeccionHasta = PrestacionSocial::where('empleado_id', $empleado->id)
             ->where('es_proyeccion', true)
             ->max('periodo');
-        $minProyeccion = now()->addMonth()->format('Y-m');
         $maxProyeccion = now()->addMonths(12)->format('Y-m');
 
         return view('prestaciones.show', compact(
@@ -131,8 +154,23 @@ class PrestacionesController extends Controller
             'totalInteresesCapitalizados', 'totalInteresesPagados', 'interesPendiente', 'netoPeriodo',
             'desde', 'hasta', 'incluirAnteriores', 'hayRango', 'periodosFiltrados', 'totalPeriodos',
             'totalesPeriodo', 'periodoDesde', 'periodoHasta',
-            'proyeccionHasta', 'minProyeccion', 'maxProyeccion', 'incluyeProyeccion'
+            'proyeccionHasta', 'maxProyeccion', 'incluyeProyeccion'
         ));
+    }
+
+    /**
+     * Saldo acumulado al cierre del rango, tomado de la última fila ya
+     * rebasada para la vista. No se deriva de saldo inicial + neto porque un
+     * pago de intereses que excede el interés pendiente y el capital
+     * disponible no reduce el saldo (el exceso queda sin aplicar).
+     */
+    private function saldoFinalDeRango(Collection $cuenta, float $saldoInicialRango): float
+    {
+        $ultima = $cuenta->last();
+
+        return $ultima !== null
+            ? round((float) $ultima->saldo_final_periodo, 2)
+            : round($saldoInicialRango, 2);
     }
 
     /**
@@ -151,7 +189,7 @@ class PrestacionesController extends Controller
         $hasta = $data['hasta'] ?? null;
 
         if ($desde !== null && $hasta !== null && $desde > $hasta) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
                 'hasta' => 'La fecha hasta debe ser igual o posterior a la fecha desde.',
             ]);
         }
@@ -170,25 +208,23 @@ class PrestacionesController extends Controller
         return ['desde' => $desde, 'hasta' => $hasta, 'incluir_anteriores' => $incluirAnteriores];
     }
 
-    /** Genera/guarda una proyección mensual hasta el mes indicado. */
-    public function proyectar(Request $request, int $empleadoId): RedirectResponse
+    /** Genera/guarda la proyección de todos los trabajadores activos del patrono. */
+    public function proyectar(Request $request): RedirectResponse
     {
-        $empleado = $this->empleadoActivo($empleadoId);
         $data = $request->validate([
             'hasta' => ['required', 'date_format:Y-m'],
         ]);
 
         try {
-            $creados = $this->service->proyectarHasta($empleado, $data['hasta']);
-        } catch (\Illuminate\Validation\ValidationException $e) {
+            $resultado = $this->service->proyectarActivos($this->patronoActual(), $data['hasta']);
+        } catch (ValidationException $e) {
             return back()->withErrors($e->errors())->withInput();
         }
 
-        return redirect()->route('prestaciones.show', [
-            'empleadoId' => $empleado->id,
-            'hasta' => $data['hasta'],
-            'incluir_anteriores' => 1,
-        ])->with('success', "Proyección generada hasta {$data['hasta']} ({$creados} período(s)). Es informativa y usa la última tasa y salario disponibles.");
+        return redirect()->route('prestaciones.index')->with(
+            'success',
+            "Proyección generada hasta {$data['hasta']} para {$resultado['trabajadores']} trabajador(es) activo(s) ({$resultado['periodos']} período(s)). Se usa como base operativa para anticipos e intereses con fecha futura y emplea la última tasa y salario disponibles."
+        );
     }
 
     /** Elimina las proyecciones guardadas del empleado. */
@@ -199,6 +235,22 @@ class PrestacionesController extends Controller
 
         return redirect()->route('prestaciones.show', $empleado->id)
             ->with('success', "Proyección eliminada ({$eliminados} período(s)).");
+    }
+
+    /** Elimina un período proyectado individual del estado de cuenta. */
+    public function eliminarProyeccionPeriodo(int $empleadoId, int $prestacionId): RedirectResponse
+    {
+        $empleado = $this->empleadoActivo($empleadoId);
+
+        $prestacion = PrestacionSocial::where('empleado_id', $empleado->id)
+            ->where('es_proyeccion', true)
+            ->findOrFail($prestacionId);
+
+        $periodo = $prestacion->periodo;
+        $prestacion->delete();
+
+        return redirect()->route('prestaciones.show', $empleado->id)
+            ->with('success', "Período proyectado {$periodo} eliminado.");
     }
 
     /** Recalcula el estado de cuenta completo de un empleado. */
@@ -212,77 +264,15 @@ class PrestacionesController extends Controller
             ->with('success', "Estado de cuenta de {$empleado->nombre_completo} recalculado ({$creados} periodo(s)).");
     }
 
-    /** Registra un pago de intereses y recalcula desde el mes del pago. */
-    public function pagarInteres(Request $request, int $empleadoId): RedirectResponse
-    {
-        $empleado = $this->empleadoDePatrono($empleadoId);
-
-        $request->merge([
-            'monto' => (string) parsear_numero((string) $request->input('monto')),
-        ]);
-
-        $data = $request->validate([
-            'fecha'       => ['required', 'date', 'before_or_equal:today'],
-            'monto'       => ['required', 'numeric', 'min:0.01'],
-            'moneda'      => ['required', 'in:USD,BS'],
-            'comprobante' => ['nullable', 'string', 'max:100'],
-            'observacion' => ['nullable', 'string', 'max:500'],
-        ]);
-
-        $fecha = Carbon::parse($data['fecha']);
-        $tasa = $data['moneda'] === 'USD'
-            ? (new TasasBcvService)->tasaEn($fecha)
-            : null;
-
-        \Illuminate\Support\Facades\DB::transaction(function () use ($empleado, $data, $fecha, $tasa) {
-            PagoInteresPrestaciones::create([
-                'patrono_id'  => $empleado->patrono_id,
-                'empleado_id' => $empleado->id,
-                'fecha'       => $fecha->toDateString(),
-                'monto'       => $data['monto'],
-                'moneda'      => $data['moneda'],
-                'tasa_cambio' => $tasa,
-                'comprobante' => $data['comprobante'] ?? null,
-                'observacion' => $data['observacion'] ?? null,
-            ]);
-
-            $this->service->regenerar($empleado, $fecha->format('Y-m'));
-        });
-
-        return redirect()->route('prestaciones.show', $empleado->id)
-            ->with('success', 'Pago de intereses registrado y estado de cuenta recalculado.');
-    }
-
-    /** Elimina un pago de intereses mal registrado y recalcula. */
-    public function destroyInteres(Request $request, int $empleadoId, PagoInteresPrestaciones $pago): RedirectResponse
-    {
-        $empleado = $this->empleadoDePatrono($empleadoId);
-
-        abort_if((int) $pago->empleado_id !== (int) $empleado->id
-            || (int) $pago->patrono_id !== (int) $empleado->patrono_id, 404);
-
-        \Illuminate\Support\Facades\DB::transaction(function () use ($empleado, $pago) {
-            $periodo = $pago->fecha->format('Y-m');
-            $pago->delete();
-            $this->service->regenerar($empleado, $periodo);
-        });
-
-        return redirect()->route('prestaciones.show', $empleado->id)
-            ->with('success', 'Pago de intereses eliminado y estado de cuenta recalculado.');
-    }
-
     /** Exporta el estado de cuenta a OpenDocument Spreadsheet (.ods), con el mismo filtro. */
     public function hojaCalculo(Request $request, int $empleadoId)
     {
         $empleado = $this->empleadoDePatrono($empleadoId);
         $patrono = $this->patronoActual();
         $filtros = $this->filtrosPeriodo($request);
-        $hastaConsulta = $filtros['hasta'];
-        if ($hastaConsulta === null) {
-            $hastaConsulta = PrestacionSocial::where('empleado_id', $empleado->id)
-                ->where('es_proyeccion', false)
-                ->max('periodo');
-        }
+        // Sin filtro explícito, la hoja de cálculo cierra en el último período
+        // guardado (real o proyectado), igual que la pantalla.
+        $hastaConsulta = $filtros['hasta'] ?? $this->service->ultimoPeriodoConProyeccion($empleado);
         $rango = $this->service->estadoDeCuentaEnRango($empleado, $filtros['desde'], $hastaConsulta);
         $incluirAnteriores = $filtros['incluir_anteriores'];
         $pagos = PagoInteresPrestaciones::where('empleado_id', $empleado->id)
@@ -303,7 +293,7 @@ class PrestacionesController extends Controller
         $saldoInicialRango = ($hayRango && $incluirAnteriores)
             ? $rango['saldo_inicial']
             : 0.0;
-        $saldoFinalRango = round($saldoInicialRango + $netoPeriodo, 2);
+        $saldoFinalRango = $this->saldoFinalDeRango($cuenta, $saldoInicialRango);
         $saldoActual = $saldoFinalRango;
         $interesPendiente = $rango['interes_pendiente'];
         $proyeccionHasta = PrestacionSocial::where('empleado_id', $empleado->id)
@@ -324,19 +314,19 @@ class PrestacionesController extends Controller
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Estado de cuenta');
 
-        $sheet->mergeCells('A1:P1');
+        $sheet->mergeCells('A1:T1');
         $sheet->setCellValue('A1', $patrono->razon_social);
         $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
 
-        $sheet->mergeCells('A2:P2');
+        $sheet->mergeCells('A2:T2');
         $sheet->setCellValue('A2', 'RIF ('.$patrono->rif.')');
         $sheet->getStyle('A2')->getFont()->setBold(true);
 
-        $sheet->mergeCells('A3:P3');
+        $sheet->mergeCells('A3:T3');
         $sheet->setCellValue('A3', 'Estado de Cuenta de Prestaciones Sociales — Arts. 142 y 143 LOTTT');
         $sheet->getStyle('A3')->getFont()->setItalic(true)->getColor()->setARGB('FF555555');
 
-        $sheet->mergeCells('A4:P4');
+        $sheet->mergeCells('A4:T4');
         $sheet->setCellValue('A4', 'Período: '.($desde ?? '—').' a '.($hasta ?? '—')
             .' · '.$etiquetaTotales.' · '.$estadoAnteriores.' · '.$rango['periodos_filtrados'].' de '.$rango['total_periodos'].' período(s)'
             .($incluyeProyeccion ? ' · Incluye proyección hasta '.$proyeccionHasta : ''));
@@ -352,7 +342,7 @@ class PrestacionesController extends Controller
         $sheet->mergeCells('J5:L5');
         $sheet->setCellValue('J5', $empleado->fecha_ingreso?->format('d/m/Y') ?? '—');
         $sheet->setCellValue('M5', 'Moneda');
-        $sheet->mergeCells('N5:P5');
+        $sheet->mergeCells('N5:T5');
         $sheet->setCellValue('N5', $moneda);
 
         $sheet->setCellValue('A6', 'Emitido');
@@ -384,57 +374,88 @@ class PrestacionesController extends Controller
             $sheet->getStyle($celda)->getFont()->setBold(true);
         }
 
-        $headers = [
-            'Nº', 'Periodo', 'Salario integral', 'Saldo inicial período', 'Capital',
-            'Depósito trimestral', 'Días depósito', 'Días adicionales',
-            'Monto días adicionales', 'Interés del mes', 'Interés capitalizado',
-            'Interés pagado', 'Interés pendiente', 'Anticipos', 'Saldo final período', 'Tasa interés %',
+        $headerRow = 9;
+
+        $grupos = [
+            'A:A' => 'Nº',
+            'B:C' => 'Periodo',
+            'D:F' => 'Tiempo de servicio',
         ];
 
-        $headerRow = 9;
-        foreach ($headers as $i => $header) {
-            $sheet->setCellValue(chr(65 + $i).$headerRow, $header);
+        foreach ($grupos as $rango => $titulo) {
+            [$colDesde, $colHasta] = explode(':', $rango);
+            $sheet->mergeCells($colDesde.($headerRow - 1).':'.$colHasta.$headerRow);
+            $sheet->setCellValue($colDesde.($headerRow - 1), $titulo);
         }
 
-        $sheet->getStyle('A'.$headerRow.':P'.$headerRow)->applyFromArray([
+        $headers = [
+            'Salario integral', 'Saldo inicial período',
+            'Depósito trimestral', 'Días depósito', 'Días adicionales',
+            'Monto días adicionales', 'Anticipos', 'Capital',
+            'Tasa interés %', 'Interés del mes', 'Interés capitalizado',
+            'Interés pagado', 'Interés pendiente', 'Saldo final período',
+        ];
+
+        foreach ($headers as $i => $header) {
+            $columna = chr(71 + $i);
+            $sheet->mergeCells($columna.($headerRow - 1).':'.$columna.$headerRow);
+            $sheet->setCellValue($columna.($headerRow - 1), $header);
+        }
+
+        foreach (['Desde', 'Hasta', 'Años', 'Mes(es)', 'Día(s)'] as $i => $header) {
+            $sheet->setCellValue(chr(66 + $i).$headerRow, $header);
+        }
+
+        $sheet->getStyle('A'.($headerRow - 1).':T'.$headerRow)->applyFromArray([
             'font' => ['bold' => true, 'color' => ['argb' => 'FFFFFFFF']],
             'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FF1F2937']],
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER, 'wrapText' => true],
         ]);
-        $sheet->getRowDimension($headerRow)->setRowHeight(28);
+        $sheet->getRowDimension($headerRow - 1)->setRowHeight(20);
+        $sheet->getRowDimension($headerRow)->setRowHeight(20);
 
         $row = $headerRow + 1;
-        $numero = 0;
+        $numero = 1;
         foreach ($cuenta as $c) {
             $sheet->setCellValue('A'.$row, $numero++);
-            $sheet->setCellValue('B'.$row, Carbon::createFromFormat('Y-m', $c->periodo)->format('m/Y').($c->es_proyeccion ? ' (proyección)' : ''));
-            $sheet->setCellValue('C'.$row, (float) $c->salario_integral_diario);
-            $sheet->setCellValue('D'.$row, (float) $c->saldo_inicial_periodo);
-            $sheet->setCellValue('E'.$row, (float) $c->capital_periodo);
-            $sheet->setCellValue('F'.$row, (float) $c->deposito_trimestre);
-            $sheet->setCellValue('G'.$row, (int) $c->dias_deposito);
-            $sheet->setCellValue('H'.$row, (int) $c->dias_adicionales_cont);
-            $sheet->setCellValue('I'.$row, (float) $c->dias_adicionales);
-            $sheet->setCellValue('J'.$row, (float) $c->interes_mes);
-            $sheet->setCellValue('K'.$row, (float) ($c->interes_capitalizado ?? 0));
-            $sheet->setCellValue('L'.$row, (float) ($c->interes_pagado ?? 0));
-            $sheet->setCellValue('M'.$row, (float) $c->interes_pendiente_periodo);
-            $sheet->setCellValue('N'.$row, -1 * (float) $c->anticipos);
-            $sheet->setCellValue('O'.$row, (float) $c->saldo_final_periodo);
-            $sheet->setCellValue('P'.$row, $c->tasa_interes !== null ? (float) $c->tasa_interes : null);
+            $sheet->setCellValue('B'.$row, $c->periodo_inicio->format('d/m/Y'));
+            $sheet->setCellValue('C'.$row, $c->periodo_fin->format('d/m/Y').($c->es_proyeccion ? ' (proyección)' : ''));
+            $sheet->setCellValue('D'.$row, (int) $c->servicio_anios);
+            $sheet->setCellValue('E'.$row, (int) $c->servicio_meses);
+            $sheet->setCellValue('F'.$row, (int) $c->servicio_dias);
+            $sheet->setCellValue('G'.$row, (float) $c->salario_integral_diario);
+            $sheet->setCellValue('H'.$row, (float) $c->saldo_inicial_periodo);
+            $sheet->setCellValue('I'.$row, (float) $c->deposito_trimestre);
+            $sheet->setCellValue('J'.$row, (int) $c->dias_deposito);
+            $sheet->setCellValue('K'.$row, (int) $c->dias_adicionales_cont);
+            $sheet->setCellValue('L'.$row, (float) $c->dias_adicionales);
+            $sheet->setCellValue('M'.$row, -1 * (float) $c->anticipos);
+            $sheet->setCellValue('N'.$row, (float) $c->capital_periodo);
+            $sheet->setCellValue('O'.$row, $c->tasa_interes !== null ? (float) $c->tasa_interes : null);
+            $sheet->setCellValue('P'.$row, (float) $c->interes_mes);
+            $sheet->setCellValue('Q'.$row, (float) ($c->interes_capitalizado ?? 0));
+            $sheet->setCellValue('R'.$row, (float) ($c->interes_pagado ?? 0));
+            $sheet->setCellValue('S'.$row, (float) $c->interes_pendiente_periodo);
+            $sheet->setCellValue('T'.$row, (float) $c->saldo_final_periodo);
             $row++;
         }
 
         $lastDataRow = $row - 1;
 
         if ($lastDataRow >= $headerRow + 1) {
-            $sheet->getStyle('C'.($headerRow + 1).':O'.$lastDataRow)
+            $sheet->getStyle('G'.($headerRow + 1).':I'.$lastDataRow)
                 ->getNumberFormat()->setFormatCode('#,##0.00;[Red]-#,##0.00');
-            $sheet->getStyle('G'.($headerRow + 1).':H'.$lastDataRow)
+            $sheet->getStyle('L'.($headerRow + 1).':N'.$lastDataRow)
+                ->getNumberFormat()->setFormatCode('#,##0.00;[Red]-#,##0.00');
+            $sheet->getStyle('P'.($headerRow + 1).':T'.$lastDataRow)
+                ->getNumberFormat()->setFormatCode('#,##0.00;[Red]-#,##0.00');
+            $sheet->getStyle('D'.($headerRow + 1).':F'.$lastDataRow)
                 ->getNumberFormat()->setFormatCode('#,##0');
-            $sheet->getStyle('P'.($headerRow + 1).':P'.$lastDataRow)
+            $sheet->getStyle('J'.($headerRow + 1).':K'.$lastDataRow)
+                ->getNumberFormat()->setFormatCode('#,##0');
+            $sheet->getStyle('O'.($headerRow + 1).':O'.$lastDataRow)
                 ->getNumberFormat()->setFormatCode('0.0000');
-            $sheet->setAutoFilter('A'.$headerRow.':P'.$lastDataRow);
+            $sheet->setAutoFilter('A'.$headerRow.':T'.$lastDataRow);
         }
 
         $sheet->freezePane('A'.($headerRow + 1));
@@ -442,9 +463,9 @@ class PrestacionesController extends Controller
         $summaryStart = $lastDataRow + 2;
         $sheet->mergeCells('A'.$summaryStart.':H'.$summaryStart);
         $sheet->setCellValue('A'.$summaryStart, 'Concepto');
-        $sheet->mergeCells('I'.$summaryStart.':P'.$summaryStart);
+        $sheet->mergeCells('I'.$summaryStart.':T'.$summaryStart);
         $sheet->setCellValue('I'.$summaryStart, $etiquetaTotales);
-        $sheet->getStyle('A'.$summaryStart.':P'.$summaryStart)->applyFromArray([
+        $sheet->getStyle('A'.$summaryStart.':T'.$summaryStart)->applyFromArray([
             'font' => ['bold' => true, 'color' => ['argb' => 'FFFFFFFF']],
             'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FF1F2937']],
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
@@ -469,12 +490,12 @@ class PrestacionesController extends Controller
 
             $sheet->mergeCells('A'.$r.':H'.$r);
             $sheet->setCellValue('A'.$r, $label);
-            $sheet->mergeCells('I'.$r.':P'.$r);
+            $sheet->mergeCells('I'.$r.':T'.$r);
             $sheet->setCellValue('I'.$r, $valor);
-            $sheet->getStyle('A'.$r.':P'.$r)->applyFromArray([
+            $sheet->getStyle('A'.$r.':T'.$r)->applyFromArray([
                 'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFF9FAFB']],
             ]);
-            $sheet->getStyle('I'.$r.':P'.$r)->getNumberFormat()->setFormatCode('#,##0.00;[Red]-#,##0.00');
+            $sheet->getStyle('I'.$r.':T'.$r)->getNumberFormat()->setFormatCode('#,##0.00;[Red]-#,##0.00');
             $r++;
         }
 
@@ -488,28 +509,29 @@ class PrestacionesController extends Controller
         foreach ($stocks as $label => $value) {
             $sheet->mergeCells('A'.$r.':H'.$r);
             $sheet->setCellValue('A'.$r, $label);
-            $sheet->mergeCells('I'.$r.':P'.$r);
+            $sheet->mergeCells('I'.$r.':T'.$r);
             $sheet->setCellValue('I'.$r, $value);
-            $sheet->getStyle('A'.$r.':P'.$r)->getFont()->setBold(true);
+            $sheet->getStyle('A'.$r.':T'.$r)->getFont()->setBold(true);
             $sheet->getStyle('I'.$r)->getNumberFormat()->setFormatCode('#,##0.00;[Red]-#,##0.00');
             $r++;
         }
 
-        $sheet->getStyle('A'.$headerRow.':P'.$r)->applyFromArray([
+        $sheet->getStyle('A'.$headerRow.':T'.$r)->applyFromArray([
             'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FFD1D5DB']]],
         ]);
 
-        foreach (['A' => 6, 'B' => 10, 'C' => 15, 'D' => 15, 'E' => 15, 'F' => 18, 'G' => 10, 'H' => 12, 'I' => 16, 'J' => 15, 'K' => 15, 'L' => 15, 'M' => 15, 'N' => 15, 'O' => 15, 'P' => 12] as $col => $width) {
+        foreach (['A' => 6, 'B' => 13, 'C' => 13, 'D' => 7, 'E' => 8, 'F' => 7, 'G' => 15, 'H' => 15, 'I' => 18, 'J' => 10, 'K' => 12, 'L' => 16, 'M' => 15, 'N' => 15, 'O' => 12, 'P' => 15, 'Q' => 15, 'R' => 15, 'S' => 15, 'T' => 15] as $col => $width) {
             $sheet->getColumnDimension($col)->setWidth($width);
         }
 
         $sheet->getPageSetup()
-            ->setOrientation(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::ORIENTATION_LANDSCAPE)
+            ->setOrientation(PageSetup::ORIENTATION_LANDSCAPE)
             ->setFitToWidth(1)
             ->setFitToHeight(0);
 
         $payments = $spreadsheet->createSheet();
         $payments->setTitle('Pagos de intereses');
+        $spreadsheet->setActiveSheetIndex(0);
         $payments->mergeCells('A1:F1');
         $payments->setCellValue('A1', 'Pagos de intereses — '.$empleado->nombre_completo);
         $payments->getStyle('A1')->getFont()->setBold(true)->setSize(12);
@@ -567,7 +589,10 @@ class PrestacionesController extends Controller
         $empleado = $this->empleadoDePatrono($empleadoId);
         $patrono = $this->patronoActual();
         $filtros = $this->filtrosPeriodo($request);
-        $rango = $this->service->estadoDeCuentaEnRango($empleado, $filtros['desde'], $filtros['hasta']);
+        // Sin filtro explícito, el PDF cierra en el último período guardado
+        // (real o proyectado), igual que la pantalla.
+        $hastaConsulta = $filtros['hasta'] ?? $this->service->ultimoPeriodoConProyeccion($empleado);
+        $rango = $this->service->estadoDeCuentaEnRango($empleado, $filtros['desde'], $hastaConsulta);
 
         $incluirAnteriores = $filtros['incluir_anteriores'];
         $hayRango = $rango['hay_rango'];
@@ -585,7 +610,7 @@ class PrestacionesController extends Controller
         $saldoInicialRango = ($hayRango && $incluirAnteriores)
             ? $rango['saldo_inicial']
             : 0.0;
-        $saldoFinalRango = round($saldoInicialRango + $netoPeriodo, 2);
+        $saldoFinalRango = $this->saldoFinalDeRango($cuenta, $saldoInicialRango);
         $saldoActual = $saldoFinalRango;
         $interesPendiente = $rango['interes_pendiente'];
         $totalDepositos = $totales['depositos'];
@@ -605,10 +630,10 @@ class PrestacionesController extends Controller
         $sufijo = $hayRango ? '-'.$rango['desde'].'-a-'.$rango['hasta'] : '';
 
         return Pdf::loadView('prestaciones.pdf', [
-            'empleado'       => $empleado,
-            'patrono'        => $patrono,
-            'cuenta'         => $cuenta,
-            'saldoActual'    => $saldoActual,
+            'empleado' => $empleado,
+            'patrono' => $patrono,
+            'cuenta' => $cuenta,
+            'saldoActual' => $saldoActual,
             'saldoInicialRango' => $saldoInicialRango,
             'saldoFinalRango' => $saldoFinalRango,
             'interesPendiente' => $interesPendiente,
@@ -618,17 +643,17 @@ class PrestacionesController extends Controller
             'totalInteresesCapitalizados' => $totalInteresesCapitalizados,
             'totalInteresesPagados' => $totalInteresesPagados,
             'totalAnticipos' => $totalAnticipos,
-            'netoPeriodo'    => $netoPeriodo,
+            'netoPeriodo' => $netoPeriodo,
             'incluirAnteriores' => $incluirAnteriores,
-            'desde'          => $desde,
-            'hasta'          => $hasta,
-            'hayRango'       => $hayRango,
+            'desde' => $desde,
+            'hasta' => $hasta,
+            'hayRango' => $hayRango,
             'periodosFiltrados' => $periodosFiltrados,
-            'totalPeriodos'  => $totalPeriodos,
-            'periodoDesde'   => $periodoDesde,
+            'totalPeriodos' => $totalPeriodos,
+            'periodoDesde' => $periodoDesde,
             'proyeccionHasta' => $proyeccionHasta,
             'incluyeProyeccion' => $incluyeProyeccion,
         ])->setPaper('letter', 'landscape')
-          ->stream("estado-cuenta-prestaciones-{$empleado->nombre_completo}{$sufijo}.pdf");
+            ->stream("estado-cuenta-prestaciones-{$empleado->nombre_completo}{$sufijo}.pdf");
     }
 }

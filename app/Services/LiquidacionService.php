@@ -7,8 +7,11 @@ namespace App\Services;
 use App\Models\Empleado;
 use App\Models\Liquidacion;
 use App\Models\MovimientoPrestaciones;
+use App\Models\MovimientoPrestacionInteres;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Servicio de liquidación de prestaciones sociales (Art. 142 literal c LOTTT).
@@ -36,11 +39,15 @@ use Carbon\CarbonInterface;
 class LiquidacionService
 {
     public const DIAS_MES = 30;
+
     public const DIAS_ANNO = 360;
 
     public const IVSS_PCT = 0.04;
+
     public const PARO_PCT = 0.005;
+
     public const FAOV_PCT = 0.01;
+
     public const INCES_PCT = 0.005;
 
     /** Motivos de terminación considerados "causa ajena a la voluntad". */
@@ -54,8 +61,7 @@ class LiquidacionService
         private SalarioIntegralService $salarioIntegral = new SalarioIntegralService,
         private TasasBcvService $tasas = new TasasBcvService,
         private PrestacionesSocialesService $prestaciones = new PrestacionesSocialesService,
-    ) {
-    }
+    ) {}
 
     /**
      * Años completos y meses de la fracción (redondeando la fracción del mes a
@@ -126,7 +132,7 @@ class LiquidacionService
 
         return [
             'vacaciones' => round($dias['vacaciones'] * $factor, 2),
-            'bono'       => round($dias['bono'] * $factor, 2),
+            'bono' => round($dias['bono'] * $factor, 2),
         ];
     }
 
@@ -148,7 +154,7 @@ class LiquidacionService
 
         return [
             'meses' => $meses,
-            'dias'  => round($dias * $meses / 12, 2),
+            'dias' => round($dias * $meses / 12, 2),
         ];
     }
 
@@ -179,7 +185,7 @@ class LiquidacionService
         }
 
         $intereses = 0.0;
-        $pagosInteres = \App\Models\MovimientoPrestacionInteres::with('movimiento')
+        $pagosInteres = MovimientoPrestacionInteres::with('movimiento')
             ->when($hasta, fn ($q) => $q->where('fecha', '<=', $hasta->toDateString()))
             ->whereHas('movimiento', function ($q) use ($empleado, $hasta) {
                 $q->where('empleado_id', $empleado->id)
@@ -191,11 +197,11 @@ class LiquidacionService
         }
 
         return [
-            'anticipos'  => round($anticipos, 2),
-            'intereses'  => round($intereses, 2),
-            'prestamos'  => round($prestamos, 2),
-            'de_ley'     => 0.0,
-            'total'      => round($anticipos + $intereses + $prestamos, 2),
+            'anticipos' => round($anticipos, 2),
+            'intereses' => round($intereses, 2),
+            'prestamos' => round($prestamos, 2),
+            'de_ley' => 0.0,
+            'total' => round($anticipos + $intereses + $prestamos, 2),
         ];
     }
 
@@ -226,6 +232,12 @@ class LiquidacionService
      */
     public function calcular(Empleado $empleado, CarbonInterface $egreso, string $motivo): array
     {
+        if (! in_array($motivo, Liquidacion::MOTIVOS, true)) {
+            throw ValidationException::withMessages([
+                'motivo' => 'El motivo de terminación no es válido.',
+            ]);
+        }
+
         $antiguedad = $this->antiguedad($empleado, $egreso);
         $anios = $antiguedad['anios'];
         $mesesFraccion = $antiguedad['meses'];
@@ -241,7 +253,7 @@ class LiquidacionService
 
         $importeLiteralC = round($diasPrestaciones * $salarioDiarioIntegral, 2);
         $this->prestaciones->asegurarPeriodos($empleado, $egreso);
-        $garantiaBruta = round($this->prestaciones->garantiaBrutaEn($empleado, $egreso), 2);
+        $garantiaBruta = $this->prestaciones->garantiaBrutaAlEgreso($empleado, $egreso);
         $usaGarantia = $garantiaBruta > $importeLiteralC;
         $importePrestaciones = $usaGarantia ? $garantiaBruta : $importeLiteralC;
 
@@ -254,24 +266,24 @@ class LiquidacionService
 
         $asignaciones = [
             [
-                'orden'         => 10,
-                'concepto'      => 'Prestaciones sociales',
-                'base_legal'    => $usaGarantia
+                'orden' => 10,
+                'concepto' => 'Prestaciones sociales',
+                'base_legal' => $usaGarantia
                     ? 'Art. 142 literal C LOTTT - garantía acumulada (mayor)'
                     : 'Art. 142 literal C LOTTT - 30 días por año (mayor)',
-                'dias'          => $usaGarantia ? null : $diasPrestaciones,
-                'salario_diario'=> $usaGarantia ? null : $salarioDiarioIntegral,
-                'tipo_salario'  => $usaGarantia ? null : 'integral',
-                'importe'       => $importePrestaciones,
+                'dias' => $usaGarantia ? null : $diasPrestaciones,
+                'salario_diario' => $usaGarantia ? null : $salarioDiarioIntegral,
+                'tipo_salario' => $usaGarantia ? null : 'integral',
+                'importe' => $importePrestaciones,
             ],
             [
-                'orden'         => 20,
-                'concepto'      => 'Intereses sobre prestaciones',
-                'base_legal'    => 'Art. 143 LOTTT - incluidos en la garantía comparada',
-                'dias'          => null,
-                'salario_diario'=> null,
-                'tipo_salario'  => null,
-                'importe'       => 0.0,
+                'orden' => 20,
+                'concepto' => 'Intereses sobre prestaciones',
+                'base_legal' => 'Art. 143 LOTTT - incluidos en la garantía comparada',
+                'dias' => null,
+                'salario_diario' => null,
+                'tipo_salario' => null,
+                'importe' => 0.0,
             ],
         ];
 
@@ -279,43 +291,43 @@ class LiquidacionService
         // Se muestra sin días ni salario, justo debajo de los intereses.
         if ($aplicaIndemnizacion) {
             $asignaciones[] = [
-                'orden'         => 30,
-                'concepto'      => 'Indemnización por terminación',
-                'base_legal'    => 'Art. 92 LOTTT - equivalente a las prestaciones sociales',
-                'dias'          => null,
-                'salario_diario'=> null,
-                'tipo_salario'  => null,
-                'importe'       => $importePrestaciones,
+                'orden' => 30,
+                'concepto' => 'Indemnización por terminación',
+                'base_legal' => 'Art. 92 LOTTT - equivalente a las prestaciones sociales',
+                'dias' => null,
+                'salario_diario' => null,
+                'tipo_salario' => null,
+                'importe' => $importePrestaciones,
             ];
         }
 
         $asignaciones = array_merge($asignaciones, [
             [
-                'orden'         => 40,
-                'concepto'      => 'Vacaciones fraccionadas',
-                'base_legal'    => 'Art. 196 LOTTT',
-                'dias'          => $fracVac['vacaciones'],
-                'salario_diario'=> $salarioDiarioNormal,
-                'tipo_salario'  => 'normal',
-                'importe'       => $importeVacaciones,
+                'orden' => 40,
+                'concepto' => 'Vacaciones fraccionadas',
+                'base_legal' => 'Art. 196 LOTTT',
+                'dias' => $fracVac['vacaciones'],
+                'salario_diario' => $salarioDiarioNormal,
+                'tipo_salario' => 'normal',
+                'importe' => $importeVacaciones,
             ],
             [
-                'orden'         => 50,
-                'concepto'      => 'Bono vacacional fraccionado',
-                'base_legal'    => 'Art. 192 LOTTT',
-                'dias'          => $fracVac['bono'],
-                'salario_diario'=> $salarioDiarioNormal,
-                'tipo_salario'  => 'normal',
-                'importe'       => $importeBono,
+                'orden' => 50,
+                'concepto' => 'Bono vacacional fraccionado',
+                'base_legal' => 'Art. 192 LOTTT',
+                'dias' => $fracVac['bono'],
+                'salario_diario' => $salarioDiarioNormal,
+                'tipo_salario' => 'normal',
+                'importe' => $importeBono,
             ],
             [
-                'orden'         => 60,
-                'concepto'      => 'Utilidades fraccionadas',
-                'base_legal'    => 'Art. 131 LOTTT',
-                'dias'          => $fracUtil['dias'],
-                'salario_diario'=> $salarioDiarioNormal,
-                'tipo_salario'  => 'normal',
-                'importe'       => $importeUtilidades,
+                'orden' => 60,
+                'concepto' => 'Utilidades fraccionadas',
+                'base_legal' => 'Art. 131 LOTTT',
+                'dias' => $fracUtil['dias'],
+                'salario_diario' => $salarioDiarioNormal,
+                'tipo_salario' => 'normal',
+                'importe' => $importeUtilidades,
             ],
         ]);
 
@@ -323,31 +335,31 @@ class LiquidacionService
 
         $deducciones = [
             [
-                'orden'         => 10,
-                'concepto'      => 'Anticipo de prestaciones',
-                'base_legal'    => 'Art. 144 LOTTT',
-                'dias'          => null,
-                'salario_diario'=> null,
-                'tipo_salario'  => null,
-                'importe'       => $deds['anticipos'],
+                'orden' => 10,
+                'concepto' => 'Anticipo de prestaciones',
+                'base_legal' => 'Art. 144 LOTTT',
+                'dias' => null,
+                'salario_diario' => null,
+                'tipo_salario' => null,
+                'importe' => $deds['anticipos'],
             ],
             [
-                'orden'         => 20,
-                'concepto'      => 'Pago de intereses',
-                'base_legal'    => 'Art. 143 LOTTT',
-                'dias'          => null,
-                'salario_diario'=> null,
-                'tipo_salario'  => null,
-                'importe'       => $deds['intereses'],
+                'orden' => 20,
+                'concepto' => 'Pago de intereses',
+                'base_legal' => 'Art. 143 LOTTT',
+                'dias' => null,
+                'salario_diario' => null,
+                'tipo_salario' => null,
+                'importe' => $deds['intereses'],
             ],
             [
-                'orden'         => 30,
-                'concepto'      => 'Préstamos (saldo)',
-                'base_legal'    => 'Acuerdo de préstamo sobre prestaciones',
-                'dias'          => null,
-                'salario_diario'=> null,
-                'tipo_salario'  => null,
-                'importe'       => $deds['prestamos'],
+                'orden' => 30,
+                'concepto' => 'Préstamos (saldo)',
+                'base_legal' => 'Acuerdo de préstamo sobre prestaciones',
+                'dias' => null,
+                'salario_diario' => null,
+                'tipo_salario' => null,
+                'importe' => $deds['prestamos'],
             ],
         ];
 
@@ -363,23 +375,23 @@ class LiquidacionService
         $neto = round($totalAsignaciones - $totalDeducciones, 2);
 
         return [
-            'antiguedad'             => $antiguedad,
-            'dias_prestaciones'      => $diasPrestaciones,
-            'aplica_indemnizacion'   => $aplicaIndemnizacion,
-            'salario_diario_normal'  => $salarioDiarioNormal,
-            'salario_integral_diario'=> $salarioDiarioIntegral,
-            'moneda'                 => $moneda,
-            'tasa'                   => $tasa,
-            'garantia_ab'            => $garantiaBruta,
-            'literal_c'              => $importeLiteralC,
-            'prestaciones_mayor'     => $importePrestaciones,
-            'prestaciones_origen'    => $usaGarantia ? 'garantia' : 'literal_c',
-            'prestaciones_diferencia'=> round(abs($garantiaBruta - $importeLiteralC), 2),
-            'asignaciones'           => $asignaciones,
-            'deducciones'            => $deducciones,
-            'total_asignaciones'     => $totalAsignaciones,
-            'total_deducciones'      => $totalDeducciones,
-            'neto'                   => $neto,
+            'antiguedad' => $antiguedad,
+            'dias_prestaciones' => $diasPrestaciones,
+            'aplica_indemnizacion' => $aplicaIndemnizacion,
+            'salario_diario_normal' => $salarioDiarioNormal,
+            'salario_integral_diario' => $salarioDiarioIntegral,
+            'moneda' => $moneda,
+            'tasa' => $tasa,
+            'garantia_ab' => $garantiaBruta,
+            'literal_c' => $importeLiteralC,
+            'prestaciones_mayor' => $importePrestaciones,
+            'prestaciones_origen' => $usaGarantia ? 'garantia' : 'literal_c',
+            'prestaciones_diferencia' => round(abs($garantiaBruta - $importeLiteralC), 2),
+            'asignaciones' => $asignaciones,
+            'deducciones' => $deducciones,
+            'total_asignaciones' => $totalAsignaciones,
+            'total_deducciones' => $totalDeducciones,
+            'neto' => $neto,
         ];
     }
 
@@ -397,37 +409,37 @@ class LiquidacionService
 
         if ($patrono->descuenta_ivss && $base > 0) {
             $deducciones[] = [
-                'orden'         => 40,
-                'concepto'      => 'Seguro Social (IVSS)',
-                'base_legal'    => '4% sobre base remunerativa - Art. 15 Ley del Seguro Social',
-                'dias'          => null,
-                'salario_diario'=> null,
-                'tipo_salario'  => null,
-                'importe'       => round($base * self::IVSS_PCT, 2),
+                'orden' => 40,
+                'concepto' => 'Seguro Social (IVSS)',
+                'base_legal' => '4% sobre base remunerativa - Art. 15 Ley del Seguro Social',
+                'dias' => null,
+                'salario_diario' => null,
+                'tipo_salario' => null,
+                'importe' => round($base * self::IVSS_PCT, 2),
             ];
         }
 
         if ($patrono->descuenta_paro_fijo && $base > 0) {
             $deducciones[] = [
-                'orden'         => 50,
-                'concepto'      => 'Régimen de Paro (SP Empleo)',
-                'base_legal'    => '0,5% sobre base remunerativa - Ley Régimen Prestacional de Empleo',
-                'dias'          => null,
-                'salario_diario'=> null,
-                'tipo_salario'  => null,
-                'importe'       => round($base * self::PARO_PCT, 2),
+                'orden' => 50,
+                'concepto' => 'Régimen de Paro (SP Empleo)',
+                'base_legal' => '0,5% sobre base remunerativa - Ley Régimen Prestacional de Empleo',
+                'dias' => null,
+                'salario_diario' => null,
+                'tipo_salario' => null,
+                'importe' => round($base * self::PARO_PCT, 2),
             ];
         }
 
         if ($patrono->descuenta_faov && $base > 0) {
             $deducciones[] = [
-                'orden'         => 60,
-                'concepto'      => 'FAOV',
-                'base_legal'    => '1% sobre base remunerativa - Ley Régimen Prestacional de Vivienda y Hábitat',
-                'dias'          => null,
-                'salario_diario'=> null,
-                'tipo_salario'  => null,
-                'importe'       => round($base * self::FAOV_PCT, 2),
+                'orden' => 60,
+                'concepto' => 'FAOV',
+                'base_legal' => '1% sobre base remunerativa - Ley Régimen Prestacional de Vivienda y Hábitat',
+                'dias' => null,
+                'salario_diario' => null,
+                'tipo_salario' => null,
+                'importe' => round($base * self::FAOV_PCT, 2),
             ];
         }
 
@@ -437,13 +449,13 @@ class LiquidacionService
 
         if ($patrono->descuenta_inces && $empleadosActivos >= 5 && abs($baseInces) > 0) {
             $deducciones[] = [
-                'orden'         => 70,
-                'concepto'      => 'INCES',
-                'base_legal'    => '0,5% sobre utilidades - Ley del INCES, 5 o más trabajadores',
-                'dias'          => null,
-                'salario_diario'=> null,
-                'tipo_salario'  => null,
-                'importe'       => round(abs($baseInces) * self::INCES_PCT, 2),
+                'orden' => 70,
+                'concepto' => 'INCES',
+                'base_legal' => '0,5% sobre utilidades - Ley del INCES, 5 o más trabajadores',
+                'dias' => null,
+                'salario_diario' => null,
+                'tipo_salario' => null,
+                'importe' => round(abs($baseInces) * self::INCES_PCT, 2),
             ];
         }
 
@@ -460,66 +472,66 @@ class LiquidacionService
             ->exists();
 
         if ($existe) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
                 'empleado_id' => 'El trabajador ya tiene una liquidación vigente (por aprobar o aprobada).',
             ]);
         }
 
         $datos = $this->calcular($empleado, $egreso, $motivo);
 
-        return \Illuminate\Support\Facades\DB::transaction(function () use ($empleado, $egreso, $motivo, $observacion, $datos) {
+        return DB::transaction(function () use ($empleado, $egreso, $motivo, $observacion, $datos) {
             $liquidacion = Liquidacion::create([
-                'patrono_id'               => $empleado->patrono_id,
-                'empleado_id'              => $empleado->id,
-                'fecha_liquidacion'        => $egreso->toDateString(),
-                'fecha_ingreso'            => $empleado->fecha_ingreso,
-                'fecha_egreso'             => $egreso->toDateString(),
-                'motivo'                   => $motivo,
-                'observacion'              => $observacion,
-                'anios_servicio'           => $datos['antiguedad']['anios'],
-                'meses_fraccion'           => $datos['antiguedad']['meses'],
-                'dias_prestaciones'        => $datos['dias_prestaciones'],
-                'dias_indemnizacion'       => $datos['aplica_indemnizacion'] ? 1 : 0,
-                'garantia_ab'              => $datos['garantia_ab'],
-                'literal_c'                => $datos['literal_c'],
-                'prestaciones_mayor'       => $datos['prestaciones_mayor'],
-                'prestaciones_origen'      => $datos['prestaciones_origen'],
-                'prestaciones_diferencia'  => $datos['prestaciones_diferencia'],
-                'salario_diario_normal'    => $datos['salario_diario_normal'],
-                'salario_integral_diario'  => $datos['salario_integral_diario'],
-                'moneda'                   => $datos['moneda'],
-                'tasa_cambio'              => $datos['tasa'],
-                'total_asignaciones'       => $datos['total_asignaciones'],
-                'total_deducciones'        => $datos['total_deducciones'],
-                'neto'                     => $datos['neto'],
-                'estatus'                  => 'por_aprobar',
+                'patrono_id' => $empleado->patrono_id,
+                'empleado_id' => $empleado->id,
+                'fecha_liquidacion' => $egreso->toDateString(),
+                'fecha_ingreso' => $empleado->fecha_ingreso,
+                'fecha_egreso' => $egreso->toDateString(),
+                'motivo' => $motivo,
+                'observacion' => $observacion,
+                'anios_servicio' => $datos['antiguedad']['anios'],
+                'meses_fraccion' => $datos['antiguedad']['meses'],
+                'dias_prestaciones' => $datos['dias_prestaciones'],
+                'dias_indemnizacion' => $datos['aplica_indemnizacion'] ? 1 : 0,
+                'garantia_ab' => $datos['garantia_ab'],
+                'literal_c' => $datos['literal_c'],
+                'prestaciones_mayor' => $datos['prestaciones_mayor'],
+                'prestaciones_origen' => $datos['prestaciones_origen'],
+                'prestaciones_diferencia' => $datos['prestaciones_diferencia'],
+                'salario_diario_normal' => $datos['salario_diario_normal'],
+                'salario_integral_diario' => $datos['salario_integral_diario'],
+                'moneda' => $datos['moneda'],
+                'tasa_cambio' => $datos['tasa'],
+                'total_asignaciones' => $datos['total_asignaciones'],
+                'total_deducciones' => $datos['total_deducciones'],
+                'neto' => $datos['neto'],
+                'estatus' => 'por_aprobar',
             ]);
 
             foreach ($datos['asignaciones'] as $concepto) {
                 $liquidacion->conceptos()->create([
-                    'tipo'      => 'asignacion',
-                    'orden'     => $concepto['orden'],
-                    'concepto'  => $concepto['concepto'],
-                    'base_legal'=> $concepto['base_legal'],
-                    'dias'      => $concepto['dias'],
+                    'tipo' => 'asignacion',
+                    'orden' => $concepto['orden'],
+                    'concepto' => $concepto['concepto'],
+                    'base_legal' => $concepto['base_legal'],
+                    'dias' => $concepto['dias'],
                     'salario_diario' => $concepto['salario_diario'],
                     'tipo_salario' => $concepto['tipo_salario'] ?? null,
-                    'importe'   => $concepto['importe'],
-                    'editable'  => true,
+                    'importe' => $concepto['importe'],
+                    'editable' => true,
                 ]);
             }
 
             foreach ($datos['deducciones'] as $concepto) {
                 $liquidacion->conceptos()->create([
-                    'tipo'      => 'deduccion',
-                    'orden'     => $concepto['orden'],
-                    'concepto'  => $concepto['concepto'],
-                    'base_legal'=> $concepto['base_legal'],
-                    'dias'      => $concepto['dias'],
+                    'tipo' => 'deduccion',
+                    'orden' => $concepto['orden'],
+                    'concepto' => $concepto['concepto'],
+                    'base_legal' => $concepto['base_legal'],
+                    'dias' => $concepto['dias'],
                     'salario_diario' => $concepto['salario_diario'],
                     'tipo_salario' => $concepto['tipo_salario'] ?? null,
-                    'importe'   => $concepto['importe'],
-                    'editable'  => true,
+                    'importe' => $concepto['importe'],
+                    'editable' => true,
                 ]);
             }
 
@@ -540,52 +552,52 @@ class LiquidacionService
         $empleado = $liquidacion->empleado;
         $datos = $this->calcular($empleado, $liquidacion->fecha_egreso, $liquidacion->motivo);
 
-        return \Illuminate\Support\Facades\DB::transaction(function () use ($liquidacion, $empleado, $datos) {
+        return DB::transaction(function () use ($liquidacion, $datos) {
             $liquidacion->conceptos()->delete();
 
             foreach ($datos['asignaciones'] as $concepto) {
                 $liquidacion->conceptos()->create([
-                    'tipo'      => 'asignacion',
-                    'orden'     => $concepto['orden'],
-                    'concepto'  => $concepto['concepto'],
-                    'base_legal'=> $concepto['base_legal'],
-                    'dias'      => $concepto['dias'],
+                    'tipo' => 'asignacion',
+                    'orden' => $concepto['orden'],
+                    'concepto' => $concepto['concepto'],
+                    'base_legal' => $concepto['base_legal'],
+                    'dias' => $concepto['dias'],
                     'salario_diario' => $concepto['salario_diario'],
                     'tipo_salario' => $concepto['tipo_salario'] ?? null,
-                    'importe'   => $concepto['importe'],
-                    'editable'  => true,
+                    'importe' => $concepto['importe'],
+                    'editable' => true,
                 ]);
             }
 
             foreach ($datos['deducciones'] as $concepto) {
                 $liquidacion->conceptos()->create([
-                    'tipo'      => 'deduccion',
-                    'orden'     => $concepto['orden'],
-                    'concepto'  => $concepto['concepto'],
-                    'base_legal'=> $concepto['base_legal'],
-                    'dias'      => $concepto['dias'],
+                    'tipo' => 'deduccion',
+                    'orden' => $concepto['orden'],
+                    'concepto' => $concepto['concepto'],
+                    'base_legal' => $concepto['base_legal'],
+                    'dias' => $concepto['dias'],
                     'salario_diario' => $concepto['salario_diario'],
                     'tipo_salario' => $concepto['tipo_salario'] ?? null,
-                    'importe'   => $concepto['importe'],
-                    'editable'  => true,
+                    'importe' => $concepto['importe'],
+                    'editable' => true,
                 ]);
             }
 
             $liquidacion->update([
-                'anios_servicio'           => $datos['antiguedad']['anios'],
-                'meses_fraccion'           => $datos['antiguedad']['meses'],
-                'dias_prestaciones'        => $datos['dias_prestaciones'],
-                'dias_indemnizacion'       => $datos['aplica_indemnizacion'] ? 1 : 0,
-                'garantia_ab'              => $datos['garantia_ab'],
-                'literal_c'                => $datos['literal_c'],
-                'prestaciones_mayor'       => $datos['prestaciones_mayor'],
-                'prestaciones_origen'      => $datos['prestaciones_origen'],
-                'prestaciones_diferencia'  => $datos['prestaciones_diferencia'],
-                'salario_diario_normal'    => $datos['salario_diario_normal'],
-                'salario_integral_diario'  => $datos['salario_integral_diario'],
-                'total_asignaciones'       => $datos['total_asignaciones'],
-                'total_deducciones'        => $datos['total_deducciones'],
-                'neto'                     => $datos['neto'],
+                'anios_servicio' => $datos['antiguedad']['anios'],
+                'meses_fraccion' => $datos['antiguedad']['meses'],
+                'dias_prestaciones' => $datos['dias_prestaciones'],
+                'dias_indemnizacion' => $datos['aplica_indemnizacion'] ? 1 : 0,
+                'garantia_ab' => $datos['garantia_ab'],
+                'literal_c' => $datos['literal_c'],
+                'prestaciones_mayor' => $datos['prestaciones_mayor'],
+                'prestaciones_origen' => $datos['prestaciones_origen'],
+                'prestaciones_diferencia' => $datos['prestaciones_diferencia'],
+                'salario_diario_normal' => $datos['salario_diario_normal'],
+                'salario_integral_diario' => $datos['salario_integral_diario'],
+                'total_asignaciones' => $datos['total_asignaciones'],
+                'total_deducciones' => $datos['total_deducciones'],
+                'neto' => $datos['neto'],
             ]);
 
             return $liquidacion->fresh();
@@ -604,7 +616,7 @@ class LiquidacionService
             }
 
             $concepto->update([
-                'dias'    => ($dato['dias'] ?? null) !== '' && ($dato['dias'] ?? null) !== null ? (float) $dato['dias'] : null,
+                'dias' => ($dato['dias'] ?? null) !== '' && ($dato['dias'] ?? null) !== null ? (float) $dato['dias'] : null,
                 'salario_diario' => ($dato['salario_diario'] ?? null) !== '' && ($dato['salario_diario'] ?? null) !== null
                     ? (float) $dato['salario_diario']
                     : null,
@@ -627,8 +639,8 @@ class LiquidacionService
 
         $liquidacion->update([
             'total_asignaciones' => $totalAsignaciones,
-            'total_deducciones'  => $totalDeducciones,
-            'neto'               => round($totalAsignaciones - $totalDeducciones, 2),
+            'total_deducciones' => $totalDeducciones,
+            'neto' => round($totalAsignaciones - $totalDeducciones, 2),
         ]);
 
         return $liquidacion->fresh();

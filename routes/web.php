@@ -1,10 +1,11 @@
 <?php
 
 use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\Web\EmpleadoController;
 use App\Http\Controllers\Web\ConfiguracionController;
+use App\Http\Controllers\Web\EmpleadoController;
 use App\Http\Controllers\Web\EntornoController;
 use App\Http\Controllers\Web\FeriadosController;
+use App\Http\Controllers\Web\InteresesPrestacionesController;
 use App\Http\Controllers\Web\LiquidacionController;
 use App\Http\Controllers\Web\MovimientosPrestacionesController;
 use App\Http\Controllers\Web\PatronoController;
@@ -69,6 +70,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/', [EmpleadoController::class, 'index'])->name('index');
         Route::get('create', [EmpleadoController::class, 'create'])->name('create');
         Route::post('/', [EmpleadoController::class, 'store'])->name('store');
+        Route::get('exportar', [EmpleadoController::class, 'exportar'])->name('exportar');
+        Route::get('plantilla', [EmpleadoController::class, 'plantilla'])->name('plantilla');
+        Route::post('importar', [EmpleadoController::class, 'importar'])->name('importar');
         Route::get('{empleado}/edit', [EmpleadoController::class, 'edit'])->name('edit');
         Route::put('{empleado}', [EmpleadoController::class, 'update'])->name('update');
         Route::post('{empleado}/cambiar-patrono', [EmpleadoController::class, 'cambiarPatrono'])->name('cambiar-patrono');
@@ -104,6 +108,7 @@ Route::middleware('auth')->group(function () {
     Route::prefix('utilidades')->name('utilidades.')->middleware('contexto.patrono')->group(function () {
         Route::get('/', [UtilidadesController::class, 'index'])->name('index');
         Route::post('calcular', [UtilidadesController::class, 'calcular'])->name('calcular');
+        Route::post('aprobar-todas', [UtilidadesController::class, 'aprobarTodas'])->name('aprobar-todas');
         Route::post('{id}/recalcular', [UtilidadesController::class, 'recalcular'])->name('recalcular');
         Route::post('{id}/aprobar', [UtilidadesController::class, 'aprobar'])->name('aprobar');
         Route::get('{id}', [UtilidadesController::class, 'show'])->name('show');
@@ -117,9 +122,6 @@ Route::middleware('auth')->group(function () {
         Route::get('crear', [MovimientosPrestacionesController::class, 'create'])->name('create');
         Route::post('/', [MovimientosPrestacionesController::class, 'store'])->name('store');
         Route::get('maximo/{empleadoId}', [MovimientosPrestacionesController::class, 'maximo'])->name('maximo');
-        Route::get('intereses/{empleadoId}', [MovimientosPrestacionesController::class, 'interesesPanel'])->name('intereses.panel');
-        Route::post('intereses/{empleadoId}', [MovimientosPrestacionesController::class, 'pagarInteresPrestaciones'])->name('intereses.prestaciones');
-        Route::delete('intereses/{empleadoId}/{pago}', [MovimientosPrestacionesController::class, 'destroyInteresPrestaciones'])->name('intereses.prestaciones.destroy');
         Route::get('{movimiento}/comprobante', [MovimientosPrestacionesController::class, 'comprobante'])->name('comprobante');
         Route::get('{movimiento}', [MovimientosPrestacionesController::class, 'show'])->name('show');
         Route::post('{movimiento}/intereses', [MovimientosPrestacionesController::class, 'registrarInteres'])->name('intereses');
@@ -128,17 +130,27 @@ Route::middleware('auth')->group(function () {
         Route::delete('{movimiento}', [MovimientosPrestacionesController::class, 'destroy'])->name('destroy');
     });
 
+    // Pagos de intereses sobre prestaciones sociales (Art. 143 LOTTT)
+    Route::prefix('intereses-prestaciones')->name('intereses-prestaciones.')->middleware('contexto.patrono')->group(function () {
+        Route::get('/', [InteresesPrestacionesController::class, 'index'])->name('index');
+        Route::get('crear', [InteresesPrestacionesController::class, 'create'])->name('create');
+        Route::get('saldo/{empleadoId}', [InteresesPrestacionesController::class, 'saldo'])->name('saldo');
+        Route::post('/', [InteresesPrestacionesController::class, 'store'])->name('store');
+        Route::get('{pago}/comprobante', [InteresesPrestacionesController::class, 'comprobante'])->whereNumber('pago')->name('comprobante');
+        Route::get('{pago}', [InteresesPrestacionesController::class, 'show'])->whereNumber('pago')->name('show');
+        Route::delete('{pago}', [InteresesPrestacionesController::class, 'destroy'])->whereNumber('pago')->name('destroy');
+    });
+
     // Prestaciones sociales: garantía e intereses (Arts. 142 y 143 LOTTT)
     Route::prefix('prestaciones')->name('prestaciones.')->middleware('contexto.patrono')->group(function () {
         Route::get('/', [PrestacionesController::class, 'index'])->name('index');
+        Route::post('proyectar', [PrestacionesController::class, 'proyectar'])->name('proyectar');
         Route::get('{empleadoId}', [PrestacionesController::class, 'show'])->name('show');
         Route::post('{empleadoId}/recalcular', [PrestacionesController::class, 'recalcular'])->name('recalcular');
-        Route::post('{empleadoId}/intereses', [PrestacionesController::class, 'pagarInteres'])->name('intereses');
-        Route::delete('{empleadoId}/intereses/{pago}', [PrestacionesController::class, 'destroyInteres'])->name('intereses.destroy');
         Route::get('{empleadoId}/pdf', [PrestacionesController::class, 'pdf'])->name('pdf');
         Route::get('{empleadoId}/hoja-calculo', [PrestacionesController::class, 'hojaCalculo'])->name('hoja-calculo');
-        Route::post('{empleadoId}/proyectar', [PrestacionesController::class, 'proyectar'])->name('proyectar');
         Route::delete('{empleadoId}/proyeccion', [PrestacionesController::class, 'eliminarProyeccion'])->name('proyeccion.destroy');
+        Route::delete('{empleadoId}/proyeccion/{prestacion}', [PrestacionesController::class, 'eliminarProyeccionPeriodo'])->name('proyeccion.periodo.destroy');
     });
 
     // Liquidaciones de prestaciones sociales (Art. 142 lit. C LOTTT)

@@ -58,7 +58,7 @@
 		@endphp
 		<div class="mb-3 bg-white border border-gray-200 divide-x divide-gray-200 grid grid-cols-2 md:grid-cols-4 text-sm">
 			<div class="px-3 py-2"><span class="text-xs text-gray-500">Trabajador</span><span class="block font-medium">{{ $empleado->nombre_completo }}</span></div>
-			<div class="px-3 py-2"><span class="text-xs text-gray-500">Sueldo ficha</span><span class="block font-medium">{{ $empleado->moneda }} {{ formato_monto((float) $empleado->salario_base) }}</span></div>
+			<div class="px-3 py-2"><span class="text-xs text-gray-500">Sueldo ficha (mensual)</span><span class="block font-medium">{{ $empleado->moneda }} {{ formato_monto((float) $empleado->salario_base) }}</span></div>
 			<div class="px-3 py-2"><span class="text-xs text-gray-500">Ingreso</span><span class="block font-medium">{{ $empleado->fecha_ingreso->format('d/m/Y') }}</span></div>
 			<div class="px-3 py-2"><span class="text-xs text-gray-500">Periodos</span><span class="block font-medium">{{ $totalPeriodos }}</span></div>
 		</div>
@@ -80,6 +80,9 @@
 				</div>
 			@endif
 
+			<div class="mb-1 flex justify-end">
+				<x-orden-indicador campo="Periodo" direccion="desc" />
+			</div>
 			<div class="bg-white border border-gray-200 overflow-x-auto">
 				<table class="w-full text-sm">
 					<thead class="bg-gray-50 text-gray-600 text-xs uppercase">

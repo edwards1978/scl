@@ -34,7 +34,7 @@
 	<div class="header">
 		<h1 class="h1">SCL — Sistema de Cálculos Laborales</h1>
 		<p class="sub">Reporte de Vacaciones y Bono Vacacional (LOTTT)</p>
-		<!-- <p class="sub">Patrono: <span class="bold">{{ $patrono->razon_social }}</span> ({{ $patrono->rif }}) — Emitido: {{ now()->format('d/m/Y H:i') }}</p> -->
+		<!-- <p class="sub">Patrono: <span class="bold">{{ $patrono->razon_social }}</span> — RIF {{ $patrono->rif }} — Emitido: {{ now()->format('d/m/Y H:i') }}</p> -->
 	</div>
 
 	<table class="stats">

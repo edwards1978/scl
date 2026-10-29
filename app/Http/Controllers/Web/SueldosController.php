@@ -10,6 +10,7 @@ use App\Models\Empleado;
 use App\Models\Patrono;
 use App\Models\Sueldo;
 use App\Services\SueldosService;
+use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -18,8 +19,7 @@ class SueldosController extends Controller
 {
     public function __construct(
         private SueldosService $service = new SueldosService,
-    ) {
-    }
+    ) {}
 
     private function patronoActual(): Patrono
     {
@@ -45,8 +45,8 @@ class SueldosController extends Controller
 
         $empleados = $patrono->empleados()
             ->where('estatus', 'Activo')
-            ->orderBy('apellidos')
             ->orderBy('nombres')
+            ->orderBy('apellidos')
             ->get(['id', 'nombres', 'apellidos', 'cedula']);
 
         $empleado = $this->empleadoDePatrono($request->integer('empleado_id') ?: null);
@@ -119,8 +119,8 @@ class SueldosController extends Controller
 
         $empleados = $patrono->empleados()
             ->where('estatus', 'Activo')
-            ->orderBy('apellidos')
             ->orderBy('nombres')
+            ->orderBy('apellidos')
             ->get(['id', 'nombres', 'apellidos', 'cedula']);
 
         $empleado = $this->empleadoDePatrono($request->integer('empleado_id') ?: null);
@@ -143,8 +143,8 @@ class SueldosController extends Controller
         $data = $request->validate([
             'empleado_id' => ['required', 'integer', "exists:empleados,id,patrono_id,{$patrono->id}"],
             'fecha_cambio' => ['required', 'date'],
-            'monto'       => ['required', 'numeric', 'min:0.01'],
-            'moneda'      => ['required', 'in:USD,BS'],
+            'monto' => ['required', 'numeric', 'min:0.01'],
+            'moneda' => ['required', 'in:USD,BS'],
         ]);
 
         $empleado = Empleado::findOrFail((int) $data['empleado_id']);
@@ -163,7 +163,7 @@ class SueldosController extends Controller
         // La ficha del trabajador refleja el sueldo vigente más reciente.
         $this->service->sincronizarFicha($empleado);
         // Regenera los sueldos desde el mes del cambio en adelante.
-        $this->service->regenerarSueldos($empleado, \Carbon\Carbon::parse($data['fecha_cambio'])->format('Y-m'));
+        $this->service->regenerarSueldos($empleado, Carbon::parse($data['fecha_cambio'])->format('Y-m'));
 
         return redirect()->route('sueldos.variaciones', ['empleado_id' => $empleado->id])
             ->with('success', 'Cambio salarial registrado y sueldos regenerados.');

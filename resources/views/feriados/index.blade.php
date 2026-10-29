@@ -23,6 +23,9 @@
 		@if ($fijos->isEmpty())
 			<p class="text-xs text-gray-400 py-2">No hay feriados fijos registrados.</p>
 		@else
+			<div class="mb-1 flex justify-end">
+				<x-orden-indicador campo="Mes y Día" direccion="asc" />
+			</div>
 			<table class="w-full text-sm">
 				<thead class="bg-gray-50 text-gray-500 uppercase text-xs">
 					<tr>
@@ -88,6 +91,9 @@
 	@if ($materializados->isNotEmpty())
 		<fieldset class="bg-white border border-gray-200 p-4 mt-4">
 			<legend class="text-sm font-semibold text-gray-700 px-1">Últimos materializados</legend>
+			<div class="mb-1 flex justify-end">
+				<x-orden-indicador campo="Fecha" direccion="desc" />
+			</div>
 			<table class="w-full text-sm">
 				<thead class="bg-gray-50 text-gray-500 uppercase text-xs">
 					<tr>

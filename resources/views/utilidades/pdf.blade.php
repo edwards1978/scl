@@ -30,7 +30,7 @@
 <body>
 	<div class="header">
 		<h1 class="h1">{{ $patrono->razon_social }}</h1>
-		<h2 class="h2">RIF ({{ $patrono->rif }})</h2>
+		<h2 class="h2">RIF {{ $patrono->rif }}</h2>
 		<p class="sub">Recibo de Bonificación de Fin de Año (anticipo de utilidades – LOTTT)</p>
 	</div>
 
@@ -38,7 +38,7 @@
 		<tr><td class="bold">Trabajador</td><td>{{ $empleado->nombre_completo }}</td>
 			<td class="bold">Fecha de cálculo</td><td>{{ $fecha_emision instanceof \Carbon\Carbon ? $fecha_emision->format('d/m/Y') : \Carbon\Carbon::parse($fecha_emision)->format('d/m/Y') }}</td></tr>
 		<tr><td class="bold">C.I.</td><td>{{ $empleado->cedula }}</td>
-			<td class="bold">Año</td><td>{{ $bonificacion->anio }}</td></tr>
+			<td class="bold">Fecha de ingreso</td><td>{{ $empleado->fecha_ingreso->format('d/m/Y') }}</td></tr>
 		<tr><td class="bold">Periodo</td><td>{{ $bonificacion->periodo_inicio->format('d/m/Y') }} — {{ $bonificacion->periodo_fin->format('d/m/Y') }}</td>
 			<td class="bold">Moneda</td><td>{{ $bonificacion->moneda }}</td></tr>
 		<tr><td class="bold">Meses laborados</td><td>{{ $bonificacion->meses_laborados }}</td>

@@ -7,25 +7,23 @@ namespace App\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use App\Models\Empleado;
 use App\Models\MovimientoPrestaciones;
-use App\Models\PagoInteresPrestaciones;
 use App\Models\Patrono;
 use App\Services\MovimientosPrestacionesService;
-use App\Services\PrestacionesSocialesService;
-use App\Services\TasasBcvService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class MovimientosPrestacionesController extends Controller
 {
     public function __construct(
         private MovimientosPrestacionesService $service = new MovimientosPrestacionesService,
-    ) {
-    }
+    ) {}
 
     private function patronoActual(): Patrono
     {
@@ -55,6 +53,13 @@ class MovimientosPrestacionesController extends Controller
             $query->where('estatus', $request->get('estatus'));
         }
 
+        $totales = (clone $query)
+            ->reorder()
+            ->toBase()
+            ->select('moneda', DB::raw('SUM(monto) as total'))
+            ->groupBy('moneda')
+            ->pluck('total', 'moneda');
+
         $movimientos = $query->paginate($porPagina)->withQueryString();
 
         $empleados = $patrono->empleados()
@@ -63,7 +68,7 @@ class MovimientosPrestacionesController extends Controller
             ->get(['id', 'nombres', 'apellidos', 'cedula']);
 
         return view('movimientos-prestaciones.index', compact(
-            'movimientos', 'empleados', 'patrono', 'porPagina'
+            'movimientos', 'empleados', 'patrono', 'porPagina', 'totales'
         ));
     }
 
@@ -73,20 +78,13 @@ class MovimientosPrestacionesController extends Controller
         $patrono = $this->patronoActual();
 
         $empleado = null;
-        $pagos = collect();
         if ($request->filled('empleado_id')) {
             $empleado = $patrono->empleados()->find((int) $request->get('empleado_id'));
             $empleado?->load('patrono');
             abort_if($empleado && ! $empleado->estaActivo(), 409, 'El trabajador está inactivo (ya liquidado): no se pueden efectuar nuevos cálculos.');
-            if ($empleado) {
-                $pagos = PagoInteresPrestaciones::where('empleado_id', $empleado->id)
-                    ->orderByDesc('fecha')
-                    ->orderByDesc('id')
-                    ->get();
-            }
         }
 
-        return view('movimientos-prestaciones.create', compact('patrono', 'empleado', 'pagos'));
+        return view('movimientos-prestaciones.create', compact('patrono', 'empleado'));
     }
 
     /** Guarda un nuevo movimiento. */
@@ -125,101 +123,22 @@ class MovimientosPrestacionesController extends Controller
         $max = $this->service->maximoAnticipo($empleado, $fecha);
 
         return response()->json([
-            'saldo'    => $max['saldo'],
-            'maximo'   => $max['maximo'],
-            'pct'      => $max['pct'],
+            'saldo' => $max['saldo'],
+            'maximo' => $max['maximo'],
+            'pct' => $max['pct'],
             'monto_75' => round($max['saldo'] * 0.75, 2),
-            'pct_75'   => 75,
-            'moneda'   => $max['moneda'],
-            'dias'     => $max['dias'],
-            'anios'    => $max['anios'],
-            'fecha'    => ($fecha ?: now())->format('d/m/Y'),
+            'pct_75' => 75,
+            'moneda' => $max['moneda'],
+            'dias' => $max['dias'],
+            'anios' => $max['anios'],
+            'es_proyeccion' => $max['es_proyeccion'],
+            'fecha' => ($fecha ?: now())->format('d/m/Y'),
         ]);
-    }
-
-    /** Panel de pagos de intereses sobre prestaciones para un trabajador. */
-    public function interesesPanel(int $empleadoId): View
-    {
-        $patrono = $this->patronoActual();
-        $empleado = $patrono->empleados()->findOrFail($empleadoId);
-        $empleado->load('patrono');
-        abort_if(! $empleado->estaActivo(), 409, 'El trabajador está inactivo (ya liquidado).');
-
-        $pagos = PagoInteresPrestaciones::where('empleado_id', $empleado->id)
-            ->orderByDesc('fecha')
-            ->orderByDesc('id')
-            ->get();
-
-        return view('movimientos-prestaciones._pagos-intereses', compact('empleado', 'pagos'));
-    }
-
-    /** Registra un pago de intereses sobre prestaciones desde la creación de movimientos. */
-    public function pagarInteresPrestaciones(Request $request, int $empleadoId): RedirectResponse
-    {
-        $patrono = $this->patronoActual();
-        $empleado = $patrono->empleados()->findOrFail($empleadoId);
-        $empleado->load('patrono');
-        abort_if(! $empleado->estaActivo(), 409, 'El trabajador está inactivo (ya liquidado).');
-
-        $request->merge([
-            'monto' => (string) parsear_numero((string) $request->input('monto')),
-        ]);
-
-        $data = $request->validate([
-            'fecha'       => ['required', 'date', 'before_or_equal:today'],
-            'monto'       => ['required', 'numeric', 'min:0.01'],
-            'moneda'      => ['required', 'in:USD,BS'],
-            'comprobante' => ['nullable', 'string', 'max:100'],
-            'observacion' => ['nullable', 'string', 'max:500'],
-        ]);
-
-        $fecha = Carbon::parse($data['fecha']);
-        $tasa = $data['moneda'] === 'USD'
-            ? (new TasasBcvService)->tasaEn($fecha)
-            : null;
-
-        \Illuminate\Support\Facades\DB::transaction(function () use ($empleado, $data, $fecha, $tasa) {
-            PagoInteresPrestaciones::create([
-                'patrono_id'  => $empleado->patrono_id,
-                'empleado_id' => $empleado->id,
-                'fecha'       => $fecha->toDateString(),
-                'monto'       => $data['monto'],
-                'moneda'      => $data['moneda'],
-                'tasa_cambio' => $tasa,
-                'comprobante' => $data['comprobante'] ?? null,
-                'observacion' => $data['observacion'] ?? null,
-            ]);
-
-            app(PrestacionesSocialesService::class)->regenerar($empleado, $fecha->format('Y-m'));
-        });
-
-        return redirect()->route('movimientos-prestaciones.create', ['empleado_id' => $empleado->id])
-            ->with('success', 'Pago de intereses registrado y prestaciones recalculadas.');
-    }
-
-    /** Elimina un pago de intereses sobre prestaciones. */
-    public function destroyInteresPrestaciones(int $empleadoId, PagoInteresPrestaciones $pago): RedirectResponse
-    {
-        $patrono = $this->patronoActual();
-        $empleado = $patrono->empleados()->findOrFail($empleadoId);
-        abort_if(
-            (int) $pago->empleado_id !== (int) $empleado->id
-            || (int) $pago->patrono_id !== (int) $empleado->patrono_id,
-            404
-        );
-
-        \Illuminate\Support\Facades\DB::transaction(function () use ($empleado, $pago) {
-            $periodo = $pago->fecha->format('Y-m');
-            $pago->delete();
-            app(PrestacionesSocialesService::class)->regenerar($empleado, $periodo);
-        });
-
-        return redirect()->route('movimientos-prestaciones.create', ['empleado_id' => $empleado->id])
-            ->with('success', 'Pago de intereses eliminado y prestaciones recalculadas.');
     }
 
     /** Detalle de un movimiento con sus intereses pagados. */
-    public function show(MovimientoPrestaciones $movimiento, Request $request): View    {
+    public function show(MovimientoPrestaciones $movimiento, Request $request): View
+    {
         abort_if((int) $movimiento->patrono_id !== (int) session('patrono_id'), 404);
 
         $movimiento->load(['empleado', 'intereses']);
@@ -250,10 +169,10 @@ class MovimientosPrestacionesController extends Controller
         abort_if($movimiento->esAnticipo(), 409, 'Los anticipos no generan intereses.');
 
         $validated = $request->validate([
-            'fecha'   => ['required', 'date'],
-            'monto'   => ['required', 'numeric', 'min:0.01'],
-            'moneda'  => ['required', 'in:USD,BS'],
-            'concepto'=> ['nullable', 'string', 'max:255'],
+            'fecha' => ['required', 'date'],
+            'monto' => ['required', 'numeric', 'min:0.01'],
+            'moneda' => ['required', 'in:USD,BS'],
+            'concepto' => ['nullable', 'string', 'max:255'],
         ]);
 
         $this->service->registrarInteres(
@@ -292,7 +211,7 @@ class MovimientosPrestacionesController extends Controller
 
         try {
             $this->service->anular($movimiento);
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             return back()->with('error', $e->getMessage());
         }
 
@@ -309,7 +228,7 @@ class MovimientosPrestacionesController extends Controller
                 ->with('error', 'Anule el movimiento antes de eliminarlo.');
         }
 
-        $movimiento->delete();
+        $this->service->eliminar($movimiento);
 
         return redirect()->route('movimientos-prestaciones.index')
             ->with('success', 'Movimiento eliminado.');
@@ -318,17 +237,20 @@ class MovimientosPrestacionesController extends Controller
     /** Reglas de validación compartidas. */
     private function reglas(Patrono $patrono, ?int $ignoreId): array
     {
+        $limiteProyeccion = now()->addMonths(12)->endOfMonth()->toDateString();
+
         return [
-            'empleado_id'  => ['required', 'integer', Rule::exists('empleados', 'id')->where('patrono_id', $patrono->id)],
-            'tipo'         => ['required', Rule::in([MovimientoPrestaciones::TIPO_ANTICIPO, MovimientoPrestaciones::TIPO_PRESTAMO])],
-            'fecha'        => ['required', 'date'],
-            'concepto'     => ['nullable', 'string', 'max:255'],
-            'motivo'       => ['nullable', Rule::in(MovimientoPrestaciones::MOTIVOS_ANTICIPO)],
-            'monto'        => ['required', 'numeric', 'min:0.01'],
-            'moneda'       => ['required', 'in:USD,BS'],
-            'plazo_meses'  => ['nullable', 'integer', 'min:1', 'max:120'],
-            'interes_anual'=> ['nullable', 'numeric', 'min:0', 'max:100'],
-            'observacion'  => ['nullable', 'string'],
+            'empleado_id' => ['required', 'integer', Rule::exists('empleados', 'id')->where('patrono_id', $patrono->id)],
+            'tipo' => ['required', Rule::in([MovimientoPrestaciones::TIPO_ANTICIPO, MovimientoPrestaciones::TIPO_PRESTAMO])],
+            'fecha' => ['required', 'date', 'before_or_equal:'.$limiteProyeccion],
+            'fecha_comprobante' => ['nullable', 'date'],
+            'concepto' => ['nullable', 'string', 'max:255'],
+            'motivo' => ['nullable', Rule::in(MovimientoPrestaciones::MOTIVOS_ANTICIPO)],
+            'monto' => ['required', 'numeric', 'min:0.01'],
+            'moneda' => ['required', 'in:USD,BS'],
+            'plazo_meses' => ['nullable', 'integer', 'min:1', 'max:120'],
+            'interes_anual' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'observacion' => ['nullable', 'string'],
         ];
     }
 }

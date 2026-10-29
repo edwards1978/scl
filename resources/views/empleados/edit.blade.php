@@ -75,7 +75,7 @@
 						@error('fecha_ingreso') <p class="text-xs text-red-500 mt-0.5">{{ $message }}</p> @enderror
 					</div>
 					<div>
-						<label class="block text-xs font-medium text-gray-600 mb-0.5">Salario Base ({{ old('moneda', $empleado->moneda) === 'USD' ? 'USD' : 'Bs.' }})</label>
+						<label class="block text-xs font-medium text-gray-600 mb-0.5">Salario Base mensual ({{ old('moneda', $empleado->moneda) === 'USD' ? 'USD' : 'Bs.' }})</label>
 						<input type="text" name="salario_base" value="{{ old('salario_base', number_format($empleado->salario_base, 2, '.', '')) }}" class="w-full border border-gray-300 px-2 py-1.5 text-sm">
 						@error('salario_base') <p class="text-xs text-red-500 mt-0.5">{{ $message }}</p> @enderror
 					</div>

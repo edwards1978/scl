@@ -7,22 +7,32 @@
 		<a href="{{ route('patronos.create') }}" class="px-3 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700">+ Nuevo Patrono</a>
 	</div>
 
-	<form method="GET" class="mb-3 flex gap-2">
+	{{-- Filtros --}}
+	<form method="GET" action="{{ route('patronos.index') }}" class="mb-4 bg-white border border-gray-200 p-3 flex flex-wrap items-end gap-3">
 		<input type="hidden" name="porPagina" value="{{ $patronos->perPage() }}">
-		<select name="campo" class="border border-gray-300 px-2 py-1.5 text-xs bg-white">
-			<option value="razon_social" {{ $campo === 'razon_social' ? 'selected' : '' }}>Razón Social</option>
-			<option value="rif" {{ $campo === 'rif' ? 'selected' : '' }}>R.I.F.</option>
-		</select>
-		<input type="text" name="buscar" placeholder="Buscar…" value="{{ request('buscar') }}" class="border border-gray-300 px-2 py-1.5 text-sm flex-1 max-w-xs">
-		<button type="submit" class="px-3 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700">Buscar</button>
+		<div>
+			<label class="block text-xs font-medium text-gray-600 mb-1">Campo</label>
+			<select name="campo" class="border border-gray-300 px-2 py-1.5 text-sm bg-white">
+				<option value="razon_social" {{ $campo === 'razon_social' ? 'selected' : '' }}>Razón Social</option>
+				<option value="rif" {{ $campo === 'rif' ? 'selected' : '' }}>R.I.F.</option>
+			</select>
+		</div>
+		<div class="flex-1 max-w-xs">
+			<label class="block text-xs font-medium text-gray-600 mb-1">Buscar</label>
+			<input type="text" name="buscar" placeholder="Buscar…" value="{{ request('buscar') }}" class="w-full border border-gray-300 px-2 py-1.5 text-sm">
+		</div>
+		<button type="submit" class="px-3 py-1.5 text-sm border border-gray-300 text-gray-600 hover:bg-gray-50">Filtrar</button>
 		@if (request('buscar'))
-			<a href="{{ route('patronos.index') }}" class="px-3 py-1.5 text-sm bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-300">Limpiar</a>
+			<a href="{{ route('patronos.index') }}" class="px-2 py-1.5 text-sm text-gray-500 hover:text-gray-700">Limpiar</a>
 		@endif
 	</form>
 
 	@if ($patronos->isEmpty())
 		<div class="text-center py-8 text-gray-400"><p class="text-sm">No hay patronos registrados.</p></div>
 	@else
+		<div class="mb-1 flex justify-end">
+			<x-orden-indicador campo="Razón Social" direccion="asc" />
+		</div>
 		<div class="bg-white border border-gray-200 overflow-x-auto">
 			<table class="w-full text-sm">
 				<thead class="bg-gray-50 text-gray-600 text-xs uppercase">

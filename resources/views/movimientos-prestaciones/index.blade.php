@@ -46,12 +46,27 @@
 		</div>
 	</form>
 
+	{{-- Totales del filtro --}}
+	<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+		<div class="bg-white border border-gray-200 p-4">
+			<p class="text-xs text-gray-500 mb-1">Total pagado en USD</p>
+			<p class="text-lg font-semibold">{{ formato_monto((float) ($totales['USD'] ?? 0)) }}</p>
+		</div>
+		<div class="bg-white border border-gray-200 p-4">
+			<p class="text-xs text-gray-500 mb-1">Total pagado en Bs.</p>
+			<p class="text-lg font-semibold">{{ formato_monto((float) ($totales['BS'] ?? 0)) }}</p>
+		</div>
+	</div>
+
 	{{-- Tabla --}}
 	@if ($movimientos->isEmpty())
 		<div class="text-center py-12 text-gray-400">
 			<p class="text-sm">No hay movimientos registrados.</p>
 		</div>
 	@else
+		<div class="mb-1 flex justify-end">
+			<x-orden-indicador campo="Fecha" direccion="desc" />
+		</div>
 		<div class="bg-white border border-gray-200 overflow-x-auto">
 			<table class="w-full text-sm">
 				<thead class="bg-gray-50 text-gray-600 text-xs uppercase">
@@ -59,6 +74,7 @@
 						<th class="text-left px-3 py-2">Trabajador</th>
 						<th class="text-center px-3 py-2">Tipo</th>
 						<th class="text-center px-3 py-2">Fecha</th>
+						<th class="text-center px-3 py-2">F. comprobante</th>
 						<th class="text-center px-3 py-2">Motivo</th>
 						<th class="text-right px-3 py-2">Monto</th>
 						<th class="text-right px-3 py-2">Saldo</th>
@@ -77,6 +93,7 @@
 								<span class="inline-flex text-[10px] px-2 py-0.5 {{ $m->esAnticipo() ? 'bg-purple-50 text-purple-700' : 'bg-indigo-50 text-indigo-700' }}">{{ $m->labelTipo() }}</span>
 							</td>
 							<td class="px-3 py-2 text-center">{{ $m->fecha->format('d/m/Y') }}</td>
+							<td class="px-3 py-2 text-center">{{ $m->fecha_comprobante?->format('d/m/Y') ?? '—' }}</td>
 							<td class="px-3 py-2 text-center">{{ $m->labelMotivo() ?? '—' }}</td>
 							<td class="px-3 py-2 text-right font-medium">
 								{{ $m->moneda }} {{ formato_monto((float) $m->monto) }}

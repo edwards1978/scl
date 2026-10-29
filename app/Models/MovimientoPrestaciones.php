@@ -13,6 +13,7 @@ class MovimientoPrestaciones extends Model
     protected $table = 'movimientos_prestaciones';
 
     public const TIPO_ANTICIPO = 'anticipo';
+
     public const TIPO_PRESTAMO = 'prestamo';
 
     public const MOTIVOS_ANTICIPO = ['vivienda', 'educacion', 'salud'];
@@ -22,6 +23,7 @@ class MovimientoPrestaciones extends Model
         'empleado_id',
         'tipo',
         'fecha',
+        'fecha_comprobante',
         'concepto',
         'motivo',
         'monto',
@@ -38,17 +40,18 @@ class MovimientoPrestaciones extends Model
     protected function casts(): array
     {
         return [
-            'fecha'        => 'date',
-            'monto'        => 'decimal:2',
-            'tasa_cambio'  => 'decimal:4',
-            'plazo_meses'  => 'integer',
+            'fecha' => 'date',
+            'fecha_comprobante' => 'date',
+            'monto' => 'decimal:2',
+            'tasa_cambio' => 'decimal:4',
+            'plazo_meses' => 'integer',
             'interes_anual' => 'decimal:4',
-            'cuota'        => 'decimal:2',
-            'saldo'        => 'decimal:2',
-            'tipo'         => 'string',
-            'motivo'       => 'string',
-            'moneda'       => 'string',
-            'estatus'      => 'string',
+            'cuota' => 'decimal:2',
+            'saldo' => 'decimal:2',
+            'tipo' => 'string',
+            'motivo' => 'string',
+            'moneda' => 'string',
+            'estatus' => 'string',
         ];
     }
 
@@ -85,10 +88,10 @@ class MovimientoPrestaciones extends Model
     public function labelMotivo(): ?string
     {
         return match ($this->motivo) {
-            'vivienda'  => 'Vivienda',
+            'vivienda' => 'Vivienda',
             'educacion' => 'Educación',
-            'salud'     => 'Salud',
-            default     => null,
+            'salud' => 'Salud',
+            default => null,
         };
     }
 
@@ -100,9 +103,9 @@ class MovimientoPrestaciones extends Model
     public function colorEstatus(): string
     {
         return match ($this->estatus) {
-            'activo'  => 'bg-blue-50 text-blue-700',
-            'pagado'  => 'bg-green-50 text-green-700',
-            default   => 'bg-gray-100 text-gray-500',
+            'activo' => 'bg-blue-50 text-blue-700',
+            'pagado' => 'bg-green-50 text-green-700',
+            default => 'bg-gray-100 text-gray-500',
         };
     }
 }

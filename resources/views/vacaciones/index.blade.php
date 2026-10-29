@@ -12,9 +12,10 @@
 		<a href="{{ route('entorno.seleccionar') }}" class="ml-1 text-xs text-blue-600 underline">Cambiar</a>
 	</p> -->
 
-	<form method="GET" class="mb-3 flex flex-wrap gap-3 items-end">
-		<div class="flex flex-col">
-			<label class="text-xs text-gray-500 mb-0.5">Trabajador</label>
+	{{-- Filtros --}}
+	<form method="GET" action="{{ route('vacaciones.index') }}" class="mb-4 bg-white border border-gray-200 p-3 flex flex-wrap items-end gap-3">
+		<div>
+			<label class="block text-xs font-medium text-gray-600 mb-1">Trabajador</label>
 			<select name="empleado_id" class="border border-gray-300 px-2 py-1.5 text-sm bg-white w-56">
 				<option value="">Todos</option>
 				@foreach ($empleados as $e)
@@ -22,8 +23,8 @@
 				@endforeach
 			</select>
 		</div>
-		<div class="flex flex-col">
-			<label class="text-xs text-gray-500 mb-0.5">Año (periodo)</label>
+		<div>
+			<label class="block text-xs font-medium text-gray-600 mb-1">Año (periodo)</label>
 			<select name="ano" class="border border-gray-300 px-2 py-1.5 text-sm bg-white w-28">
 				<option value="">Todos</option>
 				@for ($a = now()->year; $a >= now()->year - 3; $a--)
@@ -31,8 +32,8 @@
 				@endfor
 			</select>
 		</div>
-		<div class="flex flex-col">
-			<label class="text-xs text-gray-500 mb-0.5">Estatus cálculo</label>
+		<div>
+			<label class="block text-xs font-medium text-gray-600 mb-1">Estatus cálculo</label>
 			<select name="estatus_calculo" class="border border-gray-300 px-2 py-1.5 text-sm bg-white w-44">
 				<option value="">Todos</option>
 				<option value="por_aprobar" {{ request('estatus_calculo') == 'por_aprobar' ? 'selected' : '' }}>Por aprobar</option>
@@ -40,25 +41,26 @@
 				<option value="no_aprobada" {{ request('estatus_calculo') == 'no_aprobada' ? 'selected' : '' }}>No aprobada</option>
 			</select>
 		</div>
-		<div class="flex flex-col">
-			<label class="text-xs text-gray-500 mb-0.5">Estatus vacación</label>
+		<div>
+			<label class="block text-xs font-medium text-gray-600 mb-1">Estatus vacación</label>
 			<select name="estatus_vacacion" class="border border-gray-300 px-2 py-1.5 text-sm bg-white w-44">
 				<option value="">Todos</option>
 				<option value="pendiente" {{ request('estatus_vacacion') == 'pendiente' ? 'selected' : '' }}>Pendiente</option>
 				<option value="pagada" {{ request('estatus_vacacion') == 'pagada' ? 'selected' : '' }}>Pagada/Disfrutada</option>
 			</select>
 		</div>
-		<div class="flex items-end gap-2">
-			<button type="submit" class="px-3 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700">Filtrar</button>
-			@if (request()->hasAny(['empleado_id', 'ano', 'estatus_calculo', 'estatus_vacacion']))
-				<a href="{{ route('vacaciones.index') }}" class="px-2 py-1.5 text-sm border border-gray-300 text-gray-600 hover:bg-gray-100">Limpiar</a>
-			@endif
-		</div>
+		<button type="submit" class="px-3 py-1.5 text-sm border border-gray-300 text-gray-600 hover:bg-gray-50">Filtrar</button>
+		@if (request()->hasAny(['empleado_id', 'ano', 'estatus_calculo', 'estatus_vacacion']))
+			<a href="{{ route('vacaciones.index') }}" class="px-2 py-1.5 text-sm text-gray-500 hover:text-gray-700">Limpiar</a>
+		@endif
 	</form>
 
 	@if ($vacaciones->isEmpty())
 		<div class="text-center py-8 text-gray-400"><p class="text-sm">No hay periodos de vacaciones registrados para este patrono.</p></div>
 	@else
+		<div class="mb-1 flex justify-end">
+			<x-orden-indicador campo="Fecha de cálculo" direccion="desc" />
+		</div>
 		<div class="bg-white border border-gray-200 overflow-x-auto">
 			<table class="w-full text-xs">
 				<thead class="bg-gray-50 text-gray-500 uppercase">

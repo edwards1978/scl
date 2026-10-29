@@ -30,7 +30,7 @@
 <body>
 	<div class="header">
 		<h1 class="h1">{{ $patrono->razon_social }}</h1>
-		<h2 class="h2">RIF ({{ $patrono->rif }})</h2>
+		<h2 class="h2">RIF {{ $patrono->rif }}</h2>
 		<p class="sub">Recibo de Liquidación de Prestaciones Sociales y otros conceptos laborales por Terminación de la Relación Laboral</p>
 	</div>
 

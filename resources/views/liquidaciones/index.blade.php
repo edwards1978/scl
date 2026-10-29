@@ -40,6 +40,9 @@
 			<p class="text-sm">No hay liquidaciones registradas.</p>
 		</div>
 	@else
+		<div class="mb-1 flex justify-end">
+			<x-orden-indicador campo="Fecha de liquidación" direccion="desc" />
+		</div>
 		<div class="bg-white border border-gray-200 overflow-x-auto">
 			<table class="w-full text-sm">
 				<thead class="bg-gray-50 text-gray-600 text-xs uppercase">

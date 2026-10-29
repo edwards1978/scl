@@ -28,22 +28,36 @@
 		</div>
 	</form>
 
-	{{-- Calcular --}}
-	<form method="POST" action="{{ route('utilidades.calcular') }}" class="mb-4 bg-white border border-gray-200 p-3 flex flex-wrap items-end gap-3">
-		@csrf
-		<div>
-			<label class="block text-xs font-medium text-gray-600 mb-1">Año a calcular</label>
-			<input type="number" name="anio" min="2000" max="2200" value="{{ $anio !== 'todos' ? $anio : now()->year }}" class="w-28 border border-gray-300 px-2 py-1.5 text-sm">
-		</div>
-		<div>
-			<label class="block text-xs font-medium text-gray-600 mb-1">Base del salario</label>
-			<select name="tipo_base" class="border border-gray-300 px-2 py-1.5 text-sm bg-white">
-				<option value="ultimo">Último sueldo registrado</option>
-				<option value="promedio">Promedio del período</option>
-			</select>
-		</div>
-		<button class="px-3 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700">Calcular bonificación</button>
-	</form>
+	{{-- Calcular / aprobar en bloque --}}
+	<div class="mb-4 flex flex-wrap items-stretch gap-3">
+		<form method="POST" action="{{ route('utilidades.calcular') }}" class="flex-1 bg-white border border-gray-200 p-3 flex flex-wrap items-end gap-3">
+			@csrf
+			<div>
+				<label class="block text-xs font-medium text-gray-600 mb-1">Año a calcular</label>
+				<input type="number" name="anio" min="2000" max="2200" value="{{ $anio !== 'todos' ? $anio : now()->year }}" class="w-28 border border-gray-300 px-2 py-1.5 text-sm">
+			</div>
+			<div>
+				<label class="block text-xs font-medium text-gray-600 mb-1">Base del salario</label>
+				<select name="tipo_base" class="border border-gray-300 px-2 py-1.5 text-sm bg-white">
+					<option value="ultimo">Último sueldo registrado</option>
+					<option value="promedio">Promedio del período</option>
+				</select>
+			</div>
+			<button class="px-3 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700">Calcular bonificación</button>
+		</form>
+
+		@if ($pendientes > 0)
+			<form method="POST" action="{{ route('utilidades.aprobar-todas') }}"
+				class="bg-white border border-gray-200 p-3 flex items-end"
+				onsubmit="return confirm('¿Aprobar las {{ $pendientes }} bonificaciones pendientes{{ $anio !== 'todos' ? ' del año '.$anio : '' }}?')">
+				@csrf
+				<input type="hidden" name="anio" value="{{ $anio }}">
+				<button class="px-3 py-1.5 text-sm bg-amber-600 text-white hover:bg-amber-700">
+					✓ Aprobar todas las pendientes ({{ $pendientes }})
+				</button>
+			</form>
+		@endif
+	</div>
 
 	{{-- Tabla general --}}
 	@if ($bonificaciones->isEmpty())
@@ -51,6 +65,9 @@
 			<p class="text-sm">No hay bonificaciones registradas{{ $anio !== 'todos' ? " para el año {$anio}" : '' }}.</p>
 		</div>
 	@else
+		<div class="mb-1 flex justify-end">
+			<x-orden-indicador campo="Año" direccion="desc" />
+		</div>
 		<div class="bg-white border border-gray-200 overflow-x-auto">
 			<table class="w-full text-sm">
 				<thead class="bg-gray-50 text-gray-600 text-xs uppercase">
