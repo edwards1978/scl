@@ -128,11 +128,20 @@ php artisan test
 php artisan test --coverage
 ```
 
-> Las pruebas usan tablas con prefijo `test_` en la misma base de datos y crean
-> el esquema automáticamente en la primera ejecución (`tests/bootstrap.php`).
-> No leen la caché de configuración de producción ni modifican las tablas
-> reales. Si se dispone de otra base para pruebas, configurar `DB_DATABASE` y
-> dejar `DB_PREFIX` vacío en `phpunit.xml`.
+> Las pruebas usan la base separada `scl_test` y no modifican la base de
+> producción `scl`. `tests/bootstrap.php` crea/actualiza el esquema, fuerza
+> `APP_ENV=testing`, `APP_URL=http://localhost` y cachés de configuración
+> aisladas; por eso `php artisan test` funciona sin cargar la caché de
+> producción.
+>
+> La primera vez hay que crear la base y dar permisos al usuario de la
+> aplicación:
+>
+> ```sql
+> CREATE DATABASE IF NOT EXISTS scl_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+> GRANT ALL PRIVILEGES ON scl_test.* TO 'scl'@'localhost';
+> FLUSH PRIVILEGES;
+> ```
 
 ## 📦 Despliegue en Producción
 

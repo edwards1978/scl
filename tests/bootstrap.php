@@ -8,7 +8,60 @@ use Illuminate\Support\Facades\Artisan;
  *
  * Se ejecuta antes de PHPUnit. Migra el esquema de la base de pruebas
  * (`scl_test`) si aún no existe. La suite nunca toca la base de producción.
+ *
+ * La configuración se fija aquí, antes de arrancar Laravel, porque PHPUnit
+ * carga este archivo antes de aplicar el bloque <php> de phpunit.xml. Si no se
+ * hace, se termina usando bootstrap/cache/config.php de producción, con
+ * APP_URL=http://localhost/scl, y las rutas de prueba devuelven 404.
  */
+$basePath = dirname(__DIR__);
+$testCachePath = $basePath.'/storage/framework/testing';
+
+if (! is_dir($testCachePath)) {
+    mkdir($testCachePath, 0775, true);
+}
+
+$environment = [
+    'APP_ENV' => 'testing',
+    'APP_URL' => 'http://localhost',
+    'APP_MAINTENANCE_DRIVER' => 'file',
+    'REGISTRATION_ENABLED' => 'true',
+    'BCRYPT_ROUNDS' => '4',
+    'CACHE_STORE' => 'array',
+    'MAIL_MAILER' => 'array',
+    'PULSE_ENABLED' => 'false',
+    'QUEUE_CONNECTION' => 'sync',
+    'SESSION_DRIVER' => 'array',
+    'TELESCOPE_ENABLED' => 'false',
+    'DB_CONNECTION' => getenv('DB_CONNECTION') ?: 'mysql',
+    'DB_DATABASE' => 'scl_test',
+    'DB_PREFIX' => '',
+    'APP_CONFIG_CACHE' => $testCachePath.'/config.php',
+    'APP_ROUTES_CACHE' => $testCachePath.'/routes-v7.php',
+    'APP_EVENTS_CACHE' => $testCachePath.'/events.php',
+    'APP_SERVICES_CACHE' => $testCachePath.'/services.php',
+    'APP_PACKAGES_CACHE' => $testCachePath.'/packages.php',
+];
+
+foreach ($environment as $key => $value) {
+    putenv("{$key}={$value}");
+    $_ENV[$key] = $value;
+    $_SERVER[$key] = $value;
+}
+
+// Una caché de test generada con una URL/base anterior volvería a romper la
+// suite. Se descarta al inicio para que cada ejecución sea hermética.
+foreach ([
+    $environment['APP_CONFIG_CACHE'],
+    $environment['APP_ROUTES_CACHE'],
+    $environment['APP_EVENTS_CACHE'],
+    $environment['APP_SERVICES_CACHE'],
+    $environment['APP_PACKAGES_CACHE'],
+] as $cacheFile) {
+    if (is_file($cacheFile)) {
+        unlink($cacheFile);
+    }
+}
 
 require __DIR__.'/../vendor/autoload.php';
 
