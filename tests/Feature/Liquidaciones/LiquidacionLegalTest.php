@@ -8,6 +8,7 @@ use App\Models\Liquidacion;
 use App\Models\MovimientoPrestaciones;
 use App\Models\MovimientoPrestacionInteres;
 use App\Models\Patrono;
+use App\Models\PrestacionSocial;
 use App\Models\TasaInteresPrestaciones;
 use App\Models\User;
 use App\Services\LiquidacionService;
@@ -135,6 +136,54 @@ class LiquidacionLegalTest extends TestCase
         );
     }
 
+    public function test_una_liquidacion_futura_proyecta_hasta_el_egreso(): void
+    {
+        [$patrono, $empleado] = $this->crearEscenario();
+
+        $datos = $this->calcular($empleado, Carbon::parse('2026-12-31'));
+
+        $this->assertSame('garantia', $datos['prestaciones_origen']);
+        $this->assertDatabaseHas('prestaciones_sociales', [
+            'empleado_id' => $empleado->id,
+            'periodo' => '2026-12',
+            'es_proyeccion' => true,
+        ]);
+
+        $cuenta = app(PrestacionesSocialesService::class)->estadoDeCuenta($empleado);
+        $this->assertSame('2026-12', $cuenta->last()?->periodo);
+        $this->assertTrue((bool) $cuenta->last()?->es_proyeccion);
+    }
+
+    public function test_guardar_una_liquidacion_futura_registra_periodos_definitivos(): void
+    {
+        [$patrono, $empleado] = $this->crearEscenario();
+
+        TasaInteresPrestaciones::create([
+            'periodo' => '2026-01',
+            'tasa_interes' => 12,
+            'fuente' => 'manual',
+        ]);
+
+        app(LiquidacionService::class)->crear(
+            $empleado,
+            Carbon::parse('2026-12-31'),
+            'retiro_voluntario'
+        );
+
+        $this->assertDatabaseHas('prestaciones_sociales', [
+            'empleado_id' => $empleado->id,
+            'periodo' => '2026-12',
+            'es_proyeccion' => false,
+        ]);
+
+        $diciembre = PrestacionSocial::where('empleado_id', $empleado->id)
+            ->where('periodo', '2026-12')
+            ->first();
+
+        $this->assertNotNull($diciembre);
+        $this->assertSame('2026-12-31', $diciembre->fecha_cierre->toDateString());
+    }
+
     public function test_la_liquidacion_aprobada_ofrece_anularla(): void
     {
         [$patrono, $empleado] = $this->crearEscenario();
@@ -166,7 +215,7 @@ class LiquidacionLegalTest extends TestCase
     /**
      * @return array<string, mixed>
      */
-    private function calcular(Empleado $empleado): array
+    private function calcular(Empleado $empleado, ?Carbon $egreso = null): array
     {
         TasaInteresPrestaciones::create([
             'periodo' => '2026-01',
@@ -176,7 +225,7 @@ class LiquidacionLegalTest extends TestCase
 
         return app(LiquidacionService::class)->calcular(
             $empleado,
-            Carbon::parse('2026-10-20'),
+            $egreso ?? Carbon::parse('2026-10-20'),
             'despido_no_justificado'
         );
     }

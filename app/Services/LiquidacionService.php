@@ -510,6 +510,10 @@ class LiquidacionService
                 'estatus' => 'por_aprobar',
             ]);
 
+            // La liquidación deja los períodos hasta el egreso como definitivos:
+            // no son una proyección informativa, sino la base del pago.
+            $this->prestaciones->registrarPeriodosDefinitivosHasta($empleado, $egreso);
+
             foreach ($datos['asignaciones'] as $concepto) {
                 $liquidacion->conceptos()->create([
                     'tipo' => 'asignacion',

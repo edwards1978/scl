@@ -120,6 +120,15 @@ class LiquidacionController extends Controller
             // Con el egreso ya vigente, los períodos se recalculan con corte en
             // esa fecha para guardar la fracción del último trimestre.
             $this->prestaciones->regenerar($empleado);
+
+            // Si el egreso es futuro, los períodos calculados se registran como
+            // definitivos para que el estado de cuenta y el pago los incluyan.
+            if ($liquidacion->fecha_egreso->isFuture()) {
+                $this->prestaciones->registrarPeriodosDefinitivosHasta(
+                    $empleado,
+                    $liquidacion->fecha_egreso
+                );
+            }
         });
 
         return redirect()->route('liquidaciones.show', $liquidacion->id)

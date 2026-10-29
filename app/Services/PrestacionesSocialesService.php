@@ -208,7 +208,15 @@ class PrestacionesSocialesService
             ? Carbon::createFromFormat('Y-m', $periodo)
             : Carbon::instance($egreso);
 
-        $calculo = $this->calcularMes($empleado, $mes, false, $egreso);
+        // Un egreso futuro se calcula con las proyecciones guardadas hasta ese
+        // mes, para incluir todos los depósitos e intereses intermedios. No se
+        // inventan períodos reales futuros.
+        $incluirProyeccion = Carbon::instance($egreso)->startOfDay()->gt(Carbon::instance(now())->startOfDay());
+        if ($incluirProyeccion) {
+            $this->proyectarParaLiquidacion($empleado, $egreso);
+        }
+
+        $calculo = $this->calcularMes($empleado, $mes, $incluirProyeccion, $egreso);
         $anticipos = $this->totalAnticipos($empleado, $calculo['moneda'], $egreso);
         $capital = round((float) $calculo['capital_final'] + $anticipos, 2);
         $interes = round((float) $calculo['interes_pendiente_final'], 2);
@@ -704,9 +712,13 @@ class PrestacionesSocialesService
     /**
      * Registra un periodo calculado (update-or-insert por empleado+periodo).
      */
-    public function registrarMes(Empleado $empleado, CarbonInterface $fechaDelMes, bool $esProyeccion = false): PrestacionSocial
-    {
-        $data = $this->calcularMes($empleado, $fechaDelMes, $esProyeccion);
+    public function registrarMes(
+        Empleado $empleado,
+        CarbonInterface $fechaDelMes,
+        bool $esProyeccion = false,
+        ?CarbonInterface $fechaEgreso = null,
+    ): PrestacionSocial {
+        $data = $this->calcularMes($empleado, $fechaDelMes, $esProyeccion, $fechaEgreso);
 
         return PrestacionSocial::updateOrCreate(
             [
@@ -964,6 +976,62 @@ class PrestacionesSocialesService
         }
 
         return $this->proyectarEmpleado($empleado, $this->mesProyeccionValido($mes->format('Y-m')));
+    }
+
+    /**
+     * Registra como definitivos los períodos que faltan hasta el egreso de
+     * una liquidación. Se usa al guardar/aprobar la liquidación, no en la
+     * vista previa. El último período cierra en la fecha de egreso.
+     */
+    public function registrarPeriodosDefinitivosHasta(Empleado $empleado, CarbonInterface $egreso): int
+    {
+        $hastaMes = $this->periodoDeFecha($empleado, $egreso);
+        if ($hastaMes === null) {
+            return 0;
+        }
+
+        $this->asegurarPeriodos($empleado);
+
+        $ultimoReal = PrestacionSocial::where('empleado_id', $empleado->id)
+            ->where('es_proyeccion', false)
+            ->orderByDesc('periodo')
+            ->first();
+
+        $inicio = $ultimoReal
+            ? Carbon::createFromFormat('Y-m', $ultimoReal->periodo)->addMonth()->startOfMonth()
+            : Carbon::createFromFormat('Y-m', $hastaMes)->startOfMonth();
+
+        $creados = 0;
+        for ($mes = $inicio->copy(); $mes->format('Y-m') <= $hastaMes; $mes->addMonth()) {
+            $this->registrarMes($empleado, $mes, false, $egreso);
+            $creados++;
+        }
+
+        return $creados;
+    }
+
+    /**
+     * Genera/actualiza la proyección hasta el egreso de una liquidación. Usa
+     * exactamente el mismo motor de proyecciones, pero sin el límite de 12
+     * meses porque el egreso puede estar más lejos.
+     */
+    public function proyectarParaLiquidacion(Empleado $empleado, CarbonInterface $egreso): int
+    {
+        $mes = Carbon::instance($egreso)->startOfMonth();
+        $limite = Carbon::instance(now())->startOfMonth();
+        if ($mes->lte($limite)) {
+            return 0;
+        }
+
+        $horizonte = PrestacionSocial::where('empleado_id', $empleado->id)
+            ->where('es_proyeccion', true)
+            ->max('periodo');
+
+        if ($horizonte !== null && Carbon::createFromFormat('Y-m', $horizonte)->startOfMonth()->gte($mes)) {
+            return 0;
+        }
+
+        return $this->proyectarEmpleado($empleado, $mes);
     }
 
     /**
