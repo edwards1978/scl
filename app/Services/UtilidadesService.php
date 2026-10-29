@@ -9,6 +9,7 @@ use App\Models\Empleado;
 use App\Models\Parametro;
 use App\Models\Patrono;
 use Carbon\Carbon;
+use DomainException;
 
 /**
  * Utilidades y Bonificación de Fin de Año (anticipo de utilidades).
@@ -156,6 +157,15 @@ class UtilidadesService
      */
     public function calcularBonificacion(Empleado $empleado, int $anio, int $diasBase, string $tipoBase = 'ultimo'): BonificacionFinAno
     {
+        $bonificacion = BonificacionFinAno::withTrashed()
+            ->where('empleado_id', $empleado->id)
+            ->where('anio', $anio)
+            ->first();
+
+        if ($bonificacion?->estatus === 'aprobado') {
+            throw new DomainException('La bonificación ya está aprobada y emitida; no se puede recalcular.');
+        }
+
         $patrono = $empleado->patrono;
         $periodo = $this->periodoDeAnio($anio);
         $meses = $this->mesesLaborados($empleado, $anio);
@@ -197,13 +207,10 @@ class UtilidadesService
             'observacion' => "{$meses} mes(es) laborados — {$dias} días de bono",
         ]];
 
-        $bonificacion = BonificacionFinAno::withTrashed()
-            ->where('empleado_id', $empleado->id)
-            ->where('anio', $anio)
-            ->first() ?? new BonificacionFinAno([
-                'empleado_id' => $empleado->id,
-                'anio' => $anio,
-            ]);
+        $bonificacion ??= new BonificacionFinAno([
+            'empleado_id' => $empleado->id,
+            'anio' => $anio,
+        ]);
 
         if ($bonificacion->exists && $bonificacion->trashed()) {
             $bonificacion->restore();

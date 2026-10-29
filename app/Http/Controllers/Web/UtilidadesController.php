@@ -10,6 +10,7 @@ use App\Models\Patrono;
 use App\Services\UtilidadesService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
+use DomainException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -86,13 +87,34 @@ class UtilidadesController extends Controller
         $dias = max(1, (int) $patrono->dias_bonificacion);
 
         $procesados = 0;
+        $omitidos = 0;
+
         foreach ($patrono->empleados()->where('estatus', 'Activo')->get() as $empleado) {
-            $this->service->calcularBonificacion($empleado, $anio, $dias, $data['tipo_base']);
-            $procesados++;
+            try {
+                $this->service->calcularBonificacion($empleado, $anio, $dias, $data['tipo_base']);
+                $procesados++;
+            } catch (DomainException) {
+                $omitidos++;
+            }
+        }
+
+        if ($procesados === 0) {
+            $mensaje = $omitidos > 0
+                ? "No se recalculó ninguna bonificación: {$omitidos} ya están aprobadas y emitidas."
+                : "No hay trabajadores activos para calcular el año {$anio}.";
+
+            return redirect()->route('utilidades.index', ['anio' => $anio])
+                ->with('info', $mensaje);
+        }
+
+        $mensaje = "Bonificación calculada para {$procesados} trabajador(es) del año {$anio}.";
+
+        if ($omitidos > 0) {
+            $mensaje .= " Se omitieron {$omitidos} ya aprobada(s) y emitida(s).";
         }
 
         return redirect()->route('utilidades.index', ['anio' => $anio])
-            ->with('success', "Bonificación calculada para {$procesados} trabajador(es) del año {$anio}.");
+            ->with('success', $mensaje);
     }
 
     /** Recalcula la bonificación de un trabajador (individual). */
@@ -107,12 +129,17 @@ class UtilidadesController extends Controller
             ? (string) $request->get('tipo_base')
             : 'ultimo';
 
-        $this->service->calcularBonificacion(
-            $empleado,
-            (int) $bonificacion->anio,
-            (int) $bonificacion->dias_base,
-            $tipoBase
-        );
+        try {
+            $this->service->calcularBonificacion(
+                $empleado,
+                (int) $bonificacion->anio,
+                (int) $bonificacion->dias_base,
+                $tipoBase
+            );
+        } catch (DomainException $exception) {
+            return redirect()->route('utilidades.index', ['anio' => $bonificacion->anio])
+                ->with('error', $exception->getMessage());
+        }
 
         return redirect()->route('utilidades.index', ['anio' => $bonificacion->anio])
             ->with('success', "Bonificación de {$empleado->nombre_completo} recalculada.");

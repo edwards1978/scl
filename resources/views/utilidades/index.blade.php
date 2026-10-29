@@ -44,6 +44,7 @@
 				</select>
 			</div>
 			<button class="px-3 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700">Calcular bonificación</button>
+			<p class="w-full text-[11px] text-gray-500">Las bonificaciones ya aprobadas y emitidas no se recalculan.</p>
 		</form>
 
 		@if ($pendientes > 0)
@@ -118,10 +119,14 @@
 										</form>
 									@endcan
 								@endif
-								<form action="{{ route('utilidades.recalcular', $b->id) }}" method="POST" onsubmit="return confirm('¿Recalcular esta bonificación?')">
-									@csrf
-									<button class="p-1 text-gray-500 hover:text-blue-600" title="Recalcular">↻</button>
-								</form>
+								@if ($b->estatus !== 'aprobado')
+									<form action="{{ route('utilidades.recalcular', $b->id) }}" method="POST" onsubmit="return confirm('¿Recalcular esta bonificación?')">
+										@csrf
+										<button class="p-1 text-gray-500 hover:text-blue-600" title="Recalcular">↻</button>
+									</form>
+								@else
+									<span class="p-1 text-gray-300 cursor-not-allowed" title="Aprobada y emitida: no se puede recalcular">🔒</span>
+								@endif
 								@can('eliminar')
 									<form action="{{ route('utilidades.destroy', $b->id) }}" method="POST"
 										onsubmit="return confirm('¿Eliminar esta bonificación?')">
