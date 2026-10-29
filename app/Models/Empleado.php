@@ -148,4 +148,24 @@ class Empleado extends Model
             || Liquidacion::where('empleado_id', $this->id)->exists()
             || BonificacionFinAno::where('empleado_id', $this->id)->exists();
     }
+
+    /**
+     * Documentos y cálculos que una purga definitiva borraría en cascada.
+     * Incluye los que ya están en la papelera; el cambio salarial de ingreso
+     * no bloquea porque pertenece al propio trabajador.
+     */
+    public function tieneDocumentosAsociados(): bool
+    {
+        return Vacacion::withTrashed()->where('empleado_id', $this->id)->exists()
+            || Sueldo::where('empleado_id', $this->id)->exists()
+            || CambioSalario::withTrashed()
+                ->where('empleado_id', $this->id)
+                ->whereDate('fecha_cambio', '!=', $this->fecha_ingreso)
+                ->exists()
+            || MovimientoPrestaciones::withTrashed()->where('empleado_id', $this->id)->exists()
+            || PagoInteresPrestaciones::withTrashed()->where('empleado_id', $this->id)->exists()
+            || PrestacionSocial::where('empleado_id', $this->id)->exists()
+            || Liquidacion::withTrashed()->where('empleado_id', $this->id)->exists()
+            || BonificacionFinAno::withTrashed()->where('empleado_id', $this->id)->exists();
+    }
 }

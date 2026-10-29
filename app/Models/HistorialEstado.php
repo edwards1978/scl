@@ -80,6 +80,7 @@ class HistorialEstado extends Model
             'disfrutada' => 'Disfrutada',
             'eliminado' => 'Eliminado',
             'restaurado' => 'Restaurado',
+            'purgado' => 'Purgado definitivamente',
             default => ucfirst(str_replace('_', ' ', $valor)),
         };
     }

@@ -53,6 +53,9 @@ Route::middleware('auth')->group(function () {
         Route::post('{tipo}/{id}/restaurar', [PapeleraController::class, 'restaurar'])
             ->whereNumber('id')
             ->name('restaurar');
+        Route::delete('{tipo}/{id}', [PapeleraController::class, 'purgar'])
+            ->whereNumber('id')
+            ->name('purgar');
     });
 
     // Días feriados (calendario laboral)

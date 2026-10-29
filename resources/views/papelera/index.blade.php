@@ -12,6 +12,11 @@
 	<div class="mb-4">
 		<h1 class="text-xl font-semibold">Papelera</h1>
 		<p class="text-sm text-gray-600">Registros eliminados con borrado lógico. Restaurarlos los devuelve a su módulo original.</p>
+		@if ($retencionDias > 0)
+			<p class="text-xs text-gray-500 mt-1">Purga automática: los registros se eliminan definitivamente {{ $retencionDias }} días después de ir a la papelera.</p>
+		@else
+			<p class="text-xs text-gray-500 mt-1">La purga automática está desactivada; solo un administrador puede purgar manualmente.</p>
+		@endif
 	</div>
 
 	<form method="GET" action="{{ route('papelera.index') }}" class="mb-4 bg-white border border-gray-200 p-3 flex flex-wrap items-end gap-3">
@@ -72,6 +77,9 @@
 						@php
 							$historial = method_exists($registro, 'historialEstados') ? $registro->historialEstados : collect();
 							$eliminacion = $historial->firstWhere('campo', 'papelera');
+							$fechaPurga = $retencionDias > 0 && $registro->deleted_at
+								? $registro->deleted_at->copy()->addDays($retencionDias)
+								: null;
 						@endphp
 						<tr class="hover:bg-gray-50">
 							<td class="px-4 py-2 font-medium">{{ $config['titulo']($registro) }}</td>
@@ -79,13 +87,26 @@
 							<td class="px-4 py-2 text-xs text-gray-500">
 								<div>{{ $registro->deleted_at?->format('d/m/Y H:i') }}</div>
 								<div class="text-gray-400">{{ $eliminacion?->user?->name ?? 'Usuario no disponible' }}</div>
+								@if ($fechaPurga)
+									<div class="text-amber-600 mt-1">
+										{{ $fechaPurga->isPast() ? 'Pendiente de purga' : 'Purga: '.$fechaPurga->format('d/m/Y') }}
+									</div>
+								@endif
 							</td>
 							<td class="px-4 py-2 text-right">
-								<form action="{{ route('papelera.restaurar', ['tipo' => $tipoActivo, 'id' => $registro->getKey()]) }}" method="POST"
-									onsubmit="return confirm('¿Restaurar este registro?')">
-									@csrf
-									<button type="submit" class="px-3 py-1 text-xs bg-green-600 text-white hover:bg-green-700">Restaurar</button>
-								</form>
+								<div class="inline-flex items-center gap-2">
+									<form action="{{ route('papelera.restaurar', ['tipo' => $tipoActivo, 'id' => $registro->getKey()]) }}" method="POST"
+										onsubmit="return confirm('¿Restaurar este registro?')">
+										@csrf
+										<button type="submit" class="px-3 py-1 text-xs bg-green-600 text-white hover:bg-green-700">Restaurar</button>
+									</form>
+									<form action="{{ route('papelera.purgar', ['tipo' => $tipoActivo, 'id' => $registro->getKey()]) }}" method="POST"
+										onsubmit="return confirm('¿Purgar este registro definitivamente? Esta acción no se puede deshacer.')">
+										@csrf
+										@method('DELETE')
+										<button type="submit" class="px-3 py-1 text-xs border border-red-300 text-red-600 hover:bg-red-50">Purgar</button>
+									</form>
+								</div>
 							</td>
 						</tr>
 					@endforeach
@@ -111,23 +132,30 @@
 							<th class="text-left px-4 py-2">Acción</th>
 							<th class="text-left px-4 py-2">Tipo</th>
 							<th class="text-left px-4 py-2">Registro</th>
+							<th class="text-left px-4 py-2">Detalle</th>
 						</tr>
 					</thead>
 					<tbody class="divide-y divide-gray-100">
 						@foreach ($eventosPapelera as $evento)
 							@php
 								$tipoEvento = collect($tipos)->first(fn (array $tipo): bool => $tipo['modelo'] === $evento->auditable_type);
+								$colorAccion = match ($evento->valor_nuevo) {
+									'eliminado' => 'bg-red-50 text-red-700',
+									'purgado' => 'bg-amber-50 text-amber-700',
+									default => 'bg-green-50 text-green-700',
+								};
 							@endphp
 							<tr>
 								<td class="px-4 py-2 text-xs text-gray-500 whitespace-nowrap">{{ $evento->created_at?->format('d/m/Y H:i') ?? '—' }}</td>
 								<td class="px-4 py-2">{{ $evento->user?->name ?? 'Sistema' }}</td>
 								<td class="px-4 py-2">
-									<span class="inline-flex text-[10px] px-2 py-0.5 {{ $evento->valor_nuevo === 'eliminado' ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700' }}">
+									<span class="inline-flex text-[10px] px-2 py-0.5 {{ $colorAccion }}">
 										{{ $evento->labelValor($evento->valor_nuevo) }}
 									</span>
 								</td>
 								<td class="px-4 py-2 text-xs text-gray-500">{{ $tipoEvento['label'] ?? class_basename($evento->auditable_type) }}</td>
 								<td class="px-4 py-2 text-xs text-gray-500">#{{ $evento->auditable_id }}</td>
+								<td class="px-4 py-2 text-xs text-gray-500">{{ $evento->nota ?? '—' }}</td>
 							</tr>
 						@endforeach
 					</tbody>
