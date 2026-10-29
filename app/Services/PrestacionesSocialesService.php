@@ -190,6 +190,19 @@ class PrestacionesSocialesService
      */
     public function garantiaBrutaAlEgreso(Empleado $empleado, CarbonInterface $egreso): float
     {
+        return $this->garantiaDetalladaAlEgreso($empleado, $egreso)['total'];
+    }
+
+    /**
+     * Garantía de egreso separada en capital e interés pendiente. El capital
+     * incluye los anticipos que fueron restados del saldo, para comparar la
+     * garantía bruta contra el literal c. El interés es el devengado y no
+     * pagado/capitalizado al cierre.
+     *
+     * @return array{capital: float, interes: float, total: float, moneda: string}
+     */
+    public function garantiaDetalladaAlEgreso(Empleado $empleado, CarbonInterface $egreso): array
+    {
         $periodo = $this->periodoDeFecha($empleado, $egreso);
         $mes = $periodo
             ? Carbon::createFromFormat('Y-m', $periodo)
@@ -197,8 +210,15 @@ class PrestacionesSocialesService
 
         $calculo = $this->calcularMes($empleado, $mes, false, $egreso);
         $anticipos = $this->totalAnticipos($empleado, $calculo['moneda'], $egreso);
+        $capital = round((float) $calculo['capital_final'] + $anticipos, 2);
+        $interes = round((float) $calculo['interes_pendiente_final'], 2);
 
-        return round($calculo['saldo_final'] + $anticipos, 2);
+        return [
+            'capital' => $capital,
+            'interes' => $interes,
+            'total' => round($capital + $interes, 2),
+            'moneda' => $calculo['moneda'],
+        ];
     }
 
     /**

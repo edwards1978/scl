@@ -7,7 +7,6 @@ namespace App\Services;
 use App\Models\Empleado;
 use App\Models\Liquidacion;
 use App\Models\MovimientoPrestaciones;
-use App\Models\MovimientoPrestacionInteres;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
@@ -31,10 +30,14 @@ use Illuminate\Validation\ValidationException;
  *   Los renglones son editables antes de guardar.
  *
  * Orden de renglones:
- *   Asignaciones: Prestaciones, Intereses, Indemnización (si aplica),
+ *   Asignaciones: Prestaciones, Intereses (Art. 143), Indemnización (si aplica),
  *   Vacaciones fraccionadas, Bono vacacional fraccionado, Utilidades fraccionadas.
- *   Deducciones: Anticipo, Pago de intereses, Préstamos (saldo), luego cada
+ *   Deducciones: Anticipo, Préstamos (capital con tope del 50%), luego cada
  *   deducción de ley habilitada.
+ *
+ *   Los intereses de préstamos no se mezclan con los intereses del Art. 143 ni
+ *   se descuentan en la liquidación. Los préstamos laborales se descuentan por
+ *   capital y con el límite de compensación del Art. 154 LOTTT.
  */
 class LiquidacionService
 {
@@ -49,6 +52,9 @@ class LiquidacionService
     public const FAOV_PCT = 0.01;
 
     public const INCES_PCT = 0.005;
+
+    /** Tope legal de compensación por préstamos (Art. 154 LOTTT). */
+    public const LIMITE_COMPENSACION_PRESTAMOS = 0.50;
 
     /** Motivos de terminación considerados "causa ajena a la voluntad". */
     public const MOTIVOS_CAUSA_AJENA = [
@@ -159,11 +165,11 @@ class LiquidacionService
     }
 
     /**
-     * Deducciones sobre prestaciones: anticipo (saldo), intereses pagados,
-     * préstamos (saldo) y deducciones de ley. Los montos se convierten a la
-     * moneda de la liquidación.
+     * Deducciones sobre prestaciones: anticipo (saldo) y préstamos (capital).
+     * Los intereses de préstamos no se mezclan con el Art. 143 ni se descuentan
+     * aquí; se gestionan por separado en el módulo de préstamos.
      *
-     * @return array{anticipos:float, intereses:float, prestamos:float, de_ley:float, total:float}
+     * @return array{anticipos:float, prestamos:float, total:float}
      */
     public function deducciones(Empleado $empleado, ?CarbonInterface $hasta = null, ?string $moneda = null): array
     {
@@ -184,24 +190,10 @@ class LiquidacionService
             }
         }
 
-        $intereses = 0.0;
-        $pagosInteres = MovimientoPrestacionInteres::with('movimiento')
-            ->when($hasta, fn ($q) => $q->where('fecha', '<=', $hasta->toDateString()))
-            ->whereHas('movimiento', function ($q) use ($empleado, $hasta) {
-                $q->where('empleado_id', $empleado->id)
-                    ->when($hasta, fn ($qq) => $qq->where('fecha', '<=', $hasta->toDateString()));
-            })->get();
-
-        foreach ($pagosInteres as $p) {
-            $intereses += $this->convertir($p, $moneda);
-        }
-
         return [
             'anticipos' => round($anticipos, 2),
-            'intereses' => round($intereses, 2),
             'prestamos' => round($prestamos, 2),
-            'de_ley' => 0.0,
-            'total' => round($anticipos + $intereses + $prestamos, 2),
+            'total' => round($anticipos + $prestamos, 2),
         ];
     }
 
@@ -253,9 +245,11 @@ class LiquidacionService
 
         $importeLiteralC = round($diasPrestaciones * $salarioDiarioIntegral, 2);
         $this->prestaciones->asegurarPeriodos($empleado, $egreso);
-        $garantiaBruta = $this->prestaciones->garantiaBrutaAlEgreso($empleado, $egreso);
+        $garantia = $this->prestaciones->garantiaDetalladaAlEgreso($empleado, $egreso);
+        $garantiaBruta = $garantia['total'];
+        $interesPrestaciones = $garantia['interes'];
         $usaGarantia = $garantiaBruta > $importeLiteralC;
-        $importePrestaciones = $usaGarantia ? $garantiaBruta : $importeLiteralC;
+        $importePrestaciones = $usaGarantia ? $garantia['capital'] : $importeLiteralC;
 
         $fracVac = $this->fraccionVacacional($empleado, $egreso, $mesesFraccion);
         $importeVacaciones = round($fracVac['vacaciones'] * $salarioDiarioNormal, 2);
@@ -269,7 +263,7 @@ class LiquidacionService
                 'orden' => 10,
                 'concepto' => 'Prestaciones sociales',
                 'base_legal' => $usaGarantia
-                    ? 'Art. 142 literal C LOTTT - garantía acumulada (mayor)'
+                    ? 'Art. 142 literal C LOTTT - capital de garantía (mayor)'
                     : 'Art. 142 literal C LOTTT - 30 días por año (mayor)',
                 'dias' => $usaGarantia ? null : $diasPrestaciones,
                 'salario_diario' => $usaGarantia ? null : $salarioDiarioIntegral,
@@ -279,21 +273,21 @@ class LiquidacionService
             [
                 'orden' => 20,
                 'concepto' => 'Intereses sobre prestaciones',
-                'base_legal' => 'Art. 143 LOTTT - incluidos en la garantía comparada',
+                'base_legal' => 'Art. 143 LOTTT - interés pendiente no capitalizado',
                 'dias' => null,
                 'salario_diario' => null,
                 'tipo_salario' => null,
-                'importe' => 0.0,
+                'importe' => $interesPrestaciones,
             ],
         ];
 
-        // Indemnización (Art. 92): valor equivalente a las prestaciones.
-        // Se muestra sin días ni salario, justo debajo de los intereses.
+        // Indemnización (Art. 92): equivalente a las prestaciones, sin incluir
+        // los intereses del Art. 143.
         if ($aplicaIndemnizacion) {
             $asignaciones[] = [
                 'orden' => 30,
                 'concepto' => 'Indemnización por terminación',
-                'base_legal' => 'Art. 92 LOTTT - equivalente a las prestaciones sociales',
+                'base_legal' => 'Art. 92 LOTTT - equivalente a las prestaciones, sin intereses',
                 'dias' => null,
                 'salario_diario' => null,
                 'tipo_salario' => null,
@@ -331,7 +325,12 @@ class LiquidacionService
             ],
         ]);
 
+        $totalAsignaciones = round(array_sum(array_column($asignaciones, 'importe')), 2);
         $deds = $this->deducciones($empleado, $egreso, $moneda);
+        $prestamoRetenido = min(
+            $deds['prestamos'],
+            round($totalAsignaciones * self::LIMITE_COMPENSACION_PRESTAMOS, 2)
+        );
 
         $deducciones = [
             [
@@ -345,21 +344,12 @@ class LiquidacionService
             ],
             [
                 'orden' => 20,
-                'concepto' => 'Pago de intereses',
-                'base_legal' => 'Art. 143 LOTTT',
+                'concepto' => 'Préstamos (capital)',
+                'base_legal' => 'Art. 154 LOTTT - tope 50% de los créditos',
                 'dias' => null,
                 'salario_diario' => null,
                 'tipo_salario' => null,
-                'importe' => $deds['intereses'],
-            ],
-            [
-                'orden' => 30,
-                'concepto' => 'Préstamos (saldo)',
-                'base_legal' => 'Acuerdo de préstamo sobre prestaciones',
-                'dias' => null,
-                'salario_diario' => null,
-                'tipo_salario' => null,
-                'importe' => $deds['prestamos'],
+                'importe' => $prestamoRetenido,
             ],
         ];
 
@@ -370,7 +360,6 @@ class LiquidacionService
             $importeUtilidades,
         ));
 
-        $totalAsignaciones = round(array_sum(array_column($asignaciones, 'importe')), 2);
         $totalDeducciones = round(array_sum(array_column($deducciones, 'importe')), 2);
         $neto = round($totalAsignaciones - $totalDeducciones, 2);
 

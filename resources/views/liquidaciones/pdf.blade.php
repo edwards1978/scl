@@ -53,7 +53,7 @@
 			$origenLabel = $esGarantia ? 'Garantía Art. 142 a+b' : 'Literal c (30 días por año)';
 		@endphp
 		<table>
-			<tr><th colspan="4">Comparativo Art. 142 LOTTT — se aplica el mayor</th></tr>
+			<tr><th colspan="4">Comparativo Art. 142 LOTTT — prestaciones sin intereses</th></tr>
 			<tr>
 				<td class="bold">Art. 142 literales a+b<br><span class="sub">Garantía acumulada</span></td>
 				<td class="right">{{ $liquidacion->moneda === 'USD' ? 'USD' : 'Bs.' }} {{ formato_monto((float) $liquidacion->garantia_ab) }}</td>
@@ -61,8 +61,8 @@
 				<td class="right">{{ $liquidacion->moneda === 'USD' ? 'USD' : 'Bs.' }} {{ formato_monto((float) $liquidacion->literal_c) }}</td>
 			</tr>
 			<tr class="total">
-				<td class="bold">Se aplica</td>
-				<td colspan="3" class="right bold">{{ $origenLabel }} — {{ $liquidacion->moneda === 'USD' ? 'USD' : 'Bs.' }} {{ formato_monto((float) $liquidacion->prestaciones_mayor) }} (diferencia {{ formato_monto((float) $liquidacion->prestaciones_diferencia) }})</td>
+				<td class="bold">Prestaciones aplicadas<br><span class="sub">sin intereses</span></td>
+				<td colspan="3" class="right bold">{{ $origenLabel }} — {{ $liquidacion->moneda === 'USD' ? 'USD' : 'Bs.' }} {{ formato_monto((float) $liquidacion->prestaciones_mayor) }} (diferencia garantía vs. literal c {{ formato_monto((float) $liquidacion->prestaciones_diferencia) }})</td>
 			</tr>
 		</table>
 	@else

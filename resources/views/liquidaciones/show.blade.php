@@ -36,7 +36,7 @@
 			<div class="flex flex-wrap items-center justify-between gap-2 mb-3">
 				<h2 class="text-sm font-semibold text-gray-800">Comparativo Art. 142 LOTTT</h2>
 				<span class="px-2 py-1 text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-					Se aplica el mayor
+					Se aplica el mayor; intereses aparte
 				</span>
 			</div>
 			<div class="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -53,13 +53,13 @@
 					<p class="text-[11px] text-gray-500 mt-1">{{ $liquidacion->dias_prestaciones }} días × salario integral</p>
 				</div>
 				<div class="border border-emerald-400 bg-emerald-50 p-3">
-					<p class="text-xs text-emerald-700">Mayor de los dos cálculos</p>
+					<p class="text-xs text-emerald-700">Prestaciones aplicadas (sin intereses)</p>
 					<p class="text-sm font-semibold text-emerald-800">{{ $origenLabel }}</p>
 					<p class="text-lg font-bold text-emerald-800 mt-1">{{ $liquidacion->moneda }} {{ formato_monto((float) $liquidacion->prestaciones_mayor) }}</p>
-					<p class="text-[11px] text-emerald-700 mt-1">Diferencia: {{ $liquidacion->moneda }} {{ formato_monto((float) $liquidacion->prestaciones_diferencia) }}</p>
+					<p class="text-[11px] text-emerald-700 mt-1">Diferencia garantía vs. literal c: {{ $liquidacion->moneda }} {{ formato_monto((float) $liquidacion->prestaciones_diferencia) }}</p>
 				</div>
 			</div>
-			<p class="text-[11px] text-gray-500 mt-3">Comparativo informativo del cálculo original. Los importes editados posteriormente pueden diferir.</p>
+			<p class="text-[11px] text-gray-500 mt-3">Comparativo informativo del cálculo original. Los intereses del Art. 143 se muestran como asignación separada; la indemnización no los incluye. Los importes editados posteriormente pueden diferir.</p>
 		</div>
 	@else
 		<div class="mb-4 p-3 bg-gray-50 border border-gray-200 text-gray-600 text-xs">
