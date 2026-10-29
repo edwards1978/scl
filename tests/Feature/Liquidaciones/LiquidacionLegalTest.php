@@ -42,7 +42,8 @@ class LiquidacionLegalTest extends TestCase
 
         $this->assertSame('garantia', $datos['prestaciones_origen']);
         $this->assertGreaterThan(0, $intereses);
-        $this->assertEqualsWithDelta($datos['garantia_ab'], $prestaciones + $intereses, 0.01);
+        $this->assertEqualsWithDelta($datos['garantia_ab'], $prestaciones, 0.01);
+        $this->assertGreaterThan(0, $intereses);
         $this->assertEqualsWithDelta($prestaciones, $indemnizacion, 0.01);
         $this->assertStringContainsString('sin intereses', $this->baseLegal($datos, 'Indemnización por terminación'));
     }

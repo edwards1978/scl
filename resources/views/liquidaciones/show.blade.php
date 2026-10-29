@@ -51,7 +51,7 @@
 					<p class="text-xs text-gray-500">Art. 142 literales a+b</p>
 					<p class="text-sm font-medium text-gray-700">Garantía acumulada</p>
 					<p class="text-lg font-semibold mt-1">{{ $liquidacion->moneda }} {{ formato_monto((float) $liquidacion->garantia_ab) }}</p>
-					<p class="text-[11px] text-gray-500 mt-1">Capital e intereses, antes de anticipos</p>
+					<p class="text-[11px] text-gray-500 mt-1">Capital de la garantía, incluido el trimestre en curso</p>
 				</div>
 				<div class="border p-3 {{ ! $esGarantia ? 'border-emerald-400 bg-emerald-50' : 'border-gray-200' }}">
 					<p class="text-xs text-gray-500">Art. 142 {{ $esLiteralE ? 'literal e' : 'literal c' }}</p>

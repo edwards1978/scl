@@ -250,12 +250,15 @@ class LiquidacionService
         $importeLiteralC = round($diasPrestaciones * $salarioDiarioIntegral, 2);
         $this->prestaciones->asegurarPeriodos($empleado, $egreso);
         $garantia = $this->prestaciones->garantiaDetalladaAlEgreso($empleado, $egreso);
-        $garantiaBruta = $garantia['total'];
+        $capitalGarantia = $garantia['capital'];
         $interesPrestaciones = $garantia['interes'];
-        $usaGarantia = ! $esLiteralE && $garantiaBruta > $importeLiteralC;
+        // El literal d compara la garantía a+b (capital, incluido el trimestre
+        // en curso) contra el literal c. El interés del Art. 143 se paga
+        // aparte y no forma parte de esa comparación.
+        $usaGarantia = ! $esLiteralE && $capitalGarantia > $importeLiteralC;
         $importePrestaciones = $esLiteralE
             ? $importeLiteralC
-            : ($usaGarantia ? $garantia['capital'] : $importeLiteralC);
+            : ($usaGarantia ? $capitalGarantia : $importeLiteralC);
         $origenPrestaciones = $esLiteralE
             ? 'literal_e'
             : ($usaGarantia ? 'garantia' : 'literal_c');
@@ -274,7 +277,7 @@ class LiquidacionService
                 'base_legal' => $esLiteralE
                     ? 'Art. 142 literal e LOTTT - 5 días por mes o fracción'
                     : ($usaGarantia
-                        ? 'Art. 142 literal C LOTTT - capital de garantía (mayor)'
+                        ? 'Art. 142 literales a+b LOTTT - garantía acumulada, incluido el trimestre en curso (mayor)'
                         : 'Art. 142 literal C LOTTT - 30 días por año (mayor)'),
                 'dias' => $usaGarantia ? null : $diasPrestaciones,
                 'salario_diario' => $usaGarantia ? null : $salarioDiarioIntegral,
@@ -382,11 +385,11 @@ class LiquidacionService
             'salario_integral_diario' => $salarioDiarioIntegral,
             'moneda' => $moneda,
             'tasa' => $tasa,
-            'garantia_ab' => $garantiaBruta,
+            'garantia_ab' => $capitalGarantia,
             'literal_c' => $importeLiteralC,
             'prestaciones_mayor' => $importePrestaciones,
             'prestaciones_origen' => $origenPrestaciones,
-            'prestaciones_diferencia' => round(abs($garantiaBruta - $importeLiteralC), 2),
+            'prestaciones_diferencia' => round(abs($capitalGarantia - $importeLiteralC), 2),
             'asignaciones' => $asignaciones,
             'deducciones' => $deducciones,
             'total_asignaciones' => $totalAsignaciones,
