@@ -8,10 +8,12 @@ use App\Models\Concerns\RegistraAuditoria;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Liquidacion extends Model
 {
     use RegistraAuditoria;
+    use SoftDeletes;
 
     protected $table = 'liquidaciones';
 

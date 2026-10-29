@@ -101,6 +101,7 @@
 									<a href="{{ route('vacaciones.show', $v) }}" class="p-1 text-gray-500 hover:text-blue-600" title="Ver cálculo">
 										<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.45 12C5.9 7 10.73 4 16 4a11.93 0 015.66 1.41l-1.55 1.55A8.96 8.96 0 0016 6c-4.42 0-8.37 2.55-10.22 6.36.03.07.05.15.05.24 0 .09-.02.17-.05.24C7.63 15.44 11.58 13 16 13c2.04 0 3.96.53 5.62 1.45l1.55-1.55A11.93 11.93 0 0116 20c-5.27 0-10.1-.99-13.55-5 0-.02 0-.04 0-.06z"/></svg>
 									</a>
+									@can('aprobar')
 									@if ($v->puedePagar())
 										<form action="{{ route('vacaciones.estatus', $v) }}" method="POST" onsubmit="return confirm('¿Marcar como pagada/disfrutada?')">
 											@csrf @method('PUT')
@@ -114,14 +115,17 @@
 											<button type="submit" class="p-1 text-gray-500 hover:text-amber-600" title="Aprobar">✓</button>
 										</form>
 									@endif
+									@endcan
 									@if (in_array($v->estatus_vacacion, ['pagada', 'disfrutada'], true))
 										<a href="{{ route('vacaciones.pdf', $v) }}" target="_blank" rel="noopener" class="p-1 text-gray-500 hover:text-red-600" title="Recibo PDF">📄</a>
 									@endif
 									@if ($v->puedeBorrar())
+										@can('eliminar')
 										<form action="{{ route('vacaciones.destroy', $v) }}" method="POST" onsubmit="return confirm('¿Eliminar este periodo?')">
 											@csrf @method('DELETE')
 											<button type="submit" class="p-1 text-gray-400 hover:text-red-500" title="Eliminar">🗑</button>
 										</form>
+										@endcan
 									@endif
 								</div>
 							</td>

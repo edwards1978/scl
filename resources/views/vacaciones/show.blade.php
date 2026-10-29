@@ -65,6 +65,7 @@
 	@endif
 
 	<div class="flex gap-2 pt-3 border-t border-gray-200">
+		@can('aprobar')
 		@if ($vacacion->puedeAprobar())
 			<form action="{{ route('vacaciones.estatus', $vacacion) }}" method="POST" onsubmit="return confirm('¿Aprobar este cálculo?')">
 				@csrf @method('PUT')
@@ -85,14 +86,17 @@
 				<button class="px-3 py-1.5 text-sm bg-gray-200 text-gray-600 hover:bg-gray-300">✕ Anular</button>
 			</form>
 		@endif
+		@endcan
 		@if (in_array($vacacion->estatus_vacacion, ['pagada', 'disfrutada'], true))
 			<a href="{{ route('vacaciones.pdf', $vacacion) }}" target="_blank" rel="noopener" class="px-3 py-1.5 text-sm border border-gray-300 text-gray-600 hover:bg-gray-50">📄 Recibo PDF</a>
 		@endif
 		@if ($vacacion->puedeBorrar())
+			@can('eliminar')
 			<form action="{{ route('vacaciones.destroy', $vacacion) }}" method="POST" onsubmit="return confirm('¿Eliminar este periodo?')">
 				@csrf @method('DELETE')
 				<button class="px-3 py-1.5 text-sm bg-red-600 text-white hover:bg-red-700">🗑 Eliminar</button>
 			</form>
+			@endcan
 		@endif
 	</div>
 

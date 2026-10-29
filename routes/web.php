@@ -8,6 +8,7 @@ use App\Http\Controllers\Web\FeriadosController;
 use App\Http\Controllers\Web\InteresesPrestacionesController;
 use App\Http\Controllers\Web\LiquidacionController;
 use App\Http\Controllers\Web\MovimientosPrestacionesController;
+use App\Http\Controllers\Web\PapeleraController;
 use App\Http\Controllers\Web\PatronoController;
 use App\Http\Controllers\Web\PrestacionesController;
 use App\Http\Controllers\Web\ReportesController;
@@ -41,9 +42,17 @@ Route::middleware('auth')->group(function () {
     });
 
     // Configuración del patrono en contexto (utilidades, recibos, prestaciones)
-    Route::prefix('configuracion')->name('configuracion.')->middleware(['contexto.patrono', 'nomina.gestionar'])->group(function () {
-        Route::get('/', [ConfiguracionController::class, 'index'])->name('index');
-        Route::put('/', [ConfiguracionController::class, 'update'])->name('update');
+    Route::prefix('configuracion')->name('configuracion.')->middleware('contexto.patrono')->group(function () {
+        Route::get('/', [ConfiguracionController::class, 'index'])->middleware('nomina.gestionar')->name('index');
+        Route::put('/', [ConfiguracionController::class, 'update'])->middleware('can:administrar')->name('update');
+    });
+
+    // Papelera: restauración de registros eliminados (solo administradores)
+    Route::prefix('papelera')->name('papelera.')->middleware('can:administrar')->group(function () {
+        Route::get('/', [PapeleraController::class, 'index'])->name('index');
+        Route::post('{tipo}/{id}/restaurar', [PapeleraController::class, 'restaurar'])
+            ->whereNumber('id')
+            ->name('restaurar');
     });
 
     // Días feriados (calendario laboral)

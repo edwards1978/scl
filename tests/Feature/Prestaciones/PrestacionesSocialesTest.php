@@ -107,7 +107,7 @@ class PrestacionesSocialesTest extends TestCase
 
         $movimientos->eliminar($movimiento);
 
-        $this->assertDatabaseMissing('movimientos_prestaciones', ['id' => $movimiento->id]);
+        $this->assertSoftDeleted('movimientos_prestaciones', ['id' => $movimiento->id]);
         $this->assertEqualsWithDelta(
             $saldoAntes,
             $prestaciones->capitalEn($empleado, Carbon::parse('2026-10-31')),

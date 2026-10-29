@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\UpdateConfiguracionRequest;
 use App\Models\Patrono;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 
 class ConfiguracionController extends Controller
@@ -28,6 +29,8 @@ class ConfiguracionController extends Controller
     /** Guarda la configuración del patrono en contexto. */
     public function update(UpdateConfiguracionRequest $request): RedirectResponse
     {
+        Gate::authorize('administrar');
+
         $patrono = $this->patronoActual();
         $patrono->update($request->validated());
 

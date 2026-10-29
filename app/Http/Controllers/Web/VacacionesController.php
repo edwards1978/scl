@@ -100,6 +100,8 @@ class VacacionesController extends Controller
     /** Transición de estados: aprobar / anular / pagar. */
     public function estatus(Request $request, Vacacion $vacacion): RedirectResponse
     {
+        Gate::authorize('aprobar');
+
         abort_if((int) $vacacion->patrono_id !== (int) session('patrono_id'), 404);
 
         $action = $request->validate([
@@ -154,6 +156,8 @@ class VacacionesController extends Controller
     /** Elimina un periodo pendiente sin recibo. */
     public function destroy(Vacacion $vacacion): RedirectResponse
     {
+        Gate::authorize('eliminar');
+
         abort_if((int) $vacacion->patrono_id !== (int) session('patrono_id'), 404);
 
         if (! $vacacion->puedeBorrar()) {

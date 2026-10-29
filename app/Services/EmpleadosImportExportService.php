@@ -332,6 +332,11 @@ class EmpleadosImportExportService
             ->get()
             ->keyBy('cedula');
 
+        $cedulasEliminadas = Empleado::onlyTrashed()
+            ->where('patrono_id', $patrono->id)
+            ->pluck('cedula')
+            ->flip();
+
         $cedulasEnArchivo = [];
 
         $creados = 0;
@@ -382,6 +387,12 @@ class EmpleadosImportExportService
             $cedulasEnArchivo[$cedula] = true;
 
             $empleado = $empleadosExistentes->get($cedula);
+
+            if (! $empleado instanceof Empleado && $cedulasEliminadas->has($cedula)) {
+                $errores[] = "Fila {$fila} ({$cedula}): existe un empleado eliminado con esta cédula. Restáurelo desde la papelera antes de importarlo.";
+
+                continue;
+            }
 
             if ($empleado instanceof Empleado) {
                 $cambios = array_intersect_key($datos, $camposEnArchivo);

@@ -218,6 +218,8 @@ class InteresesPrestacionesController extends Controller
     /** Elimina un pago de intereses y recalcula las prestaciones. */
     public function destroy(Request $request, int $pago): RedirectResponse
     {
+        Gate::authorize('eliminar');
+
         $patrono = $this->patronoActual();
 
         $pago = PagoInteresPrestaciones::where('patrono_id', $patrono->id)->findOrFail($pago);

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests;
 
+use App\Models\Patrono;
 use App\Rules\RifVenezolanoRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -25,7 +26,7 @@ class UpdatePatronoRequest extends FormRequest
         $patronoId = $this->route('patrono')->id;
 
         return [
-            'rif' => ['required', 'string', 'max:20', new RifVenezolanoRule, Rule::unique('patronos')->ignore($patronoId)],
+            'rif' => ['required', 'string', 'max:20', new RifVenezolanoRule, Rule::unique('patronos')->ignore($patronoId)->whereNull('deleted_at')],
             'razon_social' => ['required', 'string', 'max:255'],
             'nombre_comercial' => ['nullable', 'string', 'max:255'],
             'registro_mercantil' => ['nullable', 'string', 'max:255'],
@@ -36,5 +37,17 @@ class UpdatePatronoRequest extends FormRequest
             'estado' => ['nullable', Rule::in(['Activo', 'Inactivo'])],
             'deposito_tipo' => ['required', Rule::in(['contabilidad', 'fideicomiso', 'fondo'])],
         ];
+    }
+
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator) {
+            $rif = RifVenezolanoRule::formatear($this->input('rif') ?? '');
+            $patronoId = $this->route('patrono')->id;
+
+            if ($rif && Patrono::onlyTrashed()->where('rif', $rif)->where('id', '!=', $patronoId)->exists()) {
+                $validator->errors()->add('rif', 'Existe un patrono eliminado con este RIF. Restáurelo desde la papelera antes de usar ese RIF.');
+            }
+        });
     }
 }

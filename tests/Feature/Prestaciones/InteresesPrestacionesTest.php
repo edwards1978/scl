@@ -130,7 +130,7 @@ class InteresesPrestacionesTest extends TestCase
             ->delete(route('intereses-prestaciones.destroy', $pago))
             ->assertRedirect(route('intereses-prestaciones.index'));
 
-        $this->assertDatabaseMissing('pagos_interes_prestaciones', ['id' => $pago->id]);
+        $this->assertSoftDeleted('pagos_interes_prestaciones', ['id' => $pago->id]);
         $this->assertEqualsWithDelta(
             0.0,
             (float) PrestacionSocial::where('empleado_id', $empleado->id)
@@ -514,7 +514,7 @@ class InteresesPrestacionesTest extends TestCase
             ->delete(route('intereses-prestaciones.destroy', $pago), ['volver_a' => 'index'])
             ->assertRedirect(route('intereses-prestaciones.index'));
 
-        $this->assertDatabaseMissing('pagos_interes_prestaciones', ['id' => $pago->id]);
+        $this->assertSoftDeleted('pagos_interes_prestaciones', ['id' => $pago->id]);
     }
 
     public function test_no_permite_ver_ni_imprimir_un_pago_de_otro_patrono(): void

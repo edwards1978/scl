@@ -250,7 +250,9 @@ class EmpleadoController extends Controller
 
         $tieneHistorial = Vacacion::where('empleado_id', $empleado->id)->exists()
             || Sueldo::where('empleado_id', $empleado->id)->exists()
-            || CambioSalario::where('empleado_id', $empleado->id)->exists()
+            || CambioSalario::where('empleado_id', $empleado->id)
+                ->whereDate('fecha_cambio', '!=', $empleado->fecha_ingreso)
+                ->exists()
             || MovimientoPrestaciones::where('empleado_id', $empleado->id)->exists()
             || PrestacionSocial::where('empleado_id', $empleado->id)->exists()
             || Liquidacion::where('empleado_id', $empleado->id)->exists()

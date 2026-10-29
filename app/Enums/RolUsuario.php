@@ -38,6 +38,18 @@ enum RolUsuario: string
         return $this === self::Administrador;
     }
 
+    /** Aprobar, anular y pagar documentos de nómina: administrador y analista. */
+    public function puedeAprobar(): bool
+    {
+        return $this !== self::Consulta;
+    }
+
+    /** Eliminar registros y enviarlos a la papelera: solo administrador. */
+    public function puedeEliminar(): bool
+    {
+        return $this === self::Administrador;
+    }
+
     /**
      * @return array<string, string>
      */

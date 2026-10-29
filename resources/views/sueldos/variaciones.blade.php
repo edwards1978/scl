@@ -84,11 +84,13 @@
 										<td class="px-4 py-2">{{ $c->fecha_cambio->format('d/m/Y') }}</td>
 										<td class="px-4 py-2 text-right font-medium">{{ $c->moneda }} {{ formato_monto((float) $c->monto) }}</td>
 										<td class="px-4 py-2 text-right">
-											<form action="{{ route('sueldos.variaciones.destroy', $c) }}" method="POST"
-												onsubmit="return confirm('¿Eliminar este cambio salarial?')">
-												@csrf @method('DELETE')
-												<button class="text-xs text-red-500 hover:bg-red-50 px-2 py-1">🗑</button>
-											</form>
+											@can('eliminar')
+												<form action="{{ route('sueldos.variaciones.destroy', $c) }}" method="POST"
+													onsubmit="return confirm('¿Eliminar este cambio salarial?')">
+													@csrf @method('DELETE')
+													<button class="text-xs text-red-500 hover:bg-red-50 px-2 py-1">🗑</button>
+												</form>
+											@endcan
 										</td>
 									</tr>
 								@endforeach

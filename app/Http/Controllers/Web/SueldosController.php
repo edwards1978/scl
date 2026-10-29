@@ -15,6 +15,7 @@ use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 
 class SueldosController extends Controller
@@ -179,6 +180,8 @@ class SueldosController extends Controller
     /** Elimina un cambio salarial y regenera desde esa fecha. */
     public function destroyVariacion(CambioSalario $cambio): RedirectResponse
     {
+        Gate::authorize('eliminar');
+
         abort_if((int) $cambio->empleado->patrono_id !== (int) session('patrono_id'), 404);
 
         $empleado = $cambio->empleado;

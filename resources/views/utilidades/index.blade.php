@@ -47,6 +47,7 @@
 		</form>
 
 		@if ($pendientes > 0)
+			@can('aprobar')
 			<form method="POST" action="{{ route('utilidades.aprobar-todas') }}"
 				class="bg-white border border-gray-200 p-3 flex items-end"
 				onsubmit="return confirm('¿Aprobar las {{ $pendientes }} bonificaciones pendientes{{ $anio !== 'todos' ? ' del año '.$anio : '' }}?')">
@@ -56,6 +57,7 @@
 					✓ Aprobar todas las pendientes ({{ $pendientes }})
 				</button>
 			</form>
+			@endcan
 		@endif
 	</div>
 
@@ -109,20 +111,24 @@
 									</a>
 									<a href="{{ route('utilidades.pdf', $b->id) }}" target="_blank" rel="noopener" class="p-1 text-gray-500 hover:text-red-600" title="Recibo PDF">📄</a>
 								@else
-									<form action="{{ route('utilidades.aprobar', $b->id) }}" method="POST" onsubmit="return confirm('¿Aprobar esta bonificación?')">
-										@csrf
-										<button class="p-1 text-gray-500 hover:text-amber-600" title="Aprobar">✓</button>
-									</form>
+									@can('aprobar')
+										<form action="{{ route('utilidades.aprobar', $b->id) }}" method="POST" onsubmit="return confirm('¿Aprobar esta bonificación?')">
+											@csrf
+											<button class="p-1 text-gray-500 hover:text-amber-600" title="Aprobar">✓</button>
+										</form>
+									@endcan
 								@endif
 								<form action="{{ route('utilidades.recalcular', $b->id) }}" method="POST" onsubmit="return confirm('¿Recalcular esta bonificación?')">
 									@csrf
 									<button class="p-1 text-gray-500 hover:text-blue-600" title="Recalcular">↻</button>
 								</form>
-								<form action="{{ route('utilidades.destroy', $b->id) }}" method="POST"
-									onsubmit="return confirm('¿Eliminar esta bonificación?')">
-									@csrf @method('DELETE')
-									<button class="p-1 text-gray-400 hover:text-red-500" title="Eliminar">🗑</button>
-								</form>
+								@can('eliminar')
+									<form action="{{ route('utilidades.destroy', $b->id) }}" method="POST"
+										onsubmit="return confirm('¿Eliminar esta bonificación?')">
+										@csrf @method('DELETE')
+										<button class="p-1 text-gray-400 hover:text-red-500" title="Eliminar">🗑</button>
+									</form>
+								@endcan
 							</div>
 						</td>
 						</tr>

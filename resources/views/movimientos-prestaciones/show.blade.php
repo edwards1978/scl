@@ -152,16 +152,20 @@
 
 	{{-- Acciones de estatus --}}
 	<div class="flex justify-end gap-2">
-		@if ($movimiento->estatus !== 'anulado' && $movimiento->estatus !== 'pagado')
-			<form method="POST" action="{{ route('movimientos-prestaciones.anular', $movimiento) }}" onsubmit="return confirm('¿Anular este movimiento?')">
-				@csrf
-				<button class="px-3 py-1.5 text-sm border border-red-300 text-red-600 hover:bg-red-50">Anular</button>
+		@can('aprobar')
+			@if ($movimiento->estatus !== 'anulado' && $movimiento->estatus !== 'pagado')
+				<form method="POST" action="{{ route('movimientos-prestaciones.anular', $movimiento) }}" onsubmit="return confirm('¿Anular este movimiento?')">
+					@csrf
+					<button class="px-3 py-1.5 text-sm border border-red-300 text-red-600 hover:bg-red-50">Anular</button>
+				</form>
+			@endif
+		@endcan
+		@can('eliminar')
+			<form method="POST" action="{{ route('movimientos-prestaciones.destroy', $movimiento) }}" onsubmit="return confirm('¿Eliminar definitivamente?')">
+				@csrf @method('DELETE')
+				<button class="px-3 py-1.5 text-sm border border-gray-300 text-gray-600 hover:bg-gray-50">Eliminar</button>
 			</form>
-		@endif
-		<form method="POST" action="{{ route('movimientos-prestaciones.destroy', $movimiento) }}" onsubmit="return confirm('¿Eliminar definitivamente?')">
-			@csrf @method('DELETE')
-			<button class="px-3 py-1.5 text-sm border border-gray-300 text-gray-600 hover:bg-gray-50">Eliminar</button>
-		</form>
+		@endcan
 	</div>
 
 	@include('partials.auditoria', ['registro' => $movimiento])

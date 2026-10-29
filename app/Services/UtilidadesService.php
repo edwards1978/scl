@@ -197,32 +197,45 @@ class UtilidadesService
             'observacion' => "{$meses} mes(es) laborados — {$dias} días de bono",
         ]];
 
-        return BonificacionFinAno::updateOrCreate(
-            ['empleado_id' => $empleado->id, 'anio' => $anio],
-            [
-                'patrono_id' => $patrono->id,
-                'periodo_inicio' => $periodo['inicio']->toDateString(),
-                'periodo_fin' => $periodo['fin']->toDateString(),
-                'meses_laborados' => $meses,
-                'dias_base' => $diasBase,
-                'dias_a_pagar' => $dias,
-                'tipo_base' => $tipoBase,
-                'salario_mensual_usd' => $salario['usd'] ?? null,
-                'salario_mensual_bs' => $salario['bs'] ?? null,
-                'salario_diario_usd' => $salarioDiarioUsd,
-                'salario_diario_bs' => $salarioDiarioBs,
-                'bono_usd' => $bonoUsd,
-                'bono_bs' => $bonoBs,
-                'tasa_cambio' => $tasa,
-                'asignaciones' => $asignaciones,
-                'deducciones' => $deducciones,
-                'total_asignaciones' => $totalAsignaciones,
-                'total_deducciones' => $totalDeducciones,
-                'neto' => $neto,
-                'moneda' => $moneda,
-                'estatus' => 'calculado',
-            ]
-        );
+        $bonificacion = BonificacionFinAno::withTrashed()
+            ->where('empleado_id', $empleado->id)
+            ->where('anio', $anio)
+            ->first() ?? new BonificacionFinAno([
+                'empleado_id' => $empleado->id,
+                'anio' => $anio,
+            ]);
+
+        if ($bonificacion->exists && $bonificacion->trashed()) {
+            $bonificacion->restore();
+        }
+
+        $bonificacion->fill([
+            'patrono_id' => $patrono->id,
+            'periodo_inicio' => $periodo['inicio']->toDateString(),
+            'periodo_fin' => $periodo['fin']->toDateString(),
+            'meses_laborados' => $meses,
+            'dias_base' => $diasBase,
+            'dias_a_pagar' => $dias,
+            'tipo_base' => $tipoBase,
+            'salario_mensual_usd' => $salario['usd'] ?? null,
+            'salario_mensual_bs' => $salario['bs'] ?? null,
+            'salario_diario_usd' => $salarioDiarioUsd,
+            'salario_diario_bs' => $salarioDiarioBs,
+            'bono_usd' => $bonoUsd,
+            'bono_bs' => $bonoBs,
+            'tasa_cambio' => $tasa,
+            'asignaciones' => $asignaciones,
+            'deducciones' => $deducciones,
+            'total_asignaciones' => $totalAsignaciones,
+            'total_deducciones' => $totalDeducciones,
+            'neto' => $neto,
+            'moneda' => $moneda,
+            'estatus' => 'calculado',
+        ]);
+
+        $bonificacion->save();
+
+        return $bonificacion;
     }
 
     /**

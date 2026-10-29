@@ -210,6 +210,8 @@ class MovimientosPrestacionesController extends Controller
     /** Anula un movimiento pendiente. */
     public function anular(Request $request, MovimientoPrestaciones $movimiento): RedirectResponse
     {
+        Gate::authorize('aprobar');
+
         abort_if((int) $movimiento->patrono_id !== (int) session('patrono_id'), 404);
 
         try {
@@ -224,6 +226,8 @@ class MovimientosPrestacionesController extends Controller
     /** Elimina definitivamente un movimiento anulado. */
     public function destroy(MovimientoPrestaciones $movimiento): RedirectResponse
     {
+        Gate::authorize('eliminar');
+
         abort_if((int) $movimiento->patrono_id !== (int) session('patrono_id'), 404);
 
         if ($movimiento->estatus !== 'anulado') {

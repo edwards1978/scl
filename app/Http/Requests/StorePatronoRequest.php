@@ -24,7 +24,7 @@ class StorePatronoRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'rif' => ['required', 'string', 'max:20', new RifVenezolanoRule, Rule::unique('patronos')],
+            'rif' => ['required', 'string', 'max:20', new RifVenezolanoRule, Rule::unique('patronos')->whereNull('deleted_at')],
             'razon_social' => ['required', 'string', 'max:255'],
             'nombre_comercial' => ['nullable', 'string', 'max:255'],
             'registro_mercantil' => ['nullable', 'string', 'max:255'],
@@ -43,9 +43,10 @@ class StorePatronoRequest extends FormRequest
             $rif = RifVenezolanoRule::formatear($this->input('rif') ?? '');
 
             if ($rif) {
-                $existe = Patrono::where('rif', $rif)->exists();
-                if ($existe) {
-                    $validator->errors()->add('rif', 'Ya existe un patrono con este RIF.');
+                $eliminado = Patrono::onlyTrashed()->where('rif', $rif)->exists();
+
+                if ($eliminado) {
+                    $validator->errors()->add('rif', 'Existe un patrono eliminado con este RIF. Restáurelo desde la papelera antes de crear uno nuevo.');
                 }
             }
         });

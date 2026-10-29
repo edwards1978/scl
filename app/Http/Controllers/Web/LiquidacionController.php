@@ -93,6 +93,8 @@ class LiquidacionController extends Controller
     /** Aprueba la liquidación y marca al trabajador como inactivo. */
     public function aprobar(int $id): RedirectResponse
     {
+        Gate::authorize('aprobar');
+
         $liquidacion = $this->liquidacionDePatrono($id);
 
         if ($liquidacion->estatus === 'aprobada') {
@@ -119,6 +121,8 @@ class LiquidacionController extends Controller
     /** Anula la liquidación y reactiva al trabajador si no queda otra vigente. */
     public function anular(int $id): RedirectResponse
     {
+        Gate::authorize('aprobar');
+
         $liquidacion = $this->liquidacionDePatrono($id);
 
         if ($liquidacion->estatus === 'anulada') {
@@ -190,6 +194,8 @@ class LiquidacionController extends Controller
     /** Elimina una liquidación pendiente; las aprobadas deben anularse. */
     public function destroy(int $id): RedirectResponse
     {
+        Gate::authorize('eliminar');
+
         $liquidacion = $this->liquidacionDePatrono($id);
 
         if ($liquidacion->estatus === 'aprobada') {

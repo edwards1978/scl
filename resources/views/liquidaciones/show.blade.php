@@ -220,6 +220,7 @@
 	{{-- Acciones de estatus --}}
 	<div class="flex justify-end gap-2">
 		@if ($liquidacion->estatus === 'por_aprobar')
+			@can('aprobar')
 			<form method="POST" action="{{ route('liquidaciones.anular', $liquidacion->id) }}" onsubmit="return confirm('¿Anular esta liquidación?')">
 				@csrf
 				<button class="px-3 py-1.5 text-sm border border-red-300 text-red-600 hover:bg-red-50">Anular</button>
@@ -228,6 +229,7 @@
 				@csrf
 				<button class="px-4 py-1.5 text-sm bg-green-600 text-white hover:bg-green-700">Aprobar liquidación</button>
 			</form>
+			@endcan
 		@elseif ($liquidacion->estatus === 'aprobada')
 			<a href="{{ route('liquidaciones.pdf', $liquidacion->id) }}" target="_blank" rel="noopener" class="px-4 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700">Descargar PDF</a>
 		@endif

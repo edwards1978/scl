@@ -32,6 +32,6 @@ class EmpleadoPolicy
 
     public function delete(User $user, Empleado $empleado): bool
     {
-        return $user->puedeGestionar() && $user->tieneAcceso($empleado->patrono_id);
+        return $user->puedeEliminar() && $user->tieneAcceso($empleado->patrono_id);
     }
 }

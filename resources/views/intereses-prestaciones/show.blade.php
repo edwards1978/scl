@@ -53,11 +53,13 @@
 
 	{{-- Acciones --}}
 	<div class="flex justify-end">
-		<form method="POST" action="{{ route('intereses-prestaciones.destroy', $pago) }}" onsubmit="return confirm('¿Eliminar este pago de intereses?')">
-			@csrf @method('DELETE')
-			<input type="hidden" name="volver_a" value="index">
-			<button class="px-3 py-1.5 text-sm border border-red-300 text-red-600 hover:bg-red-50">Eliminar</button>
-		</form>
+		@can('eliminar')
+			<form method="POST" action="{{ route('intereses-prestaciones.destroy', $pago) }}" onsubmit="return confirm('¿Eliminar este pago de intereses?')">
+				@csrf @method('DELETE')
+				<input type="hidden" name="volver_a" value="index">
+				<button class="px-3 py-1.5 text-sm border border-red-300 text-red-600 hover:bg-red-50">Eliminar</button>
+			</form>
+		@endcan
 	</div>
 </div>
 @endsection

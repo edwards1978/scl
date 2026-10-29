@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Requests;
 
 use App\Enums\RolUsuario;
+use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
@@ -23,7 +24,7 @@ class StoreUsuarioRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:users,email'],
+            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', Rule::unique('users', 'email')->whereNull('deleted_at')],
             'password' => ['required', 'confirmed', Password::defaults()],
             'rol' => ['required', Rule::enum(RolUsuario::class)],
             'patronos' => [
@@ -42,5 +43,16 @@ class StoreUsuarioRequest extends FormRequest
         return [
             'patronos.required' => 'Asigne al menos un patrono a los usuarios que no son administradores.',
         ];
+    }
+
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator) {
+            $email = strtolower((string) $this->input('email'));
+
+            if ($email && User::onlyTrashed()->where('email', $email)->exists()) {
+                $validator->errors()->add('email', 'Existe un usuario eliminado con este correo. Restáurelo desde la papelera antes de crear uno nuevo.');
+            }
+        });
     }
 }

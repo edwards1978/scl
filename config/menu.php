@@ -151,6 +151,14 @@ return [
                 'solo_admin' => true,
                 'desc' => 'Roles, permisos y patronos asignados',
             ],
+            [
+                'label' => 'Papelera',
+                'icono' => 'papelera',
+                'ruta' => 'papelera.index',
+                'activo' => ['papelera'],
+                'solo_admin' => true,
+                'desc' => 'Registros eliminados y restauración',
+            ],
         ],
     ],
 ];

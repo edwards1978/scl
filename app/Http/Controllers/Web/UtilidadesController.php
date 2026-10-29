@@ -12,6 +12,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 
 class UtilidadesController extends Controller
@@ -120,6 +121,8 @@ class UtilidadesController extends Controller
     /** Aprueba la bonificación (habilita la emisión de recibo). */
     public function aprobar(int $id): RedirectResponse
     {
+        Gate::authorize('aprobar');
+
         $bonificacion = $this->bonificacionDePatrono($id);
         $this->service->emitirRecibo($bonificacion);
 
@@ -133,6 +136,8 @@ class UtilidadesController extends Controller
      */
     public function aprobarTodas(Request $request): RedirectResponse
     {
+        Gate::authorize('aprobar');
+
         $patrono = $this->patronoActual();
 
         $anio = $request->input('anio');
@@ -193,6 +198,8 @@ class UtilidadesController extends Controller
     /** Elimina el cálculo de bonificación de un trabajador (individual). */
     public function destroy(int $id): RedirectResponse
     {
+        Gate::authorize('eliminar');
+
         $bonificacion = $this->bonificacionDePatrono($id);
         $anio = (int) $bonificacion->anio;
 

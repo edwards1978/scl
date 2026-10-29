@@ -147,6 +147,20 @@ class CrearVacacion extends Component
             return;
         }
 
+        $eliminada = Vacacion::onlyTrashed()
+            ->where('patrono_id', $empleado->patrono_id)
+            ->where('empleado_id', $empleado->id)
+            ->where('periodo_desde', $carga['periodo_desde'])
+            ->where('periodo_hasta', $carga['periodo_hasta'])
+            ->exists();
+
+        if ($eliminada) {
+            $this->error = 'Existe un periodo de vacaciones eliminado con esas fechas. Restáurelo desde la papelera.';
+            $this->guardando = false;
+
+            return;
+        }
+
         try {
             DB::transaction(function () use ($empleado, $carga) {
                 Vacacion::create([

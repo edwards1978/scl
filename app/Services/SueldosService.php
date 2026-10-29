@@ -277,16 +277,30 @@ class SueldosService
         $fecha = Carbon::parse($fechaVigencia)->toDateString();
 
         return DB::transaction(function () use ($empleado, $fecha, $monto, $moneda): CambioSalario {
-            $cambio = CambioSalario::updateOrCreate(
-                [
-                    'empleado_id' => $empleado->id,
-                    'fecha_cambio' => $fecha,
-                ],
-                [
+            // Si el cambio existía en la papelera, se restaura en lugar de
+            // intentar insertar y chocar con la clave única.
+            $cambio = CambioSalario::withTrashed()
+                ->where('empleado_id', $empleado->id)
+                ->where('fecha_cambio', $fecha)
+                ->first();
+
+            if ($cambio) {
+                if ($cambio->trashed()) {
+                    $cambio->restore();
+                }
+
+                $cambio->update([
                     'monto' => $monto,
                     'moneda' => $moneda,
-                ],
-            );
+                ]);
+            } else {
+                $cambio = CambioSalario::create([
+                    'empleado_id' => $empleado->id,
+                    'fecha_cambio' => $fecha,
+                    'monto' => $monto,
+                    'moneda' => $moneda,
+                ]);
+            }
 
             $this->sincronizarFicha($empleado);
 

@@ -9,10 +9,12 @@ use App\Rules\CedulaVenezolanaRule;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Empleado extends Model
 {
     use RegistraAuditoria;
+    use SoftDeletes;
 
     protected $fillable = [
         'patrono_id',

@@ -71,6 +71,11 @@ class StoreEmpleadoRequest extends FormRequest
 
                 if ($existe) {
                     $validator->errors()->add('cedula', 'Ya existe un empleado con esta cédula en este patrono.');
+                } elseif (Empleado::onlyTrashed()
+                    ->where('patrono_id', $patronoId)
+                    ->where('cedula', $cedula)
+                    ->exists()) {
+                    $validator->errors()->add('cedula', 'Existe un empleado eliminado con esta cédula. Restáurelo desde la papelera antes de crear uno nuevo.');
                 }
             }
         });
