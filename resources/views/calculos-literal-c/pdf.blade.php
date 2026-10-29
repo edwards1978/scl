@@ -75,7 +75,7 @@
 			: '';
 	@endphp
 
-	<p class="nota">
+	<p class="nota" style="text-align: justify;">
 		Yo, {{ $calculo->trabajador_nombre }} {{ $cedula }},
 		he recibido de {{ $calculo->patrono_nombre }} la cantidad de:
 		{{ $montoLetras }} ({{ $montoEtiqueta }}),

@@ -93,7 +93,7 @@
 			: 'Bs. '.formato_monto($montoInteres);
 	@endphp
 
-	<p style="margin-top:18px; line-height:1.5;">
+	<p style="margin-top:18px; line-height:1.5; text-align: justify;">
 		<strong>Recibí conforme.</strong> Yo, <strong>{{ $pago->empleado->nombre_completo }}</strong>,
 		titular de la cédula de identidad <strong>{{ $pago->empleado->cedula }}</strong>,
 		he recibido de <strong>{{ $pago->patrono->razon_social }}</strong> la cantidad de
