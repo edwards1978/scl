@@ -86,6 +86,14 @@ return [
                 'create' => 'liquidaciones.create',
                 'desc' => 'Liquidación de prestaciones sociales (Art. 142 lit. c)',
             ],
+            [
+                'label' => 'Liquidación rápida Art. 142.c',
+                'icono' => 'liquidaciones',
+                'ruta' => 'calculos-literal-c.index',
+                'activo' => ['calculos-literal-c'],
+                'create' => 'calculos-literal-c.create',
+                'desc' => 'Calculadora independiente de liquidación por el literal c',
+            ],
         ],
     ],
     'reportes' => [

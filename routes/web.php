@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\Web\CalculoLiquidacionLiteralCController;
 use App\Http\Controllers\Web\ConfiguracionController;
 use App\Http\Controllers\Web\EmpleadoController;
 use App\Http\Controllers\Web\EntornoController;
@@ -33,6 +34,18 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+    // Calculadora independiente del Art. 142.c LOTTT (sin patrono ni empleado)
+    Route::prefix('calculos-liquidacion-c')->name('calculos-literal-c.')->group(function () {
+        Route::get('/', [CalculoLiquidacionLiteralCController::class, 'index'])->name('index');
+        Route::get('crear', [CalculoLiquidacionLiteralCController::class, 'create'])->name('create');
+        Route::post('/', [CalculoLiquidacionLiteralCController::class, 'store'])->name('store');
+        Route::get('{calculo}/pdf', [CalculoLiquidacionLiteralCController::class, 'pdf'])->whereNumber('calculo')->name('pdf');
+        Route::get('{calculo}/editar', [CalculoLiquidacionLiteralCController::class, 'edit'])->whereNumber('calculo')->name('edit');
+        Route::put('{calculo}', [CalculoLiquidacionLiteralCController::class, 'update'])->whereNumber('calculo')->name('update');
+        Route::delete('{calculo}', [CalculoLiquidacionLiteralCController::class, 'destroy'])->whereNumber('calculo')->name('destroy');
+        Route::get('{calculo}', [CalculoLiquidacionLiteralCController::class, 'show'])->whereNumber('calculo')->name('show');
+    });
 
     // Entorno (contexto patrono)
     Route::prefix('entorno')->name('entorno.')->group(function () {
