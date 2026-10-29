@@ -163,6 +163,45 @@ class CalculoLiquidacionLiteralCTest extends TestCase
             ->assertDontSee('Equivalencia informativa');
     }
 
+    public function test_duplica_un_calculo_y_abre_la_edicion(): void
+    {
+        $usuario = User::factory()->administrador()->create();
+        $original = CalculoLiquidacionLiteralC::create($this->atributosCalculo());
+
+        $this->actingAs($usuario)
+            ->post(route('calculos-literal-c.duplicar', $original))
+            ->assertRedirect();
+
+        $copia = CalculoLiquidacionLiteralC::where('id', '!=', $original->id)->firstOrFail();
+
+        $this->assertSame($original->trabajador_nombre, $copia->trabajador_nombre);
+        $this->assertSame($original->fecha_egreso->toDateString(), $copia->fecha_egreso->toDateString());
+        $this->assertSame($usuario->id, $copia->created_by);
+        $this->assertNotSame($original->id, $copia->id);
+    }
+
+    public function test_filtra_por_moneda_y_rango_de_egreso(): void
+    {
+        $usuario = User::factory()->administrador()->create();
+
+        CalculoLiquidacionLiteralC::create(array_merge($this->atributosCalculo(), [
+            'trabajador_nombre' => 'TRABAJADOR USD',
+            'moneda' => CalculoLiquidacionLiteralC::MONEDA_USD,
+            'fecha_egreso' => '2026-07-15',
+        ]));
+        CalculoLiquidacionLiteralC::create(array_merge($this->atributosCalculo(), [
+            'trabajador_nombre' => 'TRABAJADOR BS',
+            'moneda' => CalculoLiquidacionLiteralC::MONEDA_BS,
+            'fecha_egreso' => '2025-03-10',
+        ]));
+
+        $this->actingAs($usuario)
+            ->get(route('calculos-literal-c.index', ['moneda' => 'USD', 'desde' => '2026-01-01']))
+            ->assertOk()
+            ->assertSee('TRABAJADOR USD')
+            ->assertDontSee('TRABAJADOR BS');
+    }
+
     public function test_consulta_puede_leer_pero_no_gestionar(): void
     {
         $consulta = User::factory()->consulta()->create();

@@ -41,6 +41,7 @@ Route::middleware('auth')->group(function () {
         Route::get('crear', [CalculoLiquidacionLiteralCController::class, 'create'])->name('create');
         Route::post('/', [CalculoLiquidacionLiteralCController::class, 'store'])->name('store');
         Route::get('{calculo}/pdf', [CalculoLiquidacionLiteralCController::class, 'pdf'])->whereNumber('calculo')->name('pdf');
+        Route::post('{calculo}/duplicar', [CalculoLiquidacionLiteralCController::class, 'duplicar'])->whereNumber('calculo')->name('duplicar');
         Route::get('{calculo}/editar', [CalculoLiquidacionLiteralCController::class, 'edit'])->whereNumber('calculo')->name('edit');
         Route::put('{calculo}', [CalculoLiquidacionLiteralCController::class, 'update'])->whereNumber('calculo')->name('update');
         Route::delete('{calculo}', [CalculoLiquidacionLiteralCController::class, 'destroy'])->whereNumber('calculo')->name('destroy');

@@ -15,6 +15,10 @@
 			<a href="{{ route('calculos-literal-c.pdf', $calculo) }}" target="_blank" rel="noopener" class="px-3 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700">Recibo PDF</a>
 			@if (auth()->user()->puedeGestionar())
 				<a href="{{ route('calculos-literal-c.edit', $calculo) }}" class="px-3 py-1.5 text-sm border border-gray-300 text-gray-600 hover:bg-gray-50">Editar</a>
+				<form method="POST" action="{{ route('calculos-literal-c.duplicar', $calculo) }}">
+					@csrf
+					<button class="px-3 py-1.5 text-sm border border-gray-300 text-gray-600 hover:bg-gray-50">Duplicar</button>
+				</form>
 				<form method="POST" action="{{ route('calculos-literal-c.destroy', $calculo) }}" onsubmit="return confirm('¿Eliminar definitivamente este cálculo?')">
 					@csrf
 					@method('DELETE')

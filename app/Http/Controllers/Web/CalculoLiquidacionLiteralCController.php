@@ -24,12 +24,19 @@ class CalculoLiquidacionLiteralCController extends Controller
     {
         $porPagina = (int) min(max($request->integer('porPagina', 15), 5), 100);
 
+        $filtros = $request->validate([
+            'buscar' => ['nullable', 'string', 'max:100'],
+            'moneda' => ['nullable', 'in:USD,BS'],
+            'desde' => ['nullable', 'date'],
+            'hasta' => ['nullable', 'date'],
+        ]);
+
         $query = CalculoLiquidacionLiteralC::query()
             ->with(['creador', 'editor'])
             ->orderByDesc('fecha_egreso')
             ->orderByDesc('id');
 
-        if ($buscar = trim((string) $request->get('buscar'))) {
+        if ($buscar = trim((string) ($filtros['buscar'] ?? ''))) {
             $query->where(function ($q) use ($buscar) {
                 $q->where('patrono_nombre', 'like', "%{$buscar}%")
                     ->orWhere('trabajador_nombre', 'like', "%{$buscar}%")
@@ -37,9 +44,19 @@ class CalculoLiquidacionLiteralCController extends Controller
             });
         }
 
+        if (! empty($filtros['moneda'])) {
+            $query->where('moneda', $filtros['moneda']);
+        }
+        if (! empty($filtros['desde'])) {
+            $query->whereDate('fecha_egreso', '>=', $filtros['desde']);
+        }
+        if (! empty($filtros['hasta'])) {
+            $query->whereDate('fecha_egreso', '<=', $filtros['hasta']);
+        }
+
         $calculos = $query->paginate($porPagina)->withQueryString();
 
-        return view('calculos-literal-c.index', compact('calculos', 'porPagina'));
+        return view('calculos-literal-c.index', compact('calculos', 'porPagina', 'filtros'));
     }
 
     public function create(): View
@@ -92,6 +109,19 @@ class CalculoLiquidacionLiteralCController extends Controller
 
         return redirect()->route('calculos-literal-c.show', $calculo)
             ->with('success', 'Cálculo actualizado correctamente.');
+    }
+
+    public function duplicar(Request $request, CalculoLiquidacionLiteralC $calculo): RedirectResponse
+    {
+        Gate::authorize('gestionar');
+
+        $copia = $calculo->replicate(['created_by', 'updated_by']);
+        $copia->created_by = $request->user()?->id;
+        $copia->updated_by = $request->user()?->id;
+        $copia->save();
+
+        return redirect()->route('calculos-literal-c.edit', $copia)
+            ->with('success', 'Cálculo duplicado. Ajusta los datos y guarda los cambios.');
     }
 
     public function destroy(CalculoLiquidacionLiteralC $calculo): RedirectResponse
