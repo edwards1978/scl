@@ -1,1 +1,3 @@
-<?php echo 'SCL test works';
+<?php
+
+echo 'SCL test works';

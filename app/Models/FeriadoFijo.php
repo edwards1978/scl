@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * Feriado fijo de calendario (día y mes, sin año concreto). Es editable por el
@@ -21,8 +21,8 @@ class FeriadoFijo extends Model
     protected function casts(): array
     {
         return [
-            'mes'    => 'integer',
-            'dia'    => 'integer',
+            'mes' => 'integer',
+            'dia' => 'integer',
             'activo' => 'boolean',
         ];
     }

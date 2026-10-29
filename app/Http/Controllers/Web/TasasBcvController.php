@@ -19,8 +19,7 @@ class TasasBcvController extends Controller
     public function __construct(
         private TasasBcvService $service = new TasasBcvService,
         private SueldosService $sueldos = new SueldosService,
-    ) {
-    }
+    ) {}
 
     /** Listado de tasas registradas. */
     public function index(Request $request): View
@@ -46,7 +45,7 @@ class TasasBcvController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $data = $request->validate([
-            'fecha'    => ['required', 'date'],
+            'fecha' => ['required', 'date'],
             'tasa_usd' => ['required', 'numeric', 'min:0.000001'],
         ]);
 

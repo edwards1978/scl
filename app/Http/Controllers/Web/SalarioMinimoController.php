@@ -24,9 +24,9 @@ class SalarioMinimoController extends Controller
         $data = $request->validate([
             'fecha_vigencia' => ['required', 'date'],
             'gaceta_oficial' => ['required', 'string', 'max:50'],
-            'mensual_bs'     => ['required', 'numeric', 'gt:0'],
-            'diario_bs'      => ['required', 'numeric', 'gte:0'],
-            'nota'           => ['nullable', 'string', 'max:255'],
+            'mensual_bs' => ['required', 'numeric', 'gt:0'],
+            'diario_bs' => ['required', 'numeric', 'gte:0'],
+            'nota' => ['nullable', 'string', 'max:255'],
         ]);
 
         if (SalarioMinimo::where('fecha_vigencia', $data['fecha_vigencia'])->exists()) {
@@ -43,9 +43,9 @@ class SalarioMinimoController extends Controller
         $data = $request->validate([
             'fecha_vigencia' => ['required', 'date'],
             'gaceta_oficial' => ['required', 'string', 'max:50'],
-            'mensual_bs'     => ['required', 'numeric', 'gt:0'],
-            'diario_bs'      => ['required', 'numeric', 'gte:0'],
-            'nota'           => ['nullable', 'string', 'max:255'],
+            'mensual_bs' => ['required', 'numeric', 'gt:0'],
+            'diario_bs' => ['required', 'numeric', 'gte:0'],
+            'nota' => ['nullable', 'string', 'max:255'],
         ]);
 
         $duplicado = SalarioMinimo::where('fecha_vigencia', $data['fecha_vigencia'])

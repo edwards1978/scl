@@ -41,12 +41,12 @@ class Empleado extends Model
     {
         return [
             'fecha_nacimiento' => 'date',
-            'fecha_ingreso'    => 'date',
-            'salario_base'     => 'decimal:2',
-            'salario_inicial'  => 'decimal:2',
-            'moneda'           => 'string',
-            'dias_descanso'    => 'string',
-            'estatus'          => 'string',
+            'fecha_ingreso' => 'date',
+            'salario_base' => 'decimal:2',
+            'salario_inicial' => 'decimal:2',
+            'moneda' => 'string',
+            'dias_descanso' => 'string',
+            'estatus' => 'string',
             'capitaliza_intereses' => 'boolean',
             'capitalizacion_autorizada_desde' => 'date',
             'capitalizacion_documento' => 'string',

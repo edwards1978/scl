@@ -52,26 +52,26 @@ class Liquidacion extends Model
     protected function casts(): array
     {
         return [
-            'fecha_liquidacion'        => 'date',
-            'fecha_ingreso'            => 'date',
-            'fecha_egreso'             => 'date',
-            'anios_servicio'           => 'integer',
-            'meses_fraccion'           => 'integer',
-            'dias_prestaciones'        => 'integer',
-            'dias_indemnizacion'       => 'integer',
-            'garantia_ab'              => 'decimal:2',
-            'literal_c'                => 'decimal:2',
-            'prestaciones_mayor'       => 'decimal:2',
-            'prestaciones_origen'      => 'string',
-            'prestaciones_diferencia'  => 'decimal:2',
-            'salario_diario_normal'    => 'decimal:2',
-            'salario_integral_diario'  => 'decimal:2',
-            'moneda'                   => 'string',
-            'tasa_cambio'              => 'decimal:4',
-            'total_asignaciones'       => 'decimal:2',
-            'total_deducciones'        => 'decimal:2',
-            'neto'                     => 'decimal:2',
-            'estatus'                  => 'string',
+            'fecha_liquidacion' => 'date',
+            'fecha_ingreso' => 'date',
+            'fecha_egreso' => 'date',
+            'anios_servicio' => 'integer',
+            'meses_fraccion' => 'integer',
+            'dias_prestaciones' => 'integer',
+            'dias_indemnizacion' => 'integer',
+            'garantia_ab' => 'decimal:2',
+            'literal_c' => 'decimal:2',
+            'prestaciones_mayor' => 'decimal:2',
+            'prestaciones_origen' => 'string',
+            'prestaciones_diferencia' => 'decimal:2',
+            'salario_diario_normal' => 'decimal:2',
+            'salario_integral_diario' => 'decimal:2',
+            'moneda' => 'string',
+            'tasa_cambio' => 'decimal:4',
+            'total_asignaciones' => 'decimal:2',
+            'total_deducciones' => 'decimal:2',
+            'neto' => 'decimal:2',
+            'estatus' => 'string',
         ];
     }
 
@@ -107,14 +107,14 @@ class Liquidacion extends Model
     public function labelMotivo(): string
     {
         return match ($this->motivo) {
-            'despido_justificado'  => 'Despido justificado',
+            'despido_justificado' => 'Despido justificado',
             'despido_no_justificado' => 'Despido no justificado convenido',
-            'retiro_voluntario'    => 'Retiro voluntario',
-            'retiro_justificado'   => 'Retiro justificado',
-            'voluntad_comun'       => 'Voluntad común de las partes',
-            'causa_ajena'          => 'Causa ajena a la voluntad de las partes',
-            'conclusion_contrato'  => 'Conclusión de contrato',
-            default                => 'Otro',
+            'retiro_voluntario' => 'Retiro voluntario',
+            'retiro_justificado' => 'Retiro justificado',
+            'voluntad_comun' => 'Voluntad común de las partes',
+            'causa_ajena' => 'Causa ajena a la voluntad de las partes',
+            'conclusion_contrato' => 'Conclusión de contrato',
+            default => 'Otro',
         };
     }
 
@@ -122,8 +122,8 @@ class Liquidacion extends Model
     {
         return match ($this->estatus) {
             'aprobada' => 'Aprobada',
-            'anulada'  => 'Anulada',
-            default    => 'Por aprobar',
+            'anulada' => 'Anulada',
+            default => 'Por aprobar',
         };
     }
 
@@ -131,8 +131,8 @@ class Liquidacion extends Model
     {
         return match ($this->estatus) {
             'aprobada' => 'bg-green-50 text-green-700',
-            'anulada'  => 'bg-red-50 text-red-700',
-            default    => 'bg-amber-50 text-amber-700',
+            'anulada' => 'bg-red-50 text-red-700',
+            default => 'bg-amber-50 text-amber-700',
         };
     }
 

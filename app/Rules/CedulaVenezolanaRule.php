@@ -13,7 +13,7 @@ class CedulaVenezolanaRule implements ValidationRule
     {
         $value = strtoupper(trim((string) $value));
 
-        if (!preg_match('/^[VE]-?\d{6,8}$/', $value)) {
+        if (! preg_match('/^[VE]-?\d{6,8}$/', $value)) {
             $fail('La Cédula debe tener formato válido: V-12345678 o E-12345678.');
         }
     }
@@ -25,8 +25,10 @@ class CedulaVenezolanaRule implements ValidationRule
         if (strlen($cedula) >= 7 && strlen($cedula) <= 9) {
             $letra = substr($cedula, 0, 1);
             $numeros = substr($cedula, 1);
-            return $letra . '-' . $numeros;
+
+            return $letra.'-'.$numeros;
         }
+
         return $cedula;
     }
 }

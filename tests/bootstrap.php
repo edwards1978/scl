@@ -1,5 +1,8 @@
 <?php
 
+use Illuminate\Contracts\Console\Kernel;
+use Illuminate\Support\Facades\Artisan;
+
 /**
  * Bootstrap de pruebas.
  *
@@ -11,7 +14,7 @@
 require __DIR__.'/../vendor/autoload.php';
 
 $app = require __DIR__.'/../bootstrap/app.php';
-$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+$app->make(Kernel::class)->bootstrap();
 
 $connection = (string) config('database.default');
 $database = (string) config("database.connections.{$connection}.database");
@@ -34,7 +37,7 @@ if ($prefix !== '' && ! str_starts_with($prefix, 'test_')) {
 
 // Migra/actualiza el esquema de pruebas con prefijo test_. Es idempotente:
 // si ya está al día, no hace nada; si faltan migraciones nuevas, las aplica.
-Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+Artisan::call('migrate', ['--force' => true]);
 
 // El kernel de consola instala sus propios manejadores de error/excepción;
 // se restauran para que PHPUnit no marque todas las pruebas como "risky".

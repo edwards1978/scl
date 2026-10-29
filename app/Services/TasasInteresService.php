@@ -8,6 +8,7 @@ use App\Models\TasaInteresPrestaciones;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
 /**
  * Servicio de tasas de interés aplicables al cálculo de los intereses sobre
@@ -83,7 +84,7 @@ class TasasInteresService
             return [
                 'procesados' => 0,
                 'insertados' => 0,
-                'errores'    => ['No se encontró la hoja principal con el encabezado del BCV (filas 2 y 3).'],
+                'errores' => ['No se encontró la hoja principal con el encabezado del BCV (filas 2 y 3).'],
             ];
         }
 
@@ -133,7 +134,7 @@ class TasasInteresService
     /**
      * Localiza la hoja que cumple la validación de encabezado (filas 2 y 3).
      */
-    private function localizarHojaPrincipal($spreadsheet): ?\PhpOffice\PhpSpreadsheet\Worksheet\Worksheet
+    private function localizarHojaPrincipal($spreadsheet): ?Worksheet
     {
         foreach ($spreadsheet->getWorksheetIterator() as $hoja) {
             $fila2 = strtoupper(trim((string) $hoja->getCell('A2')->getValue()));

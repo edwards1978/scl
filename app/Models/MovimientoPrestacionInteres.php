@@ -23,10 +23,10 @@ class MovimientoPrestacionInteres extends Model
     protected function casts(): array
     {
         return [
-            'fecha'       => 'date',
-            'monto'       => 'decimal:2',
+            'fecha' => 'date',
+            'monto' => 'decimal:2',
             'tasa_cambio' => 'decimal:4',
-            'moneda'      => 'string',
+            'moneda' => 'string',
         ];
     }
 

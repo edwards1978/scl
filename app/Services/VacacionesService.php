@@ -5,11 +5,14 @@ namespace App\Services;
 use App\Models\Empleado;
 use App\Models\Feriado;
 use App\Models\Parametro;
+use App\Models\Patrono;
 use App\Models\Vacacion;
 use App\Models\VacacionesRecibo;
-use App\Models\Patrono;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Pagination\LengthAwarePaginator;
+
 /**
  * Servicio para cálculos de vacaciones y bono vacacional (LOTTT).
  *
@@ -23,23 +26,28 @@ use Carbon\CarbonInterface;
 class VacacionesService
 {
     public const DIAS_BASE = 15;
+
     public const DIAS_MAX = 30;
+
     public const BONO_BASE = 15;
+
     public const DIAS_MES = 30;
 
     public const IVSR_PCT = 0.04;
+
     public const PARO_PCT = 0.005;
+
     public const FAOV_PCT = 0.01;
 
     /** Multiplicadores del salario mínimo para los topes semanales. */
     public const SM_MULT_IVSS = 5;
+
     public const SM_MULT_RLE = 10;
 
     public function __construct(
         private CalendarioLaboral $calendario = new CalendarioLaboral,
         private SueldosService $sueldos = new SueldosService,
-    ) {
-    }
+    ) {}
 
     public function aniosServicio(Empleado $empleado, ?CarbonInterface $fecha = null): int
     {
@@ -58,10 +66,10 @@ class VacacionesService
         $adicionales = min(max($aniosDeServicio - 1, 0), self::DIAS_MAX - self::DIAS_BASE);
 
         return [
-            'vacaciones'           => self::DIAS_BASE,
-            'adicionales'          => $adicionales,
-            'bono'                 => self::DIAS_BASE,
-            'bono_adicionales'     => $adicionales,
+            'vacaciones' => self::DIAS_BASE,
+            'adicionales' => $adicionales,
+            'bono' => self::DIAS_BASE,
+            'bono_adicionales' => $adicionales,
         ];
     }
 
@@ -89,7 +97,7 @@ class VacacionesService
             $aniversario = $ingreso->copy()->addYears($i - 1);
             if ($aniversario <= $hasta) {
                 $pendientes[] = [
-                    'anio'        => $i,
+                    'anio' => $i,
                     'aniversario' => $aniversario->format('Y-m-d'),
                 ];
             }
@@ -129,7 +137,7 @@ class VacacionesService
             'anio_servicio' => $anio,
             'periodo_desde' => $periodoDesde,
             'periodo_hasta' => $periodoHasta,
-            'aniversario'   => $aniversario,
+            'aniversario' => $aniversario,
         ];
     }
 
@@ -159,8 +167,8 @@ class VacacionesService
 
         return [
             'fecha_inicio_real' => $inicioReal,
-            'fecha_fin_real'    => $finReal,
-            'fecha_reintegro'   => $reintegro,
+            'fecha_fin_real' => $finReal,
+            'fecha_reintegro' => $reintegro,
         ];
     }
 
@@ -199,7 +207,7 @@ class VacacionesService
         return [
             'dias_descanso' => $diasDescanso,
             'dias_feriados' => $diasFeriados,
-            'dias_habiles'  => $diasHabiles,
+            'dias_habiles' => $diasHabiles,
         ];
     }
 
@@ -210,8 +218,8 @@ class VacacionesService
      * disfrute/pago). Ignora $anioDeServicio: se deriva del próximo aniversario
      * pendiente para garantizar coherencia entre días y periodo trabajado.
      *
-     * @param int $anioDeServicio Años de servicio (ignorado; se usa el pendiente).
-     * @param string|null $fechaInicioUser Fecha inicio propuesta por el usuario (Y-m-d).
+     * @param  int  $anioDeServicio  Años de servicio (ignorado; se usa el pendiente).
+     * @param  string|null  $fechaInicioUser  Fecha inicio propuesta por el usuario (Y-m-d).
      */
     public function calcular(Empleado $empleado, int $anioDeServicio, ?string $fechaInicioUser = null): array
     {
@@ -265,66 +273,66 @@ class VacacionesService
         $neto = round($totalAsignaciones - $resultadoDed['total_deducciones'], 2);
 
         return [
-            'anio_servicio'        => $anioServicioReal,
-            'periodo_desde'        => $pendiente['periodo_desde']->format('Y-m-d'),
-            'periodo_hasta'        => $pendiente['periodo_hasta']->format('Y-m-d'),
-            'aniversario'          => $aniversario->format('Y-m-d'),
-            'fecha_inicio_user'    => $fechaInicioBase,
-            'fecha_inicio_real'    => $inicioReal->format('Y-m-d'),
-            'fecha_fin_real'       => $finReal->format('Y-m-d'),
-            'fecha_reintegro'      => $fechas['fecha_reintegro']->format('Y-m-d'),
-            'dias_vacaciones'      => $diasVac,
+            'anio_servicio' => $anioServicioReal,
+            'periodo_desde' => $pendiente['periodo_desde']->format('Y-m-d'),
+            'periodo_hasta' => $pendiente['periodo_hasta']->format('Y-m-d'),
+            'aniversario' => $aniversario->format('Y-m-d'),
+            'fecha_inicio_user' => $fechaInicioBase,
+            'fecha_inicio_real' => $inicioReal->format('Y-m-d'),
+            'fecha_fin_real' => $finReal->format('Y-m-d'),
+            'fecha_reintegro' => $fechas['fecha_reintegro']->format('Y-m-d'),
+            'dias_vacaciones' => $diasVac,
             'dias_vacaciones_base' => self::DIAS_BASE,
             'dias_vacaciones_adic' => $dias['adicionales'],
-            'dias_bono'            => $diasBono,
-            'dias_bono_base'       => self::BONO_BASE,
-            'dias_bono_adic'       => $dias['bono_adicionales'],
-            'dias_descanso'        => $diasDescanso,
-            'dias_feriados'        => $diasFeriados,
-            'salario_normal'       => $salarioNormal,
-            'salario_diario'       => $salarioDiario,
-            'moneda'               => $moneda,
-            'asignaciones'         => [
+            'dias_bono' => $diasBono,
+            'dias_bono_base' => self::BONO_BASE,
+            'dias_bono_adic' => $dias['bono_adicionales'],
+            'dias_descanso' => $diasDescanso,
+            'dias_feriados' => $diasFeriados,
+            'salario_normal' => $salarioNormal,
+            'salario_diario' => $salarioDiario,
+            'moneda' => $moneda,
+            'asignaciones' => [
                 [
-                    'concepto'       => 'Vacaciones',
-                    'base_legal'     => 'Art. 190 LOTTT',
-                    'dias'           => $diasVac,
+                    'concepto' => 'Vacaciones',
+                    'base_legal' => 'Art. 190 LOTTT',
+                    'dias' => $diasVac,
                     'salario_diario' => $salarioDiario,
-                    'importe'        => $vacacionesImporte,
-                    'observacion'    => "{$diasVac} días hábiles",
+                    'importe' => $vacacionesImporte,
+                    'observacion' => "{$diasVac} días hábiles",
                 ],
                 [
-                    'concepto'       => 'Bono Vacacional',
-                    'base_legal'     => 'Art. 192 LOTTT',
-                    'dias'           => $diasBono,
+                    'concepto' => 'Bono Vacacional',
+                    'base_legal' => 'Art. 192 LOTTT',
+                    'dias' => $diasBono,
                     'salario_diario' => $salarioDiario,
-                    'importe'        => $bonoImporte,
-                    'observacion'    => "{$diasBono} días de salario",
+                    'importe' => $bonoImporte,
+                    'observacion' => "{$diasBono} días de salario",
                 ],
                 [
-                    'concepto'       => 'Días de Descanso Semanal',
-                    'base_legal'     => 'Art. 196 LOTTT',
-                    'dias'           => $diasDescanso,
+                    'concepto' => 'Días de Descanso Semanal',
+                    'base_legal' => 'Art. 196 LOTTT',
+                    'dias' => $diasDescanso,
                     'salario_diario' => $salarioDiario,
-                    'importe'        => $descansoImporte,
-                    'observacion'    => "{$diasDescanso} días de descanso en el disfrute",
+                    'importe' => $descansoImporte,
+                    'observacion' => "{$diasDescanso} días de descanso en el disfrute",
                 ],
                 [
-                    'concepto'       => 'Días Feriados',
-                    'base_legal'     => 'Arts. 119 y 184 LOTTT',
-                    'dias'           => $diasFeriados,
+                    'concepto' => 'Días Feriados',
+                    'base_legal' => 'Arts. 119 y 184 LOTTT',
+                    'dias' => $diasFeriados,
                     'salario_diario' => $salarioDiario,
-                    'importe'        => $feriadosImporte,
-                    'observacion'    => "{$diasFeriados} días feriados en el disfrute",
+                    'importe' => $feriadosImporte,
+                    'observacion' => "{$diasFeriados} días feriados en el disfrute",
                 ],
             ],
-            'deducciones'      => $resultadoDed['deducciones'],
+            'deducciones' => $resultadoDed['deducciones'],
             'total_asignaciones' => $totalAsignaciones,
-            'total_deducciones'  => $resultadoDed['total_deducciones'],
-            'neto'              => $neto,
-            'feriados_en_periodo'  => $feriados,
-            '_salario_diario'      => $salarioDiario,
-            '_dias_remunerados'    => $diasVac + $diasDescanso + $diasFeriados + $diasBono,
+            'total_deducciones' => $resultadoDed['total_deducciones'],
+            'neto' => $neto,
+            'feriados_en_periodo' => $feriados,
+            '_salario_diario' => $salarioDiario,
+            '_dias_remunerados' => $diasVac + $diasDescanso + $diasFeriados + $diasBono,
         ];
     }
 
@@ -406,14 +414,14 @@ class VacacionesService
             $importe = round($topeSemanaMoneda * $semanasReales * self::IVSR_PCT, 2);
             $topeTxt = $baseSemanaBs >= $semanaNormalBs
                 ? 'sin tope aplicado'
-                : 'topeada a ' . formato_monto($baseSemanaBs) . ' Bs/semana (≈ '
-                    . formato_monto($topeSemanaMoneda) . ' ' . $moneda . '/semana)';
+                : 'topeada a '.formato_monto($baseSemanaBs).' Bs/semana (≈ '
+                    .formato_monto($topeSemanaMoneda).' '.$moneda.'/semana)';
             $deducciones[] = [
-                'concepto'   => 'Seguro Social (IVSS)',
-                'base_legal' => '4% sobre base semanal topeada: ' . $topeTxt
-                    . ($salarioMin ? ' (SM ' . $salarioMin['gaceta'] . ')' : ''),
+                'concepto' => 'Seguro Social (IVSS)',
+                'base_legal' => '4% sobre base semanal topeada: '.$topeTxt
+                    .($salarioMin ? ' (SM '.$salarioMin['gaceta'].')' : ''),
                 'porcentaje' => self::IVSR_PCT,
-                'importe'    => $importe,
+                'importe' => $importe,
             ];
             $totalDeducciones += $importe;
         }
@@ -425,14 +433,14 @@ class VacacionesService
             $importe = round($topeSemanaMoneda * $semanasReales * self::PARO_PCT, 2);
             $topeTxt = $baseSemanaBs >= $semanaNormalBs
                 ? 'sin base aplicada'
-                : 'topeada a ' . formato_monto($baseSemanaBs) . ' Bs/semana (≈ '
-                    . formato_monto($topeSemanaMoneda) . ' ' . $moneda . '/semana)';
+                : 'topeada a '.formato_monto($baseSemanaBs).' Bs/semana (≈ '
+                    .formato_monto($topeSemanaMoneda).' '.$moneda.'/semana)';
             $deducciones[] = [
-                'concepto'    => 'Régimen de Paro (SP Empleo)',
-                'base_legal'  => '0.5% sobre base semanal topeada: ' . $topeTxt
-                    . ($salarioMin ? ' (SM ' . $salarioMin['gaceta'] . ')' : ''),
-                'porcentaje'  => self::PARO_PCT,
-                'importe'     => $importe,
+                'concepto' => 'Régimen de Paro (SP Empleo)',
+                'base_legal' => '0.5% sobre base semanal topeada: '.$topeTxt
+                    .($salarioMin ? ' (SM '.$salarioMin['gaceta'].')' : ''),
+                'porcentaje' => self::PARO_PCT,
+                'importe' => $importe,
             ];
             $totalDeducciones += $importe;
         }
@@ -440,16 +448,16 @@ class VacacionesService
         if ($patrono->descuenta_faov) {
             $importe = round($baseIntegral * self::FAOV_PCT, 2);
             $deducciones[] = [
-                'concepto'    => 'FAOV',
-                'base_legal'  => '1% sobre salario integral (incluye bono vacacional)',
-                'porcentaje'  => self::FAOV_PCT,
-                'importe'     => $importe,
+                'concepto' => 'FAOV',
+                'base_legal' => '1% sobre salario integral (incluye bono vacacional)',
+                'porcentaje' => self::FAOV_PCT,
+                'importe' => $importe,
             ];
             $totalDeducciones += $importe;
         }
 
         return [
-            'deducciones'      => $deducciones,
+            'deducciones' => $deducciones,
             'total_deducciones' => round($totalDeducciones, 2),
         ];
     }
@@ -490,36 +498,36 @@ class VacacionesService
 
         $asignaciones = [
             [
-                'concepto'       => 'Vacaciones',
-                'base_legal'     => 'Art. 190 LOTTT',
-                'dias'           => $diasHabiles,
+                'concepto' => 'Vacaciones',
+                'base_legal' => 'Art. 190 LOTTT',
+                'dias' => $diasHabiles,
                 'salario_diario' => round($salarioDiario, 2),
-                'importe'        => round($diasHabiles * $salarioDiario, 2),
-                'observacion'    => "{$diasHabiles} días hábiles",
+                'importe' => round($diasHabiles * $salarioDiario, 2),
+                'observacion' => "{$diasHabiles} días hábiles",
             ],
             [
-                'concepto'       => 'Bono Vacacional',
-                'base_legal'     => 'Art. 192 LOTTT',
-                'dias'           => $diasBono,
+                'concepto' => 'Bono Vacacional',
+                'base_legal' => 'Art. 192 LOTTT',
+                'dias' => $diasBono,
                 'salario_diario' => round($salarioDiario, 2),
-                'importe'        => round($diasBono * $salarioDiario, 2),
-                'observacion'    => "{$diasBono} días de salario",
+                'importe' => round($diasBono * $salarioDiario, 2),
+                'observacion' => "{$diasBono} días de salario",
             ],
             [
-                'concepto'       => 'Días de Descanso Semanal',
-                'base_legal'     => 'Art. 196 LOTTT',
-                'dias'           => $diasDescanso,
+                'concepto' => 'Días de Descanso Semanal',
+                'base_legal' => 'Art. 196 LOTTT',
+                'dias' => $diasDescanso,
                 'salario_diario' => round($salarioDiario, 2),
-                'importe'        => round($diasDescanso * $salarioDiario, 2),
-                'observacion'    => "{$diasDescanso} días de descanso en el disfrute",
+                'importe' => round($diasDescanso * $salarioDiario, 2),
+                'observacion' => "{$diasDescanso} días de descanso en el disfrute",
             ],
             [
-                'concepto'       => 'Días Feriados',
-                'base_legal'     => 'Arts. 119 y 184 LOTTT',
-                'dias'           => $diasFeriados,
+                'concepto' => 'Días Feriados',
+                'base_legal' => 'Arts. 119 y 184 LOTTT',
+                'dias' => $diasFeriados,
                 'salario_diario' => round($salarioDiario, 2),
-                'importe'        => round($diasFeriados * $salarioDiario, 2),
-                'observacion'    => "{$diasFeriados} días feriados en el disfrute",
+                'importe' => round($diasFeriados * $salarioDiario, 2),
+                'observacion' => "{$diasFeriados} días feriados en el disfrute",
             ],
         ];
 
@@ -543,17 +551,17 @@ class VacacionesService
         $neto = round($totalAsignaciones - $totalDeducciones, 2);
 
         return $vacacion->recibos()->create([
-            'empleado_id'       => $empleado->id,
-            'fecha_emision'     => now()->toDateString(),
-            'fecha_inicio'      => $vacacion->fecha_inicio_real,
-            'fecha_retiro'      => $vacacion->fecha_reintegro,
-            'asignaciones'      => $asignaciones,
-            'deducciones'       => $deducciones,
+            'empleado_id' => $empleado->id,
+            'fecha_emision' => now()->toDateString(),
+            'fecha_inicio' => $vacacion->fecha_inicio_real,
+            'fecha_retiro' => $vacacion->fecha_reintegro,
+            'asignaciones' => $asignaciones,
+            'deducciones' => $deducciones,
             'total_asignaciones' => $totalAsignaciones,
-            'total_deducciones'  => $totalDeducciones,
-            'neto'              => $neto,
-            'moneda'            => $vacacion->moneda,
-            'tipo_cambio'       => $this->tasaEnDia(now()->toDateString()),
+            'total_deducciones' => $totalDeducciones,
+            'neto' => $neto,
+            'moneda' => $vacacion->moneda,
+            'tipo_cambio' => $this->tasaEnDia(now()->toDateString()),
         ]);
     }
 
@@ -563,7 +571,7 @@ class VacacionesService
      * `mostrar_equivalencia_usd`. La moneda proviene de la fuente (sueldos),
      * con respaldo a la ficha del empleado.
      */
-    public function formatearMonto(Empleado $empleado, float $monto, ?float $tasa = null, bool $mostrar = null, ?string $moneda = null): array
+    public function formatearMonto(Empleado $empleado, float $monto, ?float $tasa = null, ?bool $mostrar = null, ?string $moneda = null): array
     {
         $moneda = $moneda ?? $empleado->moneda;
 
@@ -572,15 +580,15 @@ class VacacionesService
             $mostrar = $mostrar ?? (bool) ($empleado->patrono->mostrar_equivalencia_usd ?? false);
 
             return [
-                'moneda'      => 'USD',
-                'principal'   => 'USD ' . formato_monto($monto),
-                'equivalente' => ($tasa > 0 && $mostrar) ? '≈ Bs. ' . formato_monto($monto * $tasa) : null,
+                'moneda' => 'USD',
+                'principal' => 'USD '.formato_monto($monto),
+                'equivalente' => ($tasa > 0 && $mostrar) ? '≈ Bs. '.formato_monto($monto * $tasa) : null,
             ];
         }
 
         return [
-            'moneda'      => 'BS',
-            'principal'   => 'Bs. ' . formato_monto($monto),
+            'moneda' => 'BS',
+            'principal' => 'Bs. '.formato_monto($monto),
             'equivalente' => null,
         ];
     }
@@ -604,8 +612,7 @@ class VacacionesService
         Patrono $patrono,
         array $filtros,
         int $porPagina = 15,
-    ): \Illuminate\Pagination\LengthAwarePaginator
-    {
+    ): LengthAwarePaginator {
         $query = Vacacion::with('empleado')
             ->where('patrono_id', $patrono->id)
             ->orderByDesc('fecha_calculo')
@@ -638,7 +645,7 @@ class VacacionesService
      * Listado completo (sin paginación) para exportar el reporte a PDF,
      * cargando trabajador y último recibo cuando exista.
      */
-    public function reporteVacacionesExport(Patrono $patrono, array $filtros): \Illuminate\Database\Eloquent\Collection
+    public function reporteVacacionesExport(Patrono $patrono, array $filtros): Collection
     {
         $query = Vacacion::with(['empleado', 'recibo'])
             ->where('patrono_id', $patrono->id)
@@ -690,10 +697,10 @@ class VacacionesService
         $totalRegistros = $vacaciones->count();
 
         // días hábiles totales de disfrute (vacaciones + adicionales)
-        $totalDiasVacaciones = $vacaciones->sum(fn($v) => $v->diasHabilesDisfrute());
+        $totalDiasVacaciones = $vacaciones->sum(fn ($v) => $v->diasHabilesDisfrute());
 
         // días de bono totales (bono + bono_adicionales)
-        $totalDiasBono = $vacaciones->sum(fn($v) => $v->diasHabilesBono());
+        $totalDiasBono = $vacaciones->sum(fn ($v) => $v->diasHabilesBono());
 
         // sumar recibo totales (solo para filas pagada/disfrutada)
         $totalAsignaciones = 0.0;
@@ -710,12 +717,12 @@ class VacacionesService
         }
 
         return [
-            'totalRegistros'     => $totalRegistros,
-            'totalDiasVacaciones'=> $totalDiasVacaciones,
-            'totalDiasBono'      => $totalDiasBono,
-            'totalAsignaciones'  => $totalAsignaciones,
-            'totalDeducciones'   => $totalDeducciones,
-            'totalNeto'          => $totalNeto,
+            'totalRegistros' => $totalRegistros,
+            'totalDiasVacaciones' => $totalDiasVacaciones,
+            'totalDiasBono' => $totalDiasBono,
+            'totalAsignaciones' => $totalAsignaciones,
+            'totalDeducciones' => $totalDeducciones,
+            'totalNeto' => $totalNeto,
         ];
     }
 }

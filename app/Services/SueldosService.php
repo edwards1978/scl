@@ -9,7 +9,6 @@ use App\Models\Empleado;
 use App\Models\Sueldo;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
-use Illuminate\Support\Facades\DB;
 
 /**
  * Servicio de sueldos mensuales.
@@ -26,8 +25,7 @@ class SueldosService
 {
     public function __construct(
         private TasasBcvService $tasas = new TasasBcvService,
-    ) {
-    }
+    ) {}
 
     /**
      * Periodo YYYY-MM de una fecha.
@@ -81,7 +79,7 @@ class SueldosService
         }
 
         return [
-            'monto'  => $sueldo->moneda_sueldo === 'USD' ? (float) $sueldo->monto_usd : (float) $sueldo->monto_bs,
+            'monto' => $sueldo->moneda_sueldo === 'USD' ? (float) $sueldo->monto_usd : (float) $sueldo->monto_bs,
             'moneda' => $sueldo->moneda_sueldo,
             'origen' => 'sueldos',
         ];
@@ -103,7 +101,7 @@ class SueldosService
 
         if ($cambio) {
             return [
-                'monto'  => (float) $cambio->monto,
+                'monto' => (float) $cambio->monto,
                 'moneda' => $cambio->moneda,
                 'origen' => 'cambio',
             ];
@@ -111,7 +109,7 @@ class SueldosService
 
         // Sin cambio vigente: se usa el sueldo inicial de la ficha.
         return [
-            'monto'  => (float) ($empleado->salario_inicial ?? $empleado->salario_base),
+            'monto' => (float) ($empleado->salario_inicial ?? $empleado->salario_base),
             'moneda' => $empleado->moneda,
             'origen' => 'ficha',
         ];
@@ -141,13 +139,13 @@ class SueldosService
         }
 
         return [
-            'periodo'       => $this->periodoDe($fechaDelMes),
-            'cierre'        => $cierre,
+            'periodo' => $this->periodoDe($fechaDelMes),
+            'cierre' => $cierre,
             'moneda_sueldo' => $vigente['moneda'],
-            'monto_usd'     => $montoUsd,
-            'monto_bs'      => $montoBs,
-            'tasa_bcv'      => $tasa,
-            'origen'        => $vigente['origen'],
+            'monto_usd' => $montoUsd,
+            'monto_bs' => $montoBs,
+            'tasa_bcv' => $tasa,
+            'origen' => $vigente['origen'],
         ];
     }
 
@@ -161,15 +159,15 @@ class SueldosService
         return Sueldo::updateOrCreate(
             [
                 'empleado_id' => $empleado->id,
-                'periodo'     => $data['periodo'],
+                'periodo' => $data['periodo'],
             ],
             [
-                'fecha_cierre'  => $data['cierre']->toDateString(),
+                'fecha_cierre' => $data['cierre']->toDateString(),
                 'moneda_sueldo' => $data['moneda_sueldo'],
-                'monto_usd'     => $data['monto_usd'],
-                'monto_bs'      => $data['monto_bs'],
-                'tasa_bcv'      => $data['tasa_bcv'],
-                'origen'        => $data['origen'],
+                'monto_usd' => $data['monto_usd'],
+                'monto_bs' => $data['monto_bs'],
+                'tasa_bcv' => $data['tasa_bcv'],
+                'origen' => $data['origen'],
             ]
         );
     }
@@ -286,12 +284,12 @@ class SueldosService
         }
 
         return [
-            'periodo'       => $sueldo->periodo,
-            'monto_usd'     => $sueldo->monto_usd !== null ? (float) $sueldo->monto_usd : null,
-            'monto_bs'      => $sueldo->monto_bs !== null ? (float) $sueldo->monto_bs : null,
-            'tasa_bcv'      => $sueldo->tasa_bcv !== null ? (float) $sueldo->tasa_bcv : null,
+            'periodo' => $sueldo->periodo,
+            'monto_usd' => $sueldo->monto_usd !== null ? (float) $sueldo->monto_usd : null,
+            'monto_bs' => $sueldo->monto_bs !== null ? (float) $sueldo->monto_bs : null,
+            'tasa_bcv' => $sueldo->tasa_bcv !== null ? (float) $sueldo->tasa_bcv : null,
             'moneda_sueldo' => $sueldo->moneda_sueldo,
-            'origen'        => $sueldo->origen,
+            'origen' => $sueldo->origen,
         ];
     }
 
@@ -341,7 +339,7 @@ class SueldosService
             } else {
                 $faltantes[] = [
                     'periodo' => $cursor->format('Y-m'),
-                    'cierre'  => $cierre->toDateString(),
+                    'cierre' => $cierre->toDateString(),
                 ];
             }
 
@@ -368,7 +366,7 @@ class SueldosService
         if ($cambio) {
             $empleado->update([
                 'salario_base' => (float) $cambio->monto,
-                'moneda'       => $cambio->moneda,
+                'moneda' => $cambio->moneda,
             ]);
         } elseif ($empleado->salario_inicial !== null) {
             $empleado->update([

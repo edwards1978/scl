@@ -22,7 +22,7 @@ class CambioSalario extends Model
     {
         return [
             'fecha_cambio' => 'date',
-            'monto'        => 'decimal:2',
+            'monto' => 'decimal:2',
         ];
     }
 

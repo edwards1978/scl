@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class TasaBcv extends Model
 {
@@ -20,7 +19,7 @@ class TasaBcv extends Model
     protected function casts(): array
     {
         return [
-            'fecha'    => 'date',
+            'fecha' => 'date',
             'tasa_usd' => 'decimal:6',
         ];
     }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\Empleado;
+use App\Models\Feriado;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 
@@ -24,8 +25,7 @@ class CalendarioLaboral
 
     public function __construct(
         private DiasFeriadosService $feriados = new DiasFeriadosService,
-    ) {
-    }
+    ) {}
 
     /**
      * Días de descanso semanales de un empleado (lee su configuración).
@@ -117,7 +117,7 @@ class CalendarioLaboral
 
         return $coleccion
             ->sort()
-            ->map(fn (Carbon $c) => $c->format('d/m/Y').' ('.\App\Models\Feriado::where('fecha', $c->format('Y-m-d'))->value('descripcion').')')
+            ->map(fn (Carbon $c) => $c->format('d/m/Y').' ('.Feriado::where('fecha', $c->format('Y-m-d'))->value('descripcion').')')
             ->values()
             ->all();
     }

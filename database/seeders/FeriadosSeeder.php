@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\Feriado;
 use App\Models\FeriadoFijo;
 use App\Services\DiasFeriadosService;
 use Carbon\Carbon;
@@ -33,8 +32,8 @@ class FeriadosSeeder extends Seeder
         FeriadoFijo::query()->truncate();
         foreach ($this->fijos as [$mes, $dia, $descripcion]) {
             FeriadoFijo::create([
-                'dia'    => $dia,
-                'mes'    => $mes,
+                'dia' => $dia,
+                'mes' => $mes,
                 'descripcion' => $descripcion,
                 'activo' => true,
             ]);

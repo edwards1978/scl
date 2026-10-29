@@ -29,15 +29,15 @@ class VacacionesRecibo extends Model
     protected function casts(): array
     {
         return [
-            'fecha_emision'        => 'date',
-            'fecha_inicio'         => 'date',
-            'fecha_retiro'         => 'date',
-            'asignaciones'         => 'array',
-            'deducciones'          => 'array',
-            'total_asignaciones'   => 'decimal:2',
-            'total_deducciones'    => 'decimal:2',
-            'neto'                 => 'decimal:2',
-            'tipo_cambio'          => 'decimal:4',
+            'fecha_emision' => 'date',
+            'fecha_inicio' => 'date',
+            'fecha_retiro' => 'date',
+            'asignaciones' => 'array',
+            'deducciones' => 'array',
+            'total_asignaciones' => 'decimal:2',
+            'total_deducciones' => 'decimal:2',
+            'neto' => 'decimal:2',
+            'tipo_cambio' => 'decimal:4',
         ];
     }
 

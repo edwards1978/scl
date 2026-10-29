@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -48,7 +49,7 @@ return new class extends Migration
             // la FK real de producción.
             $table->foreign(
                 'movimiento_prestacion_id',
-                \Illuminate\Support\Facades\DB::getTablePrefix().'mpi_movimiento_fk'
+                DB::getTablePrefix().'mpi_movimiento_fk'
             )
                 ->references('id')->on('movimientos_prestaciones')
                 ->cascadeOnDelete();

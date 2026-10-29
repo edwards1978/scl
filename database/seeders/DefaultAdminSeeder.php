@@ -18,8 +18,8 @@ class DefaultAdminSeeder extends Seeder
         $user = User::firstOrCreate(
             ['email' => 'admin@scl.local'],
             [
-                'name'              => 'Administrador',
-                'password'          => Hash::make($password),
+                'name' => 'Administrador',
+                'password' => Hash::make($password),
                 'email_verified_at' => now(),
             ]
         );

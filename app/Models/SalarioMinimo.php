@@ -23,8 +23,8 @@ class SalarioMinimo extends Model
     {
         return [
             'fecha_vigencia' => 'date',
-            'mensual_bs'     => 'decimal:8',
-            'diario_bs'      => 'decimal:8',
+            'mensual_bs' => 'decimal:8',
+            'diario_bs' => 'decimal:8',
         ];
     }
 

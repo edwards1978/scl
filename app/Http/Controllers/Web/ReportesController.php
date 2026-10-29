@@ -15,8 +15,7 @@ class ReportesController extends Controller
 {
     public function __construct(
         private VacacionesService $service = new VacacionesService,
-    ) {
-    }
+    ) {}
 
     private function patronoActual(): Patrono
     {
@@ -26,8 +25,8 @@ class ReportesController extends Controller
     private function filtros(Request $request): array
     {
         return [
-            'ano'             => $request->filled('ano') ? (int) $request->get('ano') : null,
-            'empleado_id'     => $request->filled('empleado_id') ? (int) $request->get('empleado_id') : null,
+            'ano' => $request->filled('ano') ? (int) $request->get('ano') : null,
+            'empleado_id' => $request->filled('empleado_id') ? (int) $request->get('empleado_id') : null,
             'estatus_calculo' => in_array($request->get('estatus_calculo'), ['por_aprobar', 'aprobada', 'no_aprobada'], true)
                 ? $request->get('estatus_calculo')
                 : null,
@@ -68,18 +67,18 @@ class ReportesController extends Controller
                 $recibo = $v->recibos()->latest('fecha_emision')->first();
 
                 return [
-                    'trabajador'        => $v->empleado->nombre_completo ?? '—',
-                    'cedula'            => $v->empleado->cedula ?? '—',
+                    'trabajador' => $v->empleado->nombre_completo ?? '—',
+                    'cedula' => $v->empleado->cedula ?? '—',
                     'periodo_trabajado' => $v->periodo_desde->format('d/m/Y').' — '.$v->periodo_hasta->format('d/m/Y'),
-                    'disfrute'          => $v->fecha_inicio_real?->format('d/m/Y').' — '.$v->fecha_fin_real?->format('d/m/Y'),
-                    'reintegro'         => $v->fecha_reintegro?->format('d/m/Y') ?? '—',
-                    'dias_vacaciones'   => $v->diasHabilesDisfrute(),
-                    'dias_bono'         => $v->diasHabilesBono(),
-                    'salario_normal'    => $v->salario_normal,
-                    'moneda'            => $v->moneda,
-                    'estatus_calculo'   => $v->labelEstatusCalculo(),
-                    'estatus_vacacion'  => $v->labelEstatusVacacion(),
-                    'neto'              => $recibo ? (float) $recibo->neto : null,
+                    'disfrute' => $v->fecha_inicio_real?->format('d/m/Y').' — '.$v->fecha_fin_real?->format('d/m/Y'),
+                    'reintegro' => $v->fecha_reintegro?->format('d/m/Y') ?? '—',
+                    'dias_vacaciones' => $v->diasHabilesDisfrute(),
+                    'dias_bono' => $v->diasHabilesBono(),
+                    'salario_normal' => $v->salario_normal,
+                    'moneda' => $v->moneda,
+                    'estatus_calculo' => $v->labelEstatusCalculo(),
+                    'estatus_vacacion' => $v->labelEstatusVacacion(),
+                    'neto' => $recibo ? (float) $recibo->neto : null,
                 ];
             })
             ->values();
@@ -87,8 +86,8 @@ class ReportesController extends Controller
         $estadisticas = $this->service->estadisticasVacaciones($patrono, $filtros);
 
         $pdf = Pdf::loadView('reportes.vacaciones.pdf', [
-            'patrono'      => $patrono,
-            'vacaciones'   => $vacaciones,
+            'patrono' => $patrono,
+            'vacaciones' => $vacaciones,
             'estadisticas' => $estadisticas,
         ])->setPaper('letter', 'landscape');
 

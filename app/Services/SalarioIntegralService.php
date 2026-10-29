@@ -6,7 +6,6 @@ namespace App\Services;
 
 use App\Models\Empleado;
 use Carbon\Carbon;
-use Carbon\CarbonInterface;
 
 /**
  * Salario integral diario según LOTTT.
@@ -26,16 +25,17 @@ use Carbon\CarbonInterface;
 class SalarioIntegralService
 {
     public const DIAS_MES = 30;
+
     public const DIAS_ANNO_LABORAL = 360;
 
     public const BONO_BASE = 15;
+
     public const BONO_MAX = 30;
 
     public function __construct(
         private SueldosService $sueldos = new SueldosService,
         private TasasBcvService $tasas = new TasasBcvService,
-    ) {
-    }
+    ) {}
 
     /**
      * Años de servicio completos a una fecha (misma lógica que vacaciones).
@@ -60,7 +60,7 @@ class SalarioIntegralService
 
         return [
             'vacaciones' => self::BONO_BASE + $adicionales,
-            'bono'       => self::BONO_BASE + $adicionales,
+            'bono' => self::BONO_BASE + $adicionales,
         ];
     }
 
@@ -109,8 +109,8 @@ class SalarioIntegralService
 
         return [
             'mensual' => (float) $vigente['monto'],
-            'moneda'  => (string) $vigente['moneda'],
-            'tasa'    => $tasa,
+            'moneda' => (string) $vigente['moneda'],
+            'tasa' => $tasa,
         ];
     }
 
@@ -142,16 +142,16 @@ class SalarioIntegralService
         $integralDiario = $salarioDiarioNormal + $alicuotaUtil + $alicuotaBono;
 
         return [
-            'salario_mensual'          => $mes,
-            'moneda'                   => $base['moneda'],
-            'tasa'                     => $base['tasa'],
-            'salario_diario_normal'    => round($salarioDiarioNormal, 2),
-            'dias_utilidades'          => $diasUtil,
-            'alicuota_utilidades'      => round($alicuotaUtil, 2),
-            'dias_bono_vacacional'     => $diasBono,
+            'salario_mensual' => $mes,
+            'moneda' => $base['moneda'],
+            'tasa' => $base['tasa'],
+            'salario_diario_normal' => round($salarioDiarioNormal, 2),
+            'dias_utilidades' => $diasUtil,
+            'alicuota_utilidades' => round($alicuotaUtil, 2),
+            'dias_bono_vacacional' => $diasBono,
             'alicuota_bono_vacacional' => round($alicuotaBono, 2),
-            'salario_diario_integral'  => round($integralDiario, 2),
-            'mensual_integral'         => round($integralDiario * self::DIAS_MES, 2),
+            'salario_diario_integral' => round($integralDiario, 2),
+            'mensual_integral' => round($integralDiario * self::DIAS_MES, 2),
         ];
     }
 }

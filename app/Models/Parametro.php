@@ -14,16 +14,16 @@ class Parametro extends Model
     {
         $parametro = static::where('clave', $clave)->first();
 
-        if (!$parametro) {
+        if (! $parametro) {
             return $default;
         }
 
         return match ($parametro->tipo) {
             'integer' => (int) $parametro->valor,
-            'float'   => (float) $parametro->valor,
+            'float' => (float) $parametro->valor,
             'boolean' => $parametro->valor === '1' || $parametro->valor === 'true',
-            'json'    => json_decode($parametro->valor, true),
-            default   => $parametro->valor,
+            'json' => json_decode($parametro->valor, true),
+            default => $parametro->valor,
         };
     }
 

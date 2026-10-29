@@ -19,9 +19,9 @@ class TasaInteresPrestaciones extends Model
     protected function casts(): array
     {
         return [
-            'periodo'       => 'string',
-            'tasa_interes'  => 'decimal:4',
-            'fuente'        => 'string',
+            'periodo' => 'string',
+            'tasa_interes' => 'decimal:4',
+            'fuente' => 'string',
         ];
     }
 

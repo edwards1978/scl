@@ -11,15 +11,13 @@ use App\Services\DiasFeriadosService;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\View\View;
 
 class FeriadosController extends Controller
 {
     public function __construct(
         private DiasFeriadosService $service = new DiasFeriadosService,
-    ) {
-    }
+    ) {}
 
     public function index(): View
     {
@@ -38,8 +36,8 @@ class FeriadosController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $data = $request->validate([
-            'dia'         => ['required', 'integer', 'min:1', 'max:31'],
-            'mes'         => ['required', 'integer', 'min:1', 'max:12'],
+            'dia' => ['required', 'integer', 'min:1', 'max:31'],
+            'mes' => ['required', 'integer', 'min:1', 'max:12'],
             'descripcion' => ['required', 'string', 'max:150'],
         ]);
 
@@ -61,10 +59,10 @@ class FeriadosController extends Controller
     public function update(Request $request, FeriadoFijo $feriado): RedirectResponse
     {
         $data = $request->validate([
-            'dia'         => ['required', 'integer', 'min:1', 'max:31'],
-            'mes'         => ['required', 'integer', 'min:1', 'max:12'],
+            'dia' => ['required', 'integer', 'min:1', 'max:31'],
+            'mes' => ['required', 'integer', 'min:1', 'max:12'],
             'descripcion' => ['required', 'string', 'max:150'],
-            'activo'      => ['nullable', 'boolean'],
+            'activo' => ['nullable', 'boolean'],
         ]);
 
         if (! checkdate((int) $data['mes'], (int) $data['dia'], 2024)) {
@@ -81,10 +79,10 @@ class FeriadosController extends Controller
         }
 
         $feriado->update([
-            'dia'         => $data['dia'],
-            'mes'         => $data['mes'],
+            'dia' => $data['dia'],
+            'mes' => $data['mes'],
             'descripcion' => $data['descripcion'],
-            'activo'      => (bool) ($data['activo'] ?? false),
+            'activo' => (bool) ($data['activo'] ?? false),
         ]);
 
         $this->regenerarAnioActual();

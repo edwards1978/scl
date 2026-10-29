@@ -39,25 +39,25 @@ class Vacacion extends Model
     protected function casts(): array
     {
         return [
-            'fecha_calculo'            => 'date',
-            'fecha_inicio'             => 'date',
-            'fecha_inicio_real'        => 'date',
-            'fecha_fin_real'           => 'date',
-            'fecha_reintegro'          => 'date',
-            'periodo_desde'            => 'date',
-            'periodo_hasta'            => 'date',
-            'nro_vacacion'             => 'integer',
-            'dias_vacaciones'          => 'integer',
-            'dias_adicionales'         => 'integer',
-            'dias_bono'                => 'integer',
-            'dias_bono_adicionales'    => 'integer',
-            'dias_descanso'            => 'integer',
-            'dias_feriados'            => 'integer',
+            'fecha_calculo' => 'date',
+            'fecha_inicio' => 'date',
+            'fecha_inicio_real' => 'date',
+            'fecha_fin_real' => 'date',
+            'fecha_reintegro' => 'date',
+            'periodo_desde' => 'date',
+            'periodo_hasta' => 'date',
+            'nro_vacacion' => 'integer',
+            'dias_vacaciones' => 'integer',
+            'dias_adicionales' => 'integer',
+            'dias_bono' => 'integer',
+            'dias_bono_adicionales' => 'integer',
+            'dias_descanso' => 'integer',
+            'dias_feriados' => 'integer',
             'feriados_descanso_en_periodo' => 'array',
-            'salario_normal'           => 'decimal:2',
-            'moneda'                   => 'string',
-            'estatus_calculo'          => 'string',
-            'estatus_vacacion'         => 'string',
+            'salario_normal' => 'decimal:2',
+            'moneda' => 'string',
+            'estatus_calculo' => 'string',
+            'estatus_vacacion' => 'string',
         ];
     }
 
@@ -96,27 +96,27 @@ class Vacacion extends Model
     public function labelEstatusCalculo(): string
     {
         return match ($this->estatus_calculo) {
-            'aprobada'    => 'Aprobada',
+            'aprobada' => 'Aprobada',
             'no_aprobada' => 'No aprobada',
-            default       => 'Por aprobar',
+            default => 'Por aprobar',
         };
     }
 
     public function labelEstatusVacacion(): string
     {
         return match ($this->estatus_vacacion) {
-            'pagada'      => 'Pagada / Disfrutada',
-            'disfrutada'  => 'Disfrutada',
-            default       => 'Pendiente',
+            'pagada' => 'Pagada / Disfrutada',
+            'disfrutada' => 'Disfrutada',
+            default => 'Pendiente',
         };
     }
 
     public function colorEstatusCalculo(): string
     {
         return match ($this->estatus_calculo) {
-            'aprobada'    => 'bg-green-50 text-green-700',
+            'aprobada' => 'bg-green-50 text-green-700',
             'no_aprobada' => 'bg-red-50 text-red-700',
-            default       => 'bg-amber-50 text-amber-700',
+            default => 'bg-amber-50 text-amber-700',
         };
     }
 
@@ -124,7 +124,7 @@ class Vacacion extends Model
     {
         return match ($this->estatus_vacacion) {
             'pagada', 'disfrutada' => 'bg-blue-50 text-blue-700',
-            default                => 'bg-gray-100 text-gray-500',
+            default => 'bg-gray-100 text-gray-500',
         };
     }
 

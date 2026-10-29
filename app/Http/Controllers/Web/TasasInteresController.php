@@ -17,8 +17,7 @@ class TasasInteresController extends Controller
 {
     public function __construct(
         private TasasInteresService $service = new TasasInteresService,
-    ) {
-    }
+    ) {}
 
     /** Listado de tasas de interés registradas. */
     public function index(Request $request): View
@@ -44,7 +43,7 @@ class TasasInteresController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $data = $request->validate([
-            'periodo'      => ['required', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/'],
+            'periodo' => ['required', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/'],
             'tasa_interes' => ['required', 'numeric', 'min:0'],
         ]);
 

@@ -27,13 +27,13 @@ class LiquidacionConcepto extends Model
     protected function casts(): array
     {
         return [
-            'tipo'           => 'string',
-            'orden'          => 'integer',
-            'dias'           => 'decimal:2',
+            'tipo' => 'string',
+            'orden' => 'integer',
+            'dias' => 'decimal:2',
             'salario_diario' => 'decimal:2',
-            'tipo_salario'   => 'string',
-            'importe'        => 'decimal:2',
-            'editable'       => 'boolean',
+            'tipo_salario' => 'string',
+            'importe' => 'decimal:2',
+            'editable' => 'boolean',
         ];
     }
 

@@ -7,7 +7,6 @@ namespace App\Services;
 use App\Models\Feriado;
 use App\Models\FeriadoFijo;
 use Carbon\Carbon;
-use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 
 /**
@@ -28,10 +27,10 @@ class DiasFeriadosService
 {
     /** Días de resta respecto al Domingo de Pascua para cada feriado variable. */
     public const VARIABLES = [
-        'Lunes de Carnaval'  => -48,
+        'Lunes de Carnaval' => -48,
         'Martes de Carnaval' => -47,
-        'Jueves Santo'       => -3,
-        'Viernes Santo'      => -2,
+        'Jueves Santo' => -3,
+        'Viernes Santo' => -2,
     ];
 
     /**
@@ -39,6 +38,7 @@ class DiasFeriadosService
      * fecha corrupta (por ejemplo, año 8202) cree feriados absurdos.
      */
     public const ANIO_MIN = 2000;
+
     public const ANIO_MAX = 2100;
 
     public function anioValido(int $anio): bool

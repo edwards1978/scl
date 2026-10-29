@@ -26,9 +26,9 @@ class Sueldo extends Model
     {
         return [
             'fecha_cierre' => 'date',
-            'monto_usd'    => 'decimal:2',
-            'monto_bs'     => 'decimal:2',
-            'tasa_bcv'     => 'decimal:6',
+            'monto_usd' => 'decimal:2',
+            'monto_bs' => 'decimal:2',
+            'tasa_bcv' => 'decimal:6',
         ];
     }
 
