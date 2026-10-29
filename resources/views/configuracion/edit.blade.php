@@ -61,6 +61,15 @@
 					</select>
 				</div>
 				<div>
+					<label class="block text-xs font-medium text-gray-600 mb-0.5">Depósito del trimestre en curso al liquidar</label>
+					<select name="deposito_liquidacion_trimestre" class="w-full border border-gray-300 px-2 py-1.5 text-sm bg-white">
+						@foreach (\App\Models\Patrono::opcionesDepositoLiquidacion() as $valor => $etiqueta)
+							<option value="{{ $valor }}" {{ old('deposito_liquidacion_trimestre', $patrono->deposito_liquidacion_trimestre) === $valor ? 'selected' : '' }}>{{ $etiqueta }}</option>
+						@endforeach
+					</select>
+					<p class="text-[11px] text-gray-500 mt-1">Se aplica solo al calcular una liquidación. No tiene efecto retroactivo ni cambia los cierres trimestrales normales.</p>
+				</div>
+				<div>
 					<label class="block text-xs font-medium text-gray-600 mb-0.5">Anticipos máximos por año</label>
 					<input type="number" name="anticipos_max_anio" min="1" max="24" value="{{ old('anticipos_max_anio', $patrono->anticipos_max_anio) }}" class="w-full border border-gray-300 px-2 py-1.5 text-sm">
 				</div>

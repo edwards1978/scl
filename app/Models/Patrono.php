@@ -16,6 +16,12 @@ class Patrono extends Model
     use RegistraAuditoria;
     use SoftDeletes;
 
+    public const DEPOSITO_LIQUIDACION_COMPLETO = 'completo';
+
+    public const DEPOSITO_LIQUIDACION_PRORRATEADO = 'prorrateado';
+
+    public const DEPOSITO_LIQUIDACION_NINGUNO = 'ninguno';
+
     protected $fillable = [
         'rif',
         'razon_social',
@@ -33,6 +39,7 @@ class Patrono extends Model
         'mostrar_equivalencia_usd',
         'dias_bonificacion',
         'deposito_tipo',
+        'deposito_liquidacion_trimestre',
         'anticipos_max_anio',
         'anticipos_pct_contabilidad',
         'anticipos_pct_fideicomiso',
@@ -50,11 +57,32 @@ class Patrono extends Model
             'mostrar_equivalencia_usd' => 'boolean',
             'dias_bonificacion' => 'integer',
             'deposito_tipo' => 'string',
+            'deposito_liquidacion_trimestre' => 'string',
             'anticipos_max_anio' => 'integer',
             'anticipos_pct_contabilidad' => 'integer',
             'anticipos_pct_fideicomiso' => 'integer',
             'anticipos_pct_fondo' => 'integer',
         ];
+    }
+
+    /**
+     * Opciones de depósito del trimestre en curso al momento de liquidar.
+     *
+     * @return array<string, string>
+     */
+    public static function opcionesDepositoLiquidacion(): array
+    {
+        return [
+            self::DEPOSITO_LIQUIDACION_COMPLETO => 'Trimestre completo (15 días) — predeterminada',
+            self::DEPOSITO_LIQUIDACION_PRORRATEADO => '5 días por cada mes efectivo del trimestre en curso',
+            self::DEPOSITO_LIQUIDACION_NINGUNO => 'No depositar el trimestre en curso',
+        ];
+    }
+
+    public function labelDepositoLiquidacion(): string
+    {
+        return self::opcionesDepositoLiquidacion()[$this->deposito_liquidacion_trimestre]
+            ?? self::opcionesDepositoLiquidacion()[self::DEPOSITO_LIQUIDACION_COMPLETO];
     }
 
     public function setRifAttribute(string $value): void

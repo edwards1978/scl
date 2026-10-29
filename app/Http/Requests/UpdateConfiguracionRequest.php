@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests;
 
+use App\Models\Patrono;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -35,6 +36,7 @@ class UpdateConfiguracionRequest extends FormRequest
             'descuenta_inces' => ['boolean'],
             'mostrar_equivalencia_usd' => ['boolean'],
             'deposito_tipo' => ['required', Rule::in(['contabilidad', 'fideicomiso', 'fondo'])],
+            'deposito_liquidacion_trimestre' => ['nullable', Rule::in(array_keys(Patrono::opcionesDepositoLiquidacion()))],
             'anticipos_max_anio' => ['required', 'integer', 'min:1', 'max:24'],
             'anticipos_pct_contabilidad' => ['required', 'integer', 'min:1', 'max:100'],
             'anticipos_pct_fideicomiso' => ['required', 'integer', 'min:1', 'max:100'],

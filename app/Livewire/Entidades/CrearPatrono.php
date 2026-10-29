@@ -42,6 +42,8 @@ class CrearPatrono extends Component
 
     public string $deposito_tipo = 'contabilidad';
 
+    public string $deposito_liquidacion_trimestre = 'completo';
+
     public int $anticipos_max_anio = 2;
 
     public int $anticipos_pct_contabilidad = 100;
@@ -85,6 +87,7 @@ class CrearPatrono extends Component
                 'descuenta_inces' => $this->descuenta_inces,
                 'mostrar_equivalencia_usd' => $this->mostrar_equivalencia_usd,
                 'deposito_tipo' => $this->deposito_tipo,
+                'deposito_liquidacion_trimestre' => $this->deposito_liquidacion_trimestre,
                 'anticipos_max_anio' => $this->anticipos_max_anio,
                 'anticipos_pct_contabilidad' => $this->anticipos_pct_contabilidad,
                 'anticipos_pct_fideicomiso' => $this->anticipos_pct_fideicomiso,
@@ -97,7 +100,7 @@ class CrearPatrono extends Component
         $this->reset(['rif', 'razon_social', 'nombre_comercial', 'registro_mercantil',
             'direccion_fiscal', 'representante_legal', 'telefono', 'correo',
             'descuenta_ivss', 'descuenta_paro_fijo', 'descuenta_faov', 'descuenta_inces',
-            'mostrar_equivalencia_usd']);
+            'mostrar_equivalencia_usd', 'deposito_liquidacion_trimestre']);
         $this->guardando = false;
     }
 
@@ -118,6 +121,7 @@ class CrearPatrono extends Component
             'descuenta_inces' => ['boolean'],
             'mostrar_equivalencia_usd' => ['boolean'],
             'deposito_tipo' => ['nullable', Rule::in(['contabilidad', 'fideicomiso', 'fondo'])],
+            'deposito_liquidacion_trimestre' => ['required', Rule::in(array_keys(Patrono::opcionesDepositoLiquidacion()))],
             'anticipos_max_anio' => ['nullable', 'integer', 'min:1', 'max:24'],
             'anticipos_pct_contabilidad' => ['nullable', 'integer', 'min:1', 'max:100'],
             'anticipos_pct_fideicomiso' => ['nullable', 'integer', 'min:1', 'max:100'],

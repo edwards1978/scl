@@ -57,6 +57,16 @@
 					@error('deposito_tipo') <p class="text-xs text-red-500 mt-0.5">{{ $message }}</p> @enderror
 				</div>
 				<div>
+					<label class="block text-xs font-medium text-gray-600 mb-0.5">Depósito del trimestre en curso al liquidar</label>
+					<select name="deposito_liquidacion_trimestre" class="w-full border border-gray-300 px-2 py-1.5 text-sm bg-white">
+						@foreach (\App\Models\Patrono::opcionesDepositoLiquidacion() as $valor => $etiqueta)
+							<option value="{{ $valor }}" {{ old('deposito_liquidacion_trimestre', $patrono->deposito_liquidacion_trimestre) === $valor ? 'selected' : '' }}>{{ $etiqueta }}</option>
+						@endforeach
+					</select>
+					<p class="text-[11px] text-gray-500 mt-1">Se aplica solo al calcular una liquidación. No tiene efecto retroactivo ni cambia los cierres trimestrales normales.</p>
+					@error('deposito_liquidacion_trimestre') <p class="text-xs text-red-500 mt-0.5">{{ $message }}</p> @enderror
+				</div>
+				<div>
 					<label class="block text-xs font-medium text-gray-600 mb-0.5">Estado</label>
 					<select name="estado" class="w-full border border-gray-300 px-2 py-1.5 text-sm bg-white">
 						<option value="Activo" {{ $patrono->estado === 'Activo' ? 'selected' : '' }}>Activo</option>

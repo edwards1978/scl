@@ -34,6 +34,7 @@ class StorePatronoRequest extends FormRequest
             'correo' => ['nullable', 'email', 'max:255'],
             'estado' => ['nullable', Rule::in(['Activo', 'Inactivo'])],
             'deposito_tipo' => ['required', Rule::in(['contabilidad', 'fideicomiso', 'fondo'])],
+            'deposito_liquidacion_trimestre' => ['nullable', Rule::in(array_keys(Patrono::opcionesDepositoLiquidacion()))],
         ];
     }
 

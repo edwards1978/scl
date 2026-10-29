@@ -55,6 +55,16 @@
                         <p class="text-[11px] text-gray-500 mt-1">Solo en la modalidad de contabilidad SCL calcula los intereses mensuales. En fideicomiso o fondo, los intereses los determina la entidad correspondiente.</p>
                         @error('deposito_tipo') <p class="text-xs text-red-500 mt-0.5">{{ $message }}</p> @enderror
                     </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-0.5">Depósito del trimestre en curso al liquidar</label>
+                        <select wire:model="deposito_liquidacion_trimestre" class="w-full border border-gray-300 px-2 py-1.5 text-sm bg-white">
+                            @foreach (\App\Models\Patrono::opcionesDepositoLiquidacion() as $valor => $etiqueta)
+                                <option value="{{ $valor }}">{{ $etiqueta }}</option>
+                            @endforeach
+                        </select>
+                        <p class="text-[11px] text-gray-500 mt-1">Se aplica solo al calcular una liquidación. No tiene efecto retroactivo ni cambia los cierres trimestrales normales.</p>
+                        @error('deposito_liquidacion_trimestre') <p class="text-xs text-red-500 mt-0.5">{{ $message }}</p> @enderror
+                    </div>
                     <div class="grid grid-cols-2 gap-3">
                         <div>
                             <label class="block text-xs font-medium text-gray-600 mb-0.5">Teléfono</label>

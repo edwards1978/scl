@@ -486,6 +486,39 @@ class PrestacionesSocialesService
     }
 
     /**
+     * Días que se depositan por el trimestre en curso al liquidar, según la
+     * configuración del patrono. No afecta los cierres trimestrales normales.
+     */
+    public function diasDepositoLiquidacion(
+        Empleado $empleado,
+        CarbonInterface $inicioTrimestre,
+        CarbonInterface $cierre,
+    ): int {
+        $opcion = $empleado->patrono?->deposito_liquidacion_trimestre
+            ?? Patrono::DEPOSITO_LIQUIDACION_COMPLETO;
+
+        if ($opcion === Patrono::DEPOSITO_LIQUIDACION_NINGUNO) {
+            return 0;
+        }
+
+        if ($opcion !== Patrono::DEPOSITO_LIQUIDACION_PRORRATEADO) {
+            return self::DIAS_TRIMESTRE;
+        }
+
+        $inicio = Carbon::instance($inicioTrimestre)->startOfDay();
+        $fin = Carbon::instance($cierre)->startOfDay();
+        $meses = (int) $inicio->diffInMonths($fin);
+
+        if ($inicio->copy()->addMonthsNoOverflow($meses)->lt($fin)) {
+            $meses++;
+        }
+
+        $meses = max(1, min(self::MESES_TRIMESTRE, $meses));
+
+        return $meses * 5;
+    }
+
+    /**
      * Anticipos (no préstamos) registrados dentro de un período de servicio,
      * convertidos a la moneda del sueldo del empleado.
      */
@@ -603,7 +636,15 @@ class PrestacionesSocialesService
                 : $cierre->gt($inicioContrato);
 
             if ($hayFraccion && $diasDeposito === 0) {
-                $diasDeposito += self::DIAS_TRIMESTRE;
+                $inicioTrimestre = $finUltimoTrimestre
+                    ? $finUltimoTrimestre->copy()->addDay()
+                    : Carbon::instance($empleado->fecha_ingreso)->startOfDay();
+
+                $diasDeposito += $this->diasDepositoLiquidacion(
+                    $empleado,
+                    $inicioTrimestre,
+                    $cierre
+                );
             }
         }
 
