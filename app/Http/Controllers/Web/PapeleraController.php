@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\BonificacionFinAno;
 use App\Models\CambioSalario;
 use App\Models\Empleado;
+use App\Models\HistorialEstado;
 use App\Models\Liquidacion;
 use App\Models\MovimientoPrestaciones;
 use App\Models\PagoInteresPrestaciones;
@@ -19,10 +20,12 @@ use App\Services\PrestacionesSocialesService;
 use App\Services\SueldosService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
 /**
@@ -51,8 +54,46 @@ class PapeleraController extends Controller
         $config = $tipos[$tipoActivo];
         $modelo = $config['modelo'];
 
-        $registros = $modelo::onlyTrashed()
-            ->with($config['relaciones'])
+        $buscar = trim((string) $request->query('buscar', ''));
+        $patronoId = $request->integer('patrono_id') ?: null;
+        $tabla = (new $modelo)->getTable();
+        $filtraPorPatrono = Schema::hasColumn($tabla, 'patrono_id');
+
+        $query = $modelo::onlyTrashed();
+
+        if ($filtraPorPatrono && $patronoId !== null) {
+            $query->where('patrono_id', $patronoId);
+        }
+
+        if ($buscar !== '') {
+            $columnas = $config['busqueda'] ?? [];
+            $relacionesBusqueda = $config['busqueda_relacion'] ?? [];
+
+            $query->where(function ($subquery) use ($buscar, $columnas, $relacionesBusqueda): void {
+                foreach ($columnas as $columna) {
+                    $subquery->orWhere($columna, 'like', "%{$buscar}%");
+                }
+
+                foreach ($relacionesBusqueda as $relacion => $campos) {
+                    $subquery->orWhereHas($relacion, function ($relacionQuery) use ($buscar, $campos): void {
+                        $relacionQuery->where(function ($camposQuery) use ($buscar, $campos): void {
+                            foreach ($campos as $campo) {
+                                $camposQuery->orWhere($campo, 'like', "%{$buscar}%");
+                            }
+                        });
+                    });
+                }
+            });
+        }
+
+        $relaciones = $config['relaciones'];
+
+        if (method_exists($modelo, 'historialEstados')) {
+            $relaciones[] = 'historialEstados.user';
+        }
+
+        $registros = $query
+            ->with($relaciones)
             ->orderByDesc('deleted_at')
             ->paginate(20)
             ->withQueryString();
@@ -64,7 +105,25 @@ class PapeleraController extends Controller
             $conteos[$clave] = $clase::onlyTrashed()->count();
         }
 
-        return view('papelera.index', compact('tipos', 'tipoActivo', 'config', 'registros', 'conteos'));
+        $patronos = Patrono::orderBy('razon_social')->get(['id', 'razon_social']);
+        $eventosPapelera = HistorialEstado::with('user')
+            ->where('campo', 'papelera')
+            ->latest('id')
+            ->limit(30)
+            ->get();
+
+        return view('papelera.index', compact(
+            'tipos',
+            'tipoActivo',
+            'config',
+            'registros',
+            'conteos',
+            'buscar',
+            'patronoId',
+            'filtraPorPatrono',
+            'patronos',
+            'eventosPapelera',
+        ));
     }
 
     public function restaurar(string $tipo, int $id): RedirectResponse
@@ -89,17 +148,23 @@ class PapeleraController extends Controller
             return back()->with('error', $error);
         }
 
-        DB::transaction(function () use ($registro, $config, $tipo): void {
-            $registro->restore();
+        try {
+            DB::transaction(function () use ($registro, $config, $tipo): void {
+                $registro->restore();
 
-            if ($tipo === 'vacaciones') {
-                VacacionesRecibo::onlyTrashed()
-                    ->where('vacacion_id', $registro->getKey())
-                    ->restore();
-            }
+                if ($tipo === 'vacaciones') {
+                    VacacionesRecibo::onlyTrashed()
+                        ->where('vacacion_id', $registro->getKey())
+                        ->restore();
+                }
 
-            $config['despues']($registro);
-        });
+                $config['despues']($registro);
+            });
+        } catch (QueryException $exception) {
+            report($exception);
+
+            return back()->with('error', 'No se puede restaurar: otro registro activo usa los mismos datos únicos. Revise el registro antes de intentarlo de nuevo.');
+        }
 
         return redirect()->route('papelera.index', ['tipo' => $tipo])
             ->with('success', 'Registro restaurado correctamente.');
@@ -112,6 +177,8 @@ class PapeleraController extends Controller
      *     label:string,
      *     modelo:class-string<Model>,
      *     relaciones:list<string>,
+     *     busqueda:list<string>,
+     *     busqueda_relacion:array<string, list<string>>,
      *     titulo:callable(Model):string,
      *     detalle:callable(Model):?string,
      *     conflicto:callable(Model):?string,
@@ -138,6 +205,8 @@ class PapeleraController extends Controller
                 'label' => 'Empleados',
                 'modelo' => Empleado::class,
                 'relaciones' => ['patrono'],
+                'busqueda' => ['nombres', 'apellidos', 'cedula'],
+                'busqueda_relacion' => [],
                 'titulo' => static fn (Empleado $registro): string => "{$registro->nombre_completo} ({$registro->cedula})",
                 'detalle' => static fn (Empleado $registro): ?string => $registro->patrono?->razon_social,
                 'conflicto' => static function (Empleado $registro): ?string {
@@ -160,6 +229,8 @@ class PapeleraController extends Controller
                 'label' => 'Patronos',
                 'modelo' => Patrono::class,
                 'relaciones' => [],
+                'busqueda' => ['razon_social', 'rif', 'nombre_comercial'],
+                'busqueda_relacion' => [],
                 'titulo' => static fn (Patrono $registro): string => "{$registro->razon_social} ({$registro->rif})",
                 'detalle' => static fn (Patrono $registro): ?string => $registro->estado,
                 'conflicto' => static function (Patrono $registro): ?string {
@@ -176,6 +247,8 @@ class PapeleraController extends Controller
                 'label' => 'Usuarios',
                 'modelo' => User::class,
                 'relaciones' => [],
+                'busqueda' => ['name', 'email'],
+                'busqueda_relacion' => [],
                 'titulo' => static fn (User $registro): string => $registro->name,
                 'detalle' => static fn (User $registro): ?string => $registro->email,
                 'conflicto' => static function (User $registro): ?string {
@@ -192,6 +265,8 @@ class PapeleraController extends Controller
                 'label' => 'Vacaciones',
                 'modelo' => Vacacion::class,
                 'relaciones' => ['empleado'],
+                'busqueda' => [],
+                'busqueda_relacion' => ['empleado' => ['nombres', 'apellidos', 'cedula']],
                 'titulo' => static fn (Vacacion $registro): string => 'Periodo '.$registro->periodo_desde?->format('d/m/Y').' — '.$registro->periodo_hasta?->format('d/m/Y'),
                 'detalle' => static fn (Vacacion $registro): ?string => $registro->empleado?->nombre_completo,
                 'conflicto' => static function (Vacacion $registro): ?string {
@@ -212,6 +287,8 @@ class PapeleraController extends Controller
                 'label' => 'Recibos de vacaciones',
                 'modelo' => VacacionesRecibo::class,
                 'relaciones' => ['empleado'],
+                'busqueda' => [],
+                'busqueda_relacion' => ['empleado' => ['nombres', 'apellidos', 'cedula']],
                 'titulo' => static fn (VacacionesRecibo $registro): string => 'Recibo #'.$registro->getKey(),
                 'detalle' => static fn (VacacionesRecibo $registro): ?string => $registro->empleado?->nombre_completo
                     .($registro->fecha_emision ? ' — '.$registro->fecha_emision->format('d/m/Y') : ''),
@@ -229,6 +306,8 @@ class PapeleraController extends Controller
                 'label' => 'Liquidaciones',
                 'modelo' => Liquidacion::class,
                 'relaciones' => ['empleado'],
+                'busqueda' => ['motivo', 'observacion'],
+                'busqueda_relacion' => ['empleado' => ['nombres', 'apellidos', 'cedula']],
                 'titulo' => static fn (Liquidacion $registro): string => 'Liquidación #'.$registro->getKey().' — '.$registro->fecha_liquidacion?->format('d/m/Y'),
                 'detalle' => static fn (Liquidacion $registro): ?string => $registro->empleado?->nombre_completo,
                 'conflicto' => $sinConflicto,
@@ -239,6 +318,8 @@ class PapeleraController extends Controller
                 'label' => 'Bonificaciones',
                 'modelo' => BonificacionFinAno::class,
                 'relaciones' => ['empleado'],
+                'busqueda' => [],
+                'busqueda_relacion' => ['empleado' => ['nombres', 'apellidos', 'cedula']],
                 'titulo' => static fn (BonificacionFinAno $registro): string => 'Bonificación '.$registro->anio,
                 'detalle' => static fn (BonificacionFinAno $registro): ?string => $registro->empleado?->nombre_completo,
                 'conflicto' => static function (BonificacionFinAno $registro): ?string {
@@ -257,6 +338,8 @@ class PapeleraController extends Controller
                 'label' => 'Anticipos y préstamos',
                 'modelo' => MovimientoPrestaciones::class,
                 'relaciones' => ['empleado'],
+                'busqueda' => ['concepto', 'motivo', 'observacion'],
+                'busqueda_relacion' => ['empleado' => ['nombres', 'apellidos', 'cedula']],
                 'titulo' => static fn (MovimientoPrestaciones $registro): string => $registro->labelTipo().' — '.$registro->fecha?->format('d/m/Y'),
                 'detalle' => static fn (MovimientoPrestaciones $registro): ?string => $registro->empleado?->nombre_completo.' — '.$registro->moneda.' '.formato_monto((float) $registro->monto),
                 'conflicto' => $sinConflicto,
@@ -281,6 +364,8 @@ class PapeleraController extends Controller
                 'label' => 'Pagos de intereses',
                 'modelo' => PagoInteresPrestaciones::class,
                 'relaciones' => ['empleado'],
+                'busqueda' => ['comprobante', 'observacion'],
+                'busqueda_relacion' => ['empleado' => ['nombres', 'apellidos', 'cedula']],
                 'titulo' => static fn (PagoInteresPrestaciones $registro): string => 'Pago — '.$registro->fecha?->format('d/m/Y'),
                 'detalle' => static fn (PagoInteresPrestaciones $registro): ?string => $registro->empleado?->nombre_completo.' — '.$registro->moneda.' '.formato_monto((float) $registro->monto),
                 'conflicto' => $sinConflicto,
@@ -301,6 +386,8 @@ class PapeleraController extends Controller
                 'label' => 'Cambios salariales',
                 'modelo' => CambioSalario::class,
                 'relaciones' => ['empleado'],
+                'busqueda' => ['moneda'],
+                'busqueda_relacion' => ['empleado' => ['nombres', 'apellidos', 'cedula']],
                 'titulo' => static fn (CambioSalario $registro): string => 'Cambio — '.$registro->fecha_cambio?->format('d/m/Y'),
                 'detalle' => static fn (CambioSalario $registro): ?string => $registro->empleado?->nombre_completo.' — '.$registro->moneda.' '.formato_monto((float) $registro->monto),
                 'conflicto' => static function (CambioSalario $registro): ?string {

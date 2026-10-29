@@ -54,6 +54,7 @@ class HistorialEstado extends Model
             'estatus_calculo' => 'Estatus del cálculo',
             'estatus_vacacion' => 'Estatus de la vacación',
             'estado' => 'Estado',
+            'papelera' => 'Papelera',
             default => ucfirst(str_replace('_', ' ', $this->campo)),
         };
     }
@@ -77,6 +78,8 @@ class HistorialEstado extends Model
             'pendiente' => 'Pendiente',
             'pagada' => 'Pagada',
             'disfrutada' => 'Disfrutada',
+            'eliminado' => 'Eliminado',
+            'restaurado' => 'Restaurado',
             default => ucfirst(str_replace('_', ' ', $valor)),
         };
     }

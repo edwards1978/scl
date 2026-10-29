@@ -129,4 +129,23 @@ class Empleado extends Model
     {
         return $this->estatus === 'Activo';
     }
+
+    /**
+     * Historial laboral que impide eliminar al trabajador (incluso con borrado
+     * lógico): documentos, cálculos y cambios salariales posteriores al ingreso.
+     * El sueldo de ingreso no cuenta como historial.
+     */
+    public function tieneHistorialLaboral(): bool
+    {
+        return $this->vacaciones()->exists()
+            || $this->sueldos()->exists()
+            || $this->cambiosSalarios()
+                ->whereDate('fecha_cambio', '!=', $this->fecha_ingreso)
+                ->exists()
+            || MovimientoPrestaciones::where('empleado_id', $this->id)->exists()
+            || PagoInteresPrestaciones::where('empleado_id', $this->id)->exists()
+            || PrestacionSocial::where('empleado_id', $this->id)->exists()
+            || Liquidacion::where('empleado_id', $this->id)->exists()
+            || BonificacionFinAno::where('empleado_id', $this->id)->exists();
+    }
 }

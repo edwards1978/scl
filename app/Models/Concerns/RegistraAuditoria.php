@@ -9,6 +9,7 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Auth;
 
 /**
@@ -37,6 +38,26 @@ trait RegistraAuditoria
         static::updated(function (Model $modelo): void {
             $modelo->registrarHistorialDeCambios();
         });
+
+        // Deja rastro de quién envía el registro a la papelera y quién lo
+        // restaura. Solo aplica a modelos con borrado lógico.
+        static::deleting(function (Model $modelo): void {
+            if (! in_array(SoftDeletes::class, class_uses_recursive($modelo), true)) {
+                return;
+            }
+
+            if (method_exists($modelo, 'isForceDeleting') && $modelo->isForceDeleting()) {
+                return;
+            }
+
+            $modelo->registrarHistorial('papelera', null, 'eliminado');
+        });
+
+        if (in_array(SoftDeletes::class, class_uses_recursive(static::class), true)) {
+            static::restored(function (Model $modelo): void {
+                $modelo->registrarHistorial('papelera', 'eliminado', 'restaurado');
+            });
+        }
     }
 
     /**

@@ -9,7 +9,6 @@ use App\Http\Requests\ImportarEmpleadosRequest;
 use App\Http\Requests\StoreEmpleadoRequest;
 use App\Http\Requests\UpdateEmpleadoRequest;
 use App\Models\BonificacionFinAno;
-use App\Models\CambioSalario;
 use App\Models\Empleado;
 use App\Models\Liquidacion;
 use App\Models\MovimientoPrestaciones;
@@ -248,17 +247,7 @@ class EmpleadoController extends Controller
         $this->verificarPertenece($empleado);
         Gate::authorize('delete', $empleado);
 
-        $tieneHistorial = Vacacion::where('empleado_id', $empleado->id)->exists()
-            || Sueldo::where('empleado_id', $empleado->id)->exists()
-            || CambioSalario::where('empleado_id', $empleado->id)
-                ->whereDate('fecha_cambio', '!=', $empleado->fecha_ingreso)
-                ->exists()
-            || MovimientoPrestaciones::where('empleado_id', $empleado->id)->exists()
-            || PrestacionSocial::where('empleado_id', $empleado->id)->exists()
-            || Liquidacion::where('empleado_id', $empleado->id)->exists()
-            || BonificacionFinAno::where('empleado_id', $empleado->id)->exists();
-
-        if ($tieneHistorial) {
+        if ($empleado->tieneHistorialLaboral()) {
             return redirect()->route('empleados.index')
                 ->with('error', 'No se puede eliminar un trabajador con historial laboral. Use el estatus Inactivo.');
         }
