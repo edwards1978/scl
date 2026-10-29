@@ -1,7 +1,7 @@
 # Pendientes vigentes — SCL
 
 **Actualizado:** 29/10/2026
-**Estado:** suite 195 pruebas / 821 aserciones en verde; Pint limpio; CI #13 en verde.
+**Estado:** suite 195 pruebas / 821 aserciones en verde; Pint limpio; CI en verde (último run verificado: #15).
 
 Este archivo reúne lo que queda pendiente de funcionalidades **ya existentes**. No incluye ideas nuevas.
 
