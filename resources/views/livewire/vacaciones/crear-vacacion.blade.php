@@ -33,7 +33,7 @@
 				<legend class="text-xs font-semibold text-gray-600 px-1">Previsualización del cálculo</legend>
 
 				<div class="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
-					<div><span class="text-gray-400">Periodo trabajado:</span> {{ \Carbon\Carbon::parse($preview['periodo_desde'])->format('d/m/Y') }} — {{ \Carbon\Carbon::parse($preview['periodo_hasta'])->format('d/m/Y') }}</div>
+					<div><span class="text-gray-400">Periodo trabajado:</span> {{ \Carbon\Carbon::parse($preview['periodo_desde'])->format('d/m/Y') }} — {{ \Carbon\Carbon::parse($preview['periodo_hasta_mostrar'])->format('d/m/Y') }}</div>
 					<div><span class="text-gray-400">Año de servicio:</span> {{ $preview['anio_servicio'] }}</div>
 					<div><span class="text-gray-400">Disfrute:</span> {{ \Carbon\Carbon::parse($preview['fecha_inicio_real'])->format('d/m/Y') }} — {{ \Carbon\Carbon::parse($preview['fecha_fin_real'])->format('d/m/Y') }}</div>
 					<div><span class="text-gray-400">Reintegro:</span> {{ \Carbon\Carbon::parse($preview['fecha_reintegro'])->format('d/m/Y') }}</div>

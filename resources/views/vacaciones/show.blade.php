@@ -10,7 +10,7 @@
 	<div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm mb-4">
 		<div class="bg-gray-50 border border-gray-200 px-3 py-2"><span class="text-xs text-gray-500">Trabajador</span><span class="block font-medium">{{ $empleado->nombre_completo }} ({{ $empleado->cedula }})</span></div>
 		<div class="bg-gray-50 border border-gray-200 px-3 py-2"><span class="text-xs text-gray-500">Patrono</span><span class="block font-medium">{{ $vacacion->patrono->razon_social }}</span></div>
-		<div class="bg-gray-50 border border-gray-200 px-3 py-2"><span class="text-xs text-gray-500">Periodo trabajado</span><span class="block font-medium">{{ $vacacion->periodo_desde->format('d/m/Y') }} — {{ $vacacion->periodo_hasta->format('d/m/Y') }}</span></div>
+		<div class="bg-gray-50 border border-gray-200 px-3 py-2"><span class="text-xs text-gray-500">Periodo trabajado</span><span class="block font-medium">{{ $vacacion->periodo_desde->format('d/m/Y') }} — {{ $vacacion->periodo_hasta_mostrar?->format('d/m/Y') ?? '—' }}</span></div>
 		<div class="bg-gray-50 border border-gray-200 px-3 py-2"><span class="text-xs text-gray-500">Año de servicio</span><span class="block font-medium">{{ $vacacion->nro_vacacion }}º</span></div>
 		<div class="bg-gray-50 border border-gray-200 px-3 py-2"><span class="text-xs text-gray-500">Periodo disfrute</span><span class="block font-medium">{{ $vacacion->fecha_inicio_real?->format('d/m/Y') ?? '—' }} — {{ $vacacion->fecha_fin_real?->format('d/m/Y') ?? '—' }}</span></div>
 		<div class="bg-gray-50 border border-gray-200 px-3 py-2"><span class="text-xs text-gray-500">Reintegro</span><span class="block font-medium">{{ $vacacion->fecha_reintegro?->format('d/m/Y') ?? '—' }}</span></div>

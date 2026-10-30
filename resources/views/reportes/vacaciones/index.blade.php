@@ -111,7 +111,7 @@
 					@foreach ($vacaciones as $v)
 						<tr class="hover:bg-gray-50">
 							<td class="px-3 py-2">{{ $v->empleado->nombre_completo ?? '—' }}</td>
-							<td class="px-3 py-2">{{ $v->periodo_desde->format('d/m/Y') }} — {{ $v->periodo_hasta->format('d/m/Y') }}</td>
+							<td class="px-3 py-2">{{ $v->periodo_desde->format('d/m/Y') }} — {{ $v->periodo_hasta_mostrar?->format('d/m/Y') ?? '—' }}</td>
 							<td class="px-3 py-2">{{ $v->fecha_inicio_real?->format('d/m/Y') ?? '—' }} — {{ $v->fecha_fin_real?->format('d/m/Y') ?? '—' }}</td>
 							<td class="px-3 py-2 text-center">{{ $v->diasHabilesDisfrute() }}</td>
 							<td class="px-3 py-2 text-center">{{ $v->diasHabilesBono() }}</td>

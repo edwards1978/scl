@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Models\Concerns\RegistraAuditoria;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -71,6 +72,16 @@ class Vacacion extends Model
             'approved_at' => 'datetime',
             'annulled_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Fin inclusivo del período trabajado. `periodo_hasta` guarda el
+     * aniversario exclusivo que habilita el disfrute; para mostrar el período
+     * de servicio se resta un día (ej. 01/01/2025 a 31/12/2025).
+     */
+    public function getPeriodoHastaMostrarAttribute(): ?Carbon
+    {
+        return $this->periodo_hasta?->copy()->subDay();
     }
 
     /** @return list<string> */

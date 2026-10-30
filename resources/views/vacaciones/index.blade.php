@@ -85,7 +85,7 @@
 						@php($e = $v->empleado)
 						<tr class="hover:bg-gray-50">
 							<td class="px-3 py-2">{{ $e->nombre_completo ?? '—' }}</td>
-							<td class="px-3 py-2">{{ $v->periodo_desde->format('d/m/Y') }} — {{ $v->periodo_hasta->format('d/m/Y') }}</td>
+							<td class="px-3 py-2">{{ $v->periodo_desde->format('d/m/Y') }} — {{ $v->periodo_hasta_mostrar?->format('d/m/Y') ?? '—' }}</td>
 							<td class="px-3 py-2 text-center">{{ $v->fecha_inicio_real?->format('d/m/Y') ?? '—' }}</td>
 							<td class="px-3 py-2 text-center">{{ $v->fecha_fin_real?->format('d/m/Y') ?? '—' }}</td>
 							<td class="px-3 py-2 text-center">{{ $v->fecha_reintegro?->format('d/m/Y') ?? '—' }}</td>

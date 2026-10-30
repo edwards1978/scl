@@ -66,6 +66,13 @@ class PagarYDisfrutarTest extends TestCase
         $this->assertDatabaseCount('vacaciones_recibos', 1);
     }
 
+    public function test_el_periodo_trabajado_muestra_el_cierre_inclusivo(): void
+    {
+        [, $vacacion] = $this->crearEscenario();
+
+        $this->assertSame('2024-01-14', $vacacion->periodo_hasta_mostrar->toDateString());
+    }
+
     public function test_el_pdf_no_genera_recibo_si_la_vacacion_no_esta_pagada(): void
     {
         [$patrono, $vacacion] = $this->crearEscenario();

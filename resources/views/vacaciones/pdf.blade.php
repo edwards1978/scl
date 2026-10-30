@@ -39,7 +39,7 @@
 			<td class="bold">Fecha de calculo</td><td>{{ $vacacion->fecha_calculo->format('d/m/Y') }}</td></tr>
 		<tr><td class="bold">C.I.</td><td>{{ $empleado->cedula }}</td>
 			<td class="bold">Año servicio</td><td>{{ $vacacion->nro_vacacion }}º</td></tr>
-		<tr><td class="bold">Periodo trabajado</td><td>{{ $vacacion->periodo_desde->format('d/m/Y') }} — {{ $vacacion->periodo_hasta->format('d/m/Y') }}</td>
+		<tr><td class="bold">Periodo trabajado</td><td>{{ $vacacion->periodo_desde->format('d/m/Y') }} — {{ $vacacion->periodo_hasta_mostrar?->format('d/m/Y') ?? '—' }}</td>
 			<td class="bold">Moneda</td><td>{{ $vacacion->moneda }}</td></tr>
 		<tr><td class="bold">Periodo disfrute</td><td>{{ $vacacion->fecha_inicio_real?->format('d/m/Y') ?? '—' }} — {{ $vacacion->fecha_fin_real?->format('d/m/Y') ?? '—' }}</td>
 			<td class="bold">Fecha de Reintegro</td><td>{{ $vacacion->fecha_reintegro?->format('d/m/Y') ?? '—' }}</td></tr>

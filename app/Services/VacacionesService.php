@@ -276,6 +276,7 @@ class VacacionesService
             'anio_servicio' => $anioServicioReal,
             'periodo_desde' => $pendiente['periodo_desde']->format('Y-m-d'),
             'periodo_hasta' => $pendiente['periodo_hasta']->format('Y-m-d'),
+            'periodo_hasta_mostrar' => $pendiente['periodo_hasta']->copy()->subDay()->format('Y-m-d'),
             'aniversario' => $aniversario->format('Y-m-d'),
             'fecha_inicio_user' => $fechaInicioBase,
             'fecha_inicio_real' => $inicioReal->format('Y-m-d'),
