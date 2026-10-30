@@ -7,7 +7,6 @@ namespace App\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use App\Models\TasaInteresPrestaciones;
 use App\Services\TasasInteresService;
-use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -48,7 +47,7 @@ class TasasInteresController extends Controller
         ]);
 
         $this->service->guardarTasa(
-            Carbon::createFromFormat('Y-m', $data['periodo']),
+            periodo_a_fecha($data['periodo']),
             (float) $data['tasa_interes'],
             'manual'
         );

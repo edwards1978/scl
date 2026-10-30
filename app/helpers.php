@@ -13,6 +13,18 @@ if (! function_exists('formato_monto')) {
     }
 }
 
+if (! function_exists('periodo_a_fecha')) {
+    /**
+     * Convierte una clave de período YYYY-MM al primer día de ese mes.
+     * No usar Carbon::createFromFormat('Y-m', ...) sin día: Carbon completa
+     * con el día actual y febrero puede desbordar al mes siguiente.
+     */
+    function periodo_a_fecha(string $periodo): Carbon
+    {
+        return Carbon::createFromFormat('Y-m-d', $periodo.'-01')->startOfMonth();
+    }
+}
+
 if (! function_exists('parsear_numero')) {
     function parsear_numero(?string $valor): float
     {

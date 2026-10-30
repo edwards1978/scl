@@ -67,7 +67,7 @@ class SueldosService
             ->first();
 
         if (! $ultimo || $ultimo->periodo < $periodoRequerido) {
-            $this->asegurarSueldos($empleado, Carbon::createFromFormat('Y-m', $periodoRequerido));
+            $this->asegurarSueldos($empleado, periodo_a_fecha($periodoRequerido));
         }
 
         $sueldo = Sueldo::where('empleado_id', $empleado->id)
@@ -238,7 +238,7 @@ class SueldosService
             if ($existentes->has($periodo)) {
                 continue;
             }
-            $this->registrarMes($empleado, Carbon::createFromFormat('Y-m', $periodo));
+            $this->registrarMes($empleado, periodo_a_fecha($periodo));
             $creados++;
         }
 
@@ -253,7 +253,7 @@ class SueldosService
     public function regenerarSueldos(Empleado $empleado, ?string $desdePeriodo = null): int
     {
         $desde = $desdePeriodo
-            ? Carbon::createFromFormat('Y-m', $desdePeriodo)
+            ? periodo_a_fecha($desdePeriodo)
             : Carbon::instance($empleado->fecha_ingreso)->startOfMonth();
 
         $desde->startOfMonth();
@@ -265,7 +265,7 @@ class SueldosService
 
         $creados = 0;
         foreach ($this->periodosRequeridos($empleado, $hasta) as $periodo) {
-            $inicioMes = Carbon::createFromFormat('Y-m', $periodo);
+            $inicioMes = periodo_a_fecha($periodo);
             if ($inicioMes->lt($desde)) {
                 continue;
             }

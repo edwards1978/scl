@@ -239,6 +239,58 @@ class PrestacionesSocialesTest extends TestCase
             ->assertSessionHasErrors('fecha');
     }
 
+    public function test_los_periodos_con_ingreso_dias_29_30_y_31_son_continuos(): void
+    {
+        $prestaciones = app(PrestacionesSocialesService::class);
+
+        $casos = [
+            '2026-01-29' => [
+                ['2026-01-29', '2026-02-27'],
+                ['2026-02-28', '2026-03-28'],
+            ],
+            '2026-01-30' => [
+                ['2026-01-30', '2026-02-27'],
+                ['2026-02-28', '2026-03-29'],
+            ],
+            '2026-01-31' => [
+                ['2026-01-31', '2026-02-27'],
+                ['2026-02-28', '2026-03-30'],
+            ],
+        ];
+
+        foreach ($casos as $ingreso => $esperados) {
+            $empleado = new Empleado(['fecha_ingreso' => $ingreso]);
+
+            foreach ($esperados as [$inicio, $fin]) {
+                $periodo = $prestaciones->inicioPeriodo($empleado, Carbon::parse($inicio));
+                $cierre = $prestaciones->finPeriodo($empleado, Carbon::parse($inicio));
+
+                $this->assertSame($inicio, $periodo->toDateString());
+                $this->assertSame($fin, $cierre->toDateString());
+                $this->assertSame(
+                    $cierre->copy()->addDay()->toDateString(),
+                    $prestaciones->inicioPeriodo($empleado, Carbon::parse($fin)->addDay())->toDateString()
+                );
+            }
+        }
+    }
+
+    public function test_genera_los_periodos_de_febrero_sin_saltarlos(): void
+    {
+        [$patrono, $empleado] = $this->crearEmpleado('2025-01-09');
+
+        app(PrestacionesSocialesService::class)->regenerar($empleado);
+
+        $this->assertDatabaseHas('prestaciones_sociales', [
+            'empleado_id' => $empleado->id,
+            'periodo' => '2025-02',
+        ]);
+        $this->assertDatabaseHas('prestaciones_sociales', [
+            'empleado_id' => $empleado->id,
+            'periodo' => '2026-02',
+        ]);
+    }
+
     public function test_los_periodos_se_detienen_en_la_fecha_de_egreso(): void
     {
         [$patrono, $empleado] = $this->crearEmpleado();

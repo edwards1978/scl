@@ -205,7 +205,7 @@ class PrestacionesSocialesService
     {
         $periodo = $this->periodoDeFecha($empleado, $egreso);
         $mes = $periodo
-            ? Carbon::createFromFormat('Y-m', $periodo)
+            ? periodo_a_fecha($periodo)
             : Carbon::instance($egreso);
 
         // Un egreso futuro se calcula con las proyecciones guardadas hasta ese
@@ -287,9 +287,12 @@ class PrestacionesSocialesService
     /** Último día del período identificado por su mes de inicio (YYYY-MM). */
     public function finPeriodo(Empleado $empleado, CarbonInterface $mes): Carbon
     {
-        return $this->inicioPeriodo($empleado, $mes)
-            ->addMonthsNoOverflow(1)
-            ->subDay();
+        $siguienteMes = Carbon::instance($mes)->startOfMonth()->addMonthNoOverflow();
+
+        // El cierre se toma del siguiente inicio (anclado al día de ingreso),
+        // no de "inicio actual + 1 mes": con ingresos 29/30/31 esos cálculos
+        // pueden dejar días sin período.
+        return $this->inicioPeriodo($empleado, $siguienteMes)->subDay();
     }
 
     /**
@@ -814,7 +817,7 @@ class PrestacionesSocialesService
         }
 
         $inicio = Carbon::instance($empleado->fecha_ingreso)->startOfMonth();
-        $fin = Carbon::createFromFormat('Y-m', $ultimo)->startOfMonth();
+        $fin = periodo_a_fecha($ultimo)->startOfMonth();
 
         $periodos = [];
         $cursor = $inicio->copy();
@@ -866,7 +869,7 @@ class PrestacionesSocialesService
             if ($existentes->has($periodo)) {
                 continue;
             }
-            $this->registrarMes($empleado, Carbon::createFromFormat('Y-m', $periodo));
+            $this->registrarMes($empleado, periodo_a_fecha($periodo));
             $creados++;
         }
 
@@ -880,7 +883,7 @@ class PrestacionesSocialesService
     public function regenerar(Empleado $empleado, ?string $desdePeriodo = null): int
     {
         $desde = $desdePeriodo
-            ? Carbon::createFromFormat('Y-m', $desdePeriodo)
+            ? periodo_a_fecha($desdePeriodo)
             : Carbon::instance($empleado->fecha_ingreso)->startOfMonth();
 
         $desde->startOfMonth();
@@ -899,7 +902,7 @@ class PrestacionesSocialesService
 
             $creados = 0;
             foreach ($this->periodosRequeridos($empleado, $hasta) as $periodo) {
-                $inicioMes = Carbon::createFromFormat('Y-m', $periodo);
+                $inicioMes = periodo_a_fecha($periodo);
                 if ($inicioMes->lt($desde)) {
                     continue;
                 }
@@ -933,7 +936,7 @@ class PrestacionesSocialesService
      */
     public function recalcularDesde(Empleado $empleado, string $desdePeriodo): int
     {
-        $desde = Carbon::createFromFormat('Y-m', $desdePeriodo)->startOfMonth();
+        $desde = periodo_a_fecha($desdePeriodo)->startOfMonth();
         $mesActual = Carbon::instance(now())->startOfMonth();
 
         return DB::transaction(function () use ($empleado, $desde, $mesActual) {
@@ -970,13 +973,13 @@ class PrestacionesSocialesService
                     if ($periodo < $desdeReal) {
                         continue;
                     }
-                    $this->registrarMes($empleado, Carbon::createFromFormat('Y-m', $periodo));
+                    $this->registrarMes($empleado, periodo_a_fecha($periodo));
                     $creados++;
                 }
             }
 
             if ($objetivo !== null) {
-                $hasta = Carbon::createFromFormat('Y-m', $objetivo)->startOfMonth();
+                $hasta = periodo_a_fecha($objetivo)->startOfMonth();
                 $limite = $mesActual->copy()->addMonths(12);
                 if ($hasta->gt($limite)) {
                     $hasta = $limite->copy();
@@ -1010,7 +1013,7 @@ class PrestacionesSocialesService
             ->max('periodo');
 
         if ($horizonte !== null) {
-            $guardado = Carbon::createFromFormat('Y-m', $horizonte)->startOfMonth();
+            $guardado = periodo_a_fecha($horizonte)->startOfMonth();
             if ($guardado->gte($mes)) {
                 return 0;
             }
@@ -1039,8 +1042,8 @@ class PrestacionesSocialesService
             ->first();
 
         $inicio = $ultimoReal
-            ? Carbon::createFromFormat('Y-m', $ultimoReal->periodo)->addMonth()->startOfMonth()
-            : Carbon::createFromFormat('Y-m', $hastaMes)->startOfMonth();
+            ? periodo_a_fecha($ultimoReal->periodo)->addMonth()->startOfMonth()
+            : periodo_a_fecha($hastaMes)->startOfMonth();
 
         $creados = 0;
         for ($mes = $inicio->copy(); $mes->format('Y-m') <= $hastaMes; $mes->addMonth()) {
@@ -1068,7 +1071,7 @@ class PrestacionesSocialesService
             ->where('es_proyeccion', true)
             ->max('periodo');
 
-        if ($horizonte !== null && Carbon::createFromFormat('Y-m', $horizonte)->startOfMonth()->gte($mes)) {
+        if ($horizonte !== null && periodo_a_fecha($horizonte)->startOfMonth()->gte($mes)) {
             return 0;
         }
 
@@ -1096,7 +1099,7 @@ class PrestacionesSocialesService
 
     private function mesProyeccionValido(string $hasta): Carbon
     {
-        $hastaMes = Carbon::createFromFormat('Y-m', $hasta)->startOfMonth();
+        $hastaMes = periodo_a_fecha($hasta)->startOfMonth();
         $limite = Carbon::instance(now())->startOfMonth();
         $maximo = $limite->copy()->addMonths(12);
 
@@ -1134,7 +1137,7 @@ class PrestacionesSocialesService
                 ->first();
 
             $inicio = $ultimoReal
-                ? Carbon::createFromFormat('Y-m', $ultimoReal->periodo)->addMonth()->startOfMonth()
+                ? periodo_a_fecha($ultimoReal->periodo)->addMonth()->startOfMonth()
                 : Carbon::instance($empleado->fecha_ingreso)->startOfMonth();
 
             if ($inicio->lte($limite)) {
@@ -1283,7 +1286,7 @@ class PrestacionesSocialesService
             ->each(function (PrestacionSocial $registro) use ($empleado) {
                 $inicio = $this->inicioPeriodo(
                     $empleado,
-                    Carbon::createFromFormat('Y-m', $registro->periodo)
+                    periodo_a_fecha($registro->periodo)
                 );
 
                 $registro->setAttribute('periodo_inicio', $inicio);
