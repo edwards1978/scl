@@ -78,9 +78,6 @@
 			<a href="{{ route('prestaciones.show', $empleado->id) }}" class="px-3 py-1.5 text-sm border border-gray-300 text-gray-600 hover:bg-gray-50">Limpiar</a>
 		</div>
 		<p class="text-[11px] text-gray-400 mt-1">Formato AAAA-MM · Ejemplo: 2025-01 a 2025-06</p>
-		@if ($errors->any())
-			<div class="mt-2 text-xs text-red-600">{{ $errors->first() }}</div>
-		@endif
 		<p class="text-xs text-gray-500 mt-2">
 			Mostrando {{ $periodosFiltrados }} de {{ $totalPeriodos }} período(s).
 			@if ($hayRango)
@@ -212,7 +209,7 @@
 						<td class="px-3 py-2 text-right">{{ formato_monto((float) $c->saldo_inicial_periodo) }}</td>
 						<td class="px-3 py-2 text-right">{{ $c->deposito_trimestre > 0 ? $c->dias_deposito.' d · '.formato_monto((float) $c->deposito_trimestre) : '—' }}</td>
 						<td class="px-3 py-2 text-right">{{ $c->dias_adicionales > 0 ? $c->dias_adicionales_cont.' d · '.formato_monto((float) $c->dias_adicionales) : '—' }}</td>
-						<td class="px-3 py-2 text-right text-red-600">{{ $c->anticipos > 0 ? '- '.formato_monto((float) $c->anticipos) : '—' }}</td>
+						<td class="px-3 py-2 text-right text-red-600 whitespace-nowrap">{{ $c->anticipos > 0 ? '- '.formato_monto((float) $c->anticipos) : '—' }}</td>
 						<td class="px-3 py-2 text-right">{{ formato_monto((float) $c->capital_periodo) }}</td>
 						<td class="px-3 py-2 text-right">{{ $c->tasa_interes !== null ? formato_monto((float) $c->tasa_interes, 4) : '—' }}</td>
 						<td class="px-3 py-2 text-right">
@@ -221,7 +218,7 @@
 								<div class="text-[10px] text-amber-600">cap. {{ formato_monto((float) $c->interes_capitalizado) }}</div>
 							@endif
 						</td>
-						<td class="px-3 py-2 text-right text-red-600">{{ (float) ($c->interes_pagado ?? 0) > 0 ? '- '.formato_monto((float) $c->interes_pagado) : '—' }}</td>
+						<td class="px-3 py-2 text-right text-red-600 whitespace-nowrap">{{ (float) ($c->interes_pagado ?? 0) > 0 ? '- '.formato_monto((float) $c->interes_pagado) : '—' }}</td>
 						<td class="px-3 py-2 text-right">{{ (float) $c->interes_pendiente_periodo > 0 ? formato_monto((float) $c->interes_pendiente_periodo) : '—' }}</td>
 						<td class="px-3 py-2 text-right font-medium">{{ formato_monto((float) $c->saldo_final_periodo) }}</td>
 						<td class="px-2 py-2 text-center">

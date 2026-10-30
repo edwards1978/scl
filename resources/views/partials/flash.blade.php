@@ -1,9 +1,16 @@
-@if (session('success'))
-	<div class="mx-4 mt-3 p-3 bg-green-100 border border-green-300 text-green-700 text-sm">{{ session('success') }}</div>
-@endif
-@if (session('error'))
-	<div class="mx-4 mt-3 p-3 bg-red-100 border border-red-300 text-red-700 text-sm">{{ session('error') }}</div>
-@endif
-@if (session('info'))
-	<div class="mx-4 mt-3 p-3 bg-blue-100 border border-blue-300 text-blue-700 text-sm">{{ session('info') }}</div>
+@foreach (['success' => 'success', 'error' => 'error', 'warning' => 'warning', 'info' => 'info'] as $tipo => $variante)
+    @if (session($tipo))
+        <x-alerta :tipo="$variante" :mensaje="session($tipo)" class="mx-4 mt-3" />
+    @endif
+@endforeach
+
+@if ($errors->any())
+    <x-alerta tipo="error" :duracion="12000" class="mx-4 mt-3">
+        <strong>Revisa los datos:</strong>
+        <ul class="mt-1 list-disc list-inside space-y-0.5">
+            @foreach ($errors->all() as $error)
+                <li>{{ $error }}</li>
+            @endforeach
+        </ul>
+    </x-alerta>
 @endif

@@ -39,9 +39,7 @@
                     </p>
 
                     @if (session('status') === 'verification-link-sent')
-                        <p class="mt-2 font-medium text-sm text-green-600">
-                            {{ __('A new verification link has been sent to your email address.') }}
-                        </p>
+                        <x-alerta tipo="success" :mensaje="__('A new verification link has been sent to your email address.')" class="mt-2" />
                     @endif
                 </div>
             @endif
@@ -51,13 +49,7 @@
             <x-primary-button>{{ __('Save') }}</x-primary-button>
 
             @if (session('status') === 'profile-updated')
-                <p
-                    x-data="{ show: true }"
-                    x-show="show"
-                    x-transition
-                    x-init="setTimeout(() => show = false, 2000)"
-                    class="text-sm text-gray-600"
-                >{{ __('Saved.') }}</p>
+                <x-alerta tipo="success" :mensaje="__('Saved.')" class="mb-0" />
             @endif
         </div>
     </form>

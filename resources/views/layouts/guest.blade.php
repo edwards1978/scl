@@ -20,6 +20,7 @@
             </div>
 
             <div class="w-full sm:max-w-md mt-2 px-6 py-6 bg-white border border-gray-200">
+                @include('partials.flash')
                 {{ $slot }}
             </div>
         </div>

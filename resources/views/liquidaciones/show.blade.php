@@ -27,12 +27,6 @@
 		</div>
 	@endif
 
-    @if(session('success'))
-        <div class="mx-4 mt-3 p-3 bg-green-100 border border-green-300 text-green-700 text-sm rounded">{{ session('success') }}</div>
-    @endif
-    @if(session('error'))
-        <div class="mx-4 mt-3 p-3 bg-red-100 border border-red-300 text-red-700 text-sm rounded">{{ session('error') }}</div>
-    @endif
 
 	@if ($liquidacion->garantia_ab !== null && $liquidacion->literal_c !== null)
 		<div class="bg-white border border-gray-200 p-4 mb-4">
@@ -104,15 +98,6 @@
     {{-- Conceptos editables --}}
     <form method="POST" action="{{ route('liquidaciones.conceptos.update', $liquidacion->id) }}">
         @csrf @method('PUT')
-        @if ($errors->any())
-            <div class="mx-4 mb-4 p-3 bg-red-100 border border-red-300 text-red-700 text-sm rounded">
-                <ul class="list-disc list-inside">
-                    @foreach ($errors->all() as $error)
-                        <li>{{ $error }}</li>
-                    @endforeach
-                </ul>
-            </div>
-        @endif
         <div class="bg-white border border-gray-200 overflow-x-auto mb-4">
 			<table class="w-full text-sm">
 				<thead class="bg-gray-50 text-gray-600 text-xs uppercase">
