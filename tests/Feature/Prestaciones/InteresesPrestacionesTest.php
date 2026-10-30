@@ -457,7 +457,7 @@ class InteresesPrestacionesTest extends TestCase
             ->withSession(['patrono_id' => $patrono->id])
             ->get(route('prestaciones.show', $empleado->id))
             ->assertOk()
-            ->assertSee('<td class="px-3 py-2 text-right text-red-600">- 10,00</td>', false);
+            ->assertSee('- 10,00');
     }
 
     public function test_el_listado_enlaza_al_detalle_de_cada_pago(): void

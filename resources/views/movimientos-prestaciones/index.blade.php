@@ -20,7 +20,7 @@
 			<select name="empleado_id" class="border border-gray-300 px-2 py-1.5 text-sm bg-white">
 				<option value="">Todos</option>
 				@foreach ($empleados as $emp)
-					<option value="{{ $emp->id }}" {{ request('empleado_id') == $emp->id ? 'selected' : '' }}>{{ $emp->apellidos }}, {{ $emp->nombres }}</option>
+					<option value="{{ $emp->id }}" {{ request('empleado_id') == $emp->id ? 'selected' : '' }}>{{ $emp->nombre_completo }} ({{ $emp->cedula }})</option>
 				@endforeach
 			</select>
 		</div>

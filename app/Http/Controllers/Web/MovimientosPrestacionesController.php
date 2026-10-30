@@ -64,8 +64,8 @@ class MovimientosPrestacionesController extends Controller
         $movimientos = $query->paginate($porPagina)->withQueryString();
 
         $empleados = $patrono->empleados()
-            ->orderBy('apellidos')
             ->orderBy('nombres')
+            ->orderBy('apellidos')
             ->get(['id', 'nombres', 'apellidos', 'cedula']);
 
         return view('movimientos-prestaciones.index', compact(
