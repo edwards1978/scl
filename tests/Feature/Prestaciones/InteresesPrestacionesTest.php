@@ -261,6 +261,24 @@ class InteresesPrestacionesTest extends TestCase
             ->assertSee('value="'.$empleado->id.'" selected', false);
     }
 
+    public function test_el_formulario_precarga_fecha_monto_y_moneda_del_renglon(): void
+    {
+        [$patrono, $empleado] = $this->crearPatronoEmpleado('J-15151516-1', 'V-15151516');
+
+        $this->actingAs(User::factory()->create())
+            ->withSession(['patrono_id' => $patrono->id])
+            ->get(route('intereses-prestaciones.create', [
+                'empleado_id' => $empleado->id,
+                'fecha' => '2026-12-08',
+                'monto' => '12.34',
+                'moneda' => 'BS',
+            ]))
+            ->assertOk()
+            ->assertSee('value="2026-12-08"', false)
+            ->assertSee('value="12.34"', false)
+            ->assertSee('value="BS" selected', false);
+    }
+
     public function test_no_permite_abrir_el_formulario_para_un_trabajador_inactivo(): void
     {
         [$patrono, $empleado] = $this->crearPatronoEmpleado('J-16161616-1', 'V-16161616', 'Inactivo');

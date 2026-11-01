@@ -87,7 +87,33 @@ class MovimientosPrestacionesController extends Controller
             abort_if($empleado && ! $empleado->estaActivo(), 409, 'El trabajador está inactivo (ya liquidado): no se pueden efectuar nuevos cálculos.');
         }
 
-        return view('movimientos-prestaciones.create', compact('patrono', 'empleado'));
+        $prefill = [
+            'empleado_id' => $empleado?->id,
+            'tipo' => in_array($request->get('tipo'), [MovimientoPrestaciones::TIPO_ANTICIPO, MovimientoPrestaciones::TIPO_PRESTAMO], true)
+                ? $request->get('tipo')
+                : MovimientoPrestaciones::TIPO_ANTICIPO,
+            'fecha' => $this->fechaDePrefill($request->get('fecha')) ?? now()->format('Y-m-d'),
+            'fecha_comprobante' => now()->format('Y-m-d'),
+            'monto' => is_numeric($request->get('monto')) ? (float) $request->get('monto') : null,
+            'moneda' => in_array($request->get('moneda'), ['USD', 'BS'], true)
+                ? $request->get('moneda')
+                : ($empleado?->moneda ?? 'USD'),
+        ];
+
+        return view('movimientos-prestaciones.create', compact('patrono', 'empleado', 'prefill'));
+    }
+
+    private function fechaDePrefill(mixed $valor): ?string
+    {
+        if (! is_string($valor) || ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $valor)) {
+            return null;
+        }
+
+        try {
+            return Carbon::createFromFormat('Y-m-d', $valor)->format('Y-m-d');
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /** Guarda un nuevo movimiento. */
@@ -121,17 +147,26 @@ class MovimientosPrestacionesController extends Controller
 
         $data = $request->validate([
             'fecha' => ['nullable', 'date'],
+            'moneda' => ['nullable', 'in:USD,BS'],
         ]);
         $fecha = ! empty($data['fecha']) ? Carbon::parse($data['fecha']) : null;
         $max = $this->service->maximoAnticipo($empleado, $fecha);
 
+        $moneda = $data['moneda'] ?? $max['moneda'];
+        $maximo = $max['moneda'] === $moneda
+            ? (float) $max['maximo']
+            : $this->service->convertir((float) $max['maximo'], $max['moneda'], $moneda, $fecha);
+        $saldo = $max['moneda'] === $moneda
+            ? (float) $max['saldo']
+            : $this->service->convertir((float) $max['saldo'], $max['moneda'], $moneda, $fecha);
+
         return response()->json([
-            'saldo' => $max['saldo'],
-            'maximo' => $max['maximo'],
+            'saldo' => round($saldo, 2),
+            'maximo' => round($maximo, 2),
             'pct' => $max['pct'],
-            'monto_75' => round($max['saldo'] * 0.75, 2),
+            'monto_75' => round($maximo * 0.75, 2),
             'pct_75' => 75,
-            'moneda' => $max['moneda'],
+            'moneda' => $moneda,
             'dias' => $max['dias'],
             'anios' => $max['anios'],
             'es_proyeccion' => $max['es_proyeccion'],

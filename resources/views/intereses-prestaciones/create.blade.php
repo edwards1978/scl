@@ -29,7 +29,7 @@
 						<select name="empleado_id" id="empleado_id" required class="w-full border border-gray-300 px-2 py-1.5 text-sm bg-white">
 							<option value="">Seleccione un trabajador</option>
 							@foreach ($empleados as $emp)
-								<option value="{{ $emp->id }}" {{ (int) old('empleado_id', $empleado?->id) === (int) $emp->id ? 'selected' : '' }}>
+								<option value="{{ $emp->id }}" {{ (int) old('empleado_id', $prefill['empleado_id']) === (int) $emp->id ? 'selected' : '' }}>
 									{{ $emp->nombre_completo }} — {{ $emp->cedula }}
 								</option>
 							@endforeach
@@ -40,19 +40,19 @@
 					<div class="grid grid-cols-3 gap-3">
 						<div>
 							<label class="block text-xs font-medium text-gray-600 mb-0.5">Fecha del movimiento</label>
-							<input type="date" name="fecha" id="fecha" value="{{ old('fecha', now()->format('Y-m-d')) }}" max="{{ now()->addMonths(12)->endOfMonth()->format('Y-m-d') }}" required class="w-full border border-gray-300 px-2 py-1.5 text-sm">
+							<input type="date" name="fecha" id="fecha" value="{{ old('fecha', $prefill['fecha']) }}" max="{{ now()->addMonths(12)->endOfMonth()->format('Y-m-d') }}" required class="w-full border border-gray-300 px-2 py-1.5 text-sm">
 							@error('fecha') <p class="text-xs text-red-500 mt-0.5">{{ $message }}</p> @enderror
 						</div>
 						<div>
 							<label class="block text-xs font-medium text-gray-600 mb-0.5">Monto</label>
-							<input type="text" name="monto" inputmode="decimal" value="{{ old('monto') }}" placeholder="0,00" required class="w-full border border-gray-300 px-2 py-1.5 text-sm">
+							<input type="text" name="monto" inputmode="decimal" value="{{ old('monto', $prefill['monto']) }}" placeholder="0,00" required class="w-full border border-gray-300 px-2 py-1.5 text-sm">
 							@error('monto') <p class="text-xs text-red-500 mt-0.5">{{ $message }}</p> @enderror
 						</div>
 						<div>
 							<label class="block text-xs font-medium text-gray-600 mb-0.5">Moneda</label>
 							<select name="moneda" class="w-full border border-gray-300 px-2 py-1.5 text-sm bg-white">
-								<option value="USD" {{ old('moneda', 'USD') === 'USD' ? 'selected' : '' }}>USD</option>
-								<option value="BS" {{ old('moneda') === 'BS' ? 'selected' : '' }}>Bs</option>
+								<option value="USD" {{ old('moneda', $prefill['moneda']) === 'USD' ? 'selected' : '' }}>USD</option>
+								<option value="BS" {{ old('moneda', $prefill['moneda']) === 'BS' ? 'selected' : '' }}>Bs</option>
 							</select>
 						</div>
 					</div>
@@ -65,7 +65,7 @@
 					<div class="grid grid-cols-2 gap-3">
 						<div>
 							<label class="block text-xs font-medium text-gray-600 mb-0.5">Fecha del comprobante</label>
-							<input type="date" name="fecha_comprobante" value="{{ old('fecha_comprobante', now()->format('Y-m-d')) }}" class="w-full border border-gray-300 px-2 py-1.5 text-sm">
+							<input type="date" name="fecha_comprobante" value="{{ old('fecha_comprobante', $prefill['fecha_comprobante']) }}" class="w-full border border-gray-300 px-2 py-1.5 text-sm">
 							@error('fecha_comprobante') <p class="text-xs text-red-500 mt-0.5">{{ $message }}</p> @enderror
 						</div>
 						<div>

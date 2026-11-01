@@ -101,7 +101,30 @@ class InteresesPrestacionesController extends Controller
             );
         }
 
-        return view('intereses-prestaciones.create', compact('patrono', 'empleados', 'empleado'));
+        $prefill = [
+            'empleado_id' => $empleado?->id,
+            'fecha' => $this->fechaDePrefill($request->get('fecha')) ?? now()->format('Y-m-d'),
+            'fecha_comprobante' => now()->format('Y-m-d'),
+            'monto' => is_numeric($request->get('monto')) ? (float) $request->get('monto') : null,
+            'moneda' => in_array($request->get('moneda'), ['USD', 'BS'], true)
+                ? $request->get('moneda')
+                : ($empleado?->moneda ?? 'USD'),
+        ];
+
+        return view('intereses-prestaciones.create', compact('patrono', 'empleados', 'empleado', 'prefill'));
+    }
+
+    private function fechaDePrefill(mixed $valor): ?string
+    {
+        if (! is_string($valor) || ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $valor)) {
+            return null;
+        }
+
+        try {
+            return Carbon::createFromFormat('Y-m-d', $valor)->format('Y-m-d');
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**

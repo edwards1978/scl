@@ -44,6 +44,26 @@ class MovimientosPrestacionesTest extends TestCase
             ->assertViewHas('totales', fn ($totales) => (float) $totales['USD'] === 50.0);
     }
 
+    public function test_el_formulario_precarga_los_datos_del_renglon(): void
+    {
+        [$patrono, $empleado] = $this->crearPatronoEmpleado();
+
+        $this->actingAs(User::factory()->create())
+            ->withSession(['patrono_id' => $patrono->id])
+            ->get(route('movimientos-prestaciones.create', [
+                'empleado_id' => $empleado->id,
+                'tipo' => MovimientoPrestaciones::TIPO_ANTICIPO,
+                'fecha' => '2026-12-08',
+                'monto' => '123.45',
+                'moneda' => 'BS',
+            ]))
+            ->assertOk()
+            ->assertSee('value="2026-12-08"', false)
+            ->assertSee('value="123.45"', false)
+            ->assertSee('100% del límite')
+            ->assertSee('75% del límite');
+    }
+
     /**
      * @return array{0:Patrono, 1:Empleado}
      */

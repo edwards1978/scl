@@ -222,12 +222,46 @@
 						<td class="px-3 py-2 text-right">{{ (float) $c->interes_pendiente_periodo > 0 ? formato_monto((float) $c->interes_pendiente_periodo) : '—' }}</td>
 						<td class="px-3 py-2 text-right font-medium">{{ formato_monto((float) $c->saldo_final_periodo) }}</td>
 						<td class="px-2 py-2 text-center">
-							@if ($c->es_proyeccion && $empleado->estaActivo())
-								<form method="POST" action="{{ route('prestaciones.proyeccion.periodo.destroy', [$empleado->id, $c->id]) }}"
-									onsubmit="return confirm('¿Eliminar el período proyectado {{ $c->periodo }}?')">
-									@csrf @method('DELETE')
-									<button class="p-1 text-gray-400 hover:text-red-500" title="Eliminar período proyectado">🗑</button>
-								</form>
+							@if ($empleado->estaActivo())
+								<details class="relative inline-block text-left">
+									<summary class="list-none cursor-pointer px-2 py-1 text-gray-500 hover:text-gray-800 hover:bg-gray-100" title="Acciones del período" aria-label="Acciones del período">
+										<span class="text-lg leading-none">…</span>
+									</summary>
+									<div class="absolute right-0 z-20 mt-1 w-64 border border-gray-200 bg-white py-1 text-left shadow-lg">
+										<a href="{{ route('movimientos-prestaciones.create', array_filter([
+											'empleado_id' => $empleado->id,
+											'tipo' => 'anticipo',
+											'fecha' => $c->periodo_fin?->format('Y-m-d'),
+											'fecha_comprobante' => now()->format('Y-m-d'),
+											'monto' => $c->capital_periodo,
+											'moneda' => $moneda,
+										], fn ($valor) => $valor !== null && $valor !== '')) }}"
+											class="block px-3 py-2 text-xs text-gray-700 hover:bg-gray-50">
+											Agregar anticipo de prestaciones
+										</a>
+										@if ($modalidadDeposito === 'contabilidad')
+											<a href="{{ route('intereses-prestaciones.create', array_filter([
+												'empleado_id' => $empleado->id,
+												'fecha' => $c->periodo_fin?->format('Y-m-d'),
+												'fecha_comprobante' => now()->format('Y-m-d'),
+												'monto' => $c->interes_pendiente_periodo,
+												'moneda' => $moneda,
+											], fn ($valor) => $valor !== null && $valor !== '')) }}"
+												class="block px-3 py-2 text-xs text-gray-700 hover:bg-gray-50">
+												Registrar pago de intereses
+											</a>
+										@endif
+										@if ($c->es_proyeccion)
+											<form method="POST" action="{{ route('prestaciones.proyeccion.periodo.destroy', [$empleado->id, $c->id]) }}"
+												onsubmit="return confirm('¿Eliminar el período proyectado {{ $c->periodo }}?')">
+												@csrf @method('DELETE')
+												<button type="submit" class="block w-full px-3 py-2 text-left text-xs text-red-600 hover:bg-red-50">
+													Eliminar período proyectado
+												</button>
+											</form>
+										@endif
+									</div>
+								</details>
 							@else
 								<span class="text-gray-300">—</span>
 							@endif

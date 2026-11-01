@@ -134,6 +134,22 @@ class PrestacionesSocialesTest extends TestCase
         );
     }
 
+    public function test_el_renglon_ofrece_anticipo_y_pago_de_intereses(): void
+    {
+        [$patrono, $empleado] = $this->crearEmpleado();
+
+        app(PrestacionesSocialesService::class)->regenerar($empleado);
+
+        $this->actingAs(User::factory()->create())
+            ->withSession(['patrono_id' => $patrono->id])
+            ->get(route('prestaciones.show', $empleado->id))
+            ->assertOk()
+            ->assertSee('Agregar anticipo de prestaciones')
+            ->assertSee('Registrar pago de intereses')
+            ->assertSee('movimientos-prestaciones/crear?', false)
+            ->assertSee('intereses-prestaciones/crear?', false);
+    }
+
     public function test_el_maximo_anticipo_a_fecha_futura_incluye_las_proyecciones(): void
     {
         [$patrono, $empleado] = $this->crearEmpleado();
@@ -155,6 +171,29 @@ class PrestacionesSocialesTest extends TestCase
         $this->assertTrue((bool) $proyectado->es_proyeccion);
         $this->assertEqualsWithDelta((float) $proyectado->capital_final, $max['saldo'], 0.01);
         $this->assertTrue($max['es_proyeccion']);
+    }
+
+    public function test_el_endpoint_del_maximo_calcula_el_75_sobre_el_limite(): void
+    {
+        [$patrono, $empleado] = $this->crearEmpleado();
+
+        app(PrestacionesSocialesService::class)->regenerar($empleado);
+
+        $respuesta = $this->actingAs(User::factory()->create())
+            ->withSession(['patrono_id' => $patrono->id])
+            ->getJson(route('movimientos-prestaciones.maximo', [
+                'empleadoId' => $empleado->id,
+                'fecha' => '2026-10-20',
+                'moneda' => 'USD',
+            ]))
+            ->assertOk()
+            ->json();
+
+        $this->assertSame(
+            round((float) $respuesta['maximo'] * 0.75, 2),
+            (float) $respuesta['monto_75']
+        );
+        $this->assertGreaterThan(0, (float) $respuesta['maximo']);
     }
 
     public function test_un_anticipo_futuro_se_refleja_en_la_proyeccion_sin_eliminarla(): void
