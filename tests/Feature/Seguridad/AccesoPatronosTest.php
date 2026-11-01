@@ -78,6 +78,33 @@ class AccesoPatronosTest extends TestCase
         $this->assertNull(session('patrono_id'));
     }
 
+    public function test_el_administrador_puede_seleccionar_un_patrono_desde_el_listado(): void
+    {
+        $patrono = $this->crearPatrono('J-10000030-1', 'Patrono seleccionable');
+        $administrador = $this->crearUsuario(RolUsuario::Administrador);
+
+        $this->actingAs($administrador)
+            ->post(route('patronos.seleccionar', $patrono))
+            ->assertRedirect(route('empleados.index'))
+            ->assertSessionHas('patrono_id', $patrono->id)
+            ->assertSessionHas('success')
+            ->assertCookie('scl_ctx');
+    }
+
+    public function test_no_se_puede_seleccionar_un_patrono_inactivo_desde_el_listado(): void
+    {
+        $patrono = $this->crearPatrono('J-10000031-1', 'Patrono inactivo');
+        $patrono->update(['estado' => 'Inactivo']);
+        $administrador = $this->crearUsuario(RolUsuario::Administrador);
+
+        $this->actingAs($administrador)
+            ->post(route('patronos.seleccionar', $patrono))
+            ->assertRedirect(route('patronos.index'))
+            ->assertSessionHas('error');
+
+        $this->assertNull(session('patrono_id'));
+    }
+
     public function test_la_cookie_de_contexto_es_cifrada_y_restaura_el_patrono(): void
     {
         $patrono = $this->crearPatrono('J-10000021-1', 'Patrono A');

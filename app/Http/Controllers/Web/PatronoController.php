@@ -8,12 +8,16 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StorePatronoRequest;
 use App\Http\Requests\UpdatePatronoRequest;
 use App\Models\Patrono;
+use App\Services\PatronoContextoService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 
 class PatronoController extends Controller
 {
+    public function __construct(private readonly PatronoContextoService $contexto) {}
+
     public function index(Request $request): View
     {
         $porPagina = (int) min(max($request->integer('porPagina', 15), 5), 100);
@@ -41,6 +45,21 @@ class PatronoController extends Controller
 
         return redirect()->route('patronos.index')
             ->with('success', "Patrono {$patrono->razon_social} creado exitosamente.");
+    }
+
+    public function seleccionar(Request $request, Patrono $patrono): RedirectResponse
+    {
+        Gate::authorize('view', $patrono);
+
+        if ($patrono->estado !== 'Activo') {
+            return redirect()->route('patronos.index')
+                ->with('error', 'Solo se puede seleccionar un patrono activo.');
+        }
+
+        $this->contexto->seleccionar($request, $patrono);
+
+        return redirect()->route('empleados.index')
+            ->with('success', "Contexto seleccionado: {$patrono->razon_social}.");
     }
 
     public function edit(Patrono $patrono): View

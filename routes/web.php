@@ -86,6 +86,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/', [PatronoController::class, 'index'])->name('index');
         Route::get('create', [PatronoController::class, 'create'])->name('create');
         Route::post('/', [PatronoController::class, 'store'])->name('store');
+        Route::post('{patrono}/seleccionar', [PatronoController::class, 'seleccionar'])->name('seleccionar');
         Route::get('{patrono}/edit', [PatronoController::class, 'edit'])->name('edit');
         Route::put('{patrono}', [PatronoController::class, 'update'])->name('update');
         Route::patch('{patrono}/toggle-estado', [PatronoController::class, 'toggleEstado'])->name('toggle');

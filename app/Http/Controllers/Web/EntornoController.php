@@ -6,14 +6,16 @@ namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use App\Models\Patrono;
+use App\Services\PatronoContextoService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 
 class EntornoController extends Controller
 {
+    public function __construct(private readonly PatronoContextoService $contexto) {}
+
     public function seleccionar(Request $request): View
     {
         $user = $request->user();
@@ -48,16 +50,7 @@ class EntornoController extends Controller
 
         Gate::authorize('view', $patrono);
 
-        session([
-            'patrono_id' => $patrono->id,
-            'nombre_patrono' => $patrono->razon_social,
-        ]);
-
-        // Cookie cifrada y autenticada por EncryptCookies: no se puede alterar
-        // el patrono sin la clave de la aplicación.
-        Cookie::queue(Cookie::make('scl_ctx', json_encode([
-            'patrono_id' => $patrono->id,
-        ]), 60 * 24 * 30, '/', null, $request->isSecure(), true));
+        $this->contexto->seleccionar($request, $patrono);
 
         return redirect()->route('empleados.index')
             ->with('success', "Contexto seleccionado: {$patrono->razon_social}.");
@@ -65,8 +58,7 @@ class EntornoController extends Controller
 
     public function limpiar(): RedirectResponse
     {
-        session()->forget(['patrono_id', 'nombre_patrono']);
-        Cookie::queue(Cookie::forget('scl_ctx'));
+        $this->contexto->limpiar();
 
         return redirect()->route('entorno.seleccionar');
     }
