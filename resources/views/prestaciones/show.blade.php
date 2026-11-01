@@ -223,13 +223,43 @@
 						<td class="px-3 py-2 text-right font-medium">{{ formato_monto((float) $c->saldo_final_periodo) }}</td>
 						<td class="px-2 py-2 text-center">
 							@if ($empleado->estaActivo())
-								<div x-data="{ abierto: false }" @click.outside="abierto = false" class="inline-flex flex-col items-start text-left">
-									<button type="button" @click="abierto = !abierto" :aria-expanded="abierto" aria-haspopup="true"
+								<div
+									x-data="{
+										abierto: false,
+										estilo: '',
+										alternar() {
+											this.abierto = ! this.abierto;
+											if (! this.abierto) return;
+											this.$nextTick(() => this.posicionar());
+										},
+										posicionar() {
+											const boton = this.$refs.boton.getBoundingClientRect();
+											const menu = this.$refs.menu;
+											const ancho = menu.offsetWidth || 220;
+											const alto = menu.offsetHeight || 150;
+											const margen = 8;
+											let izquierda = Math.min(boton.left, window.innerWidth - ancho - margen);
+											izquierda = Math.max(margen, izquierda);
+											let arriba = boton.bottom + 4;
+											if (arriba + alto > window.innerHeight - margen) {
+												arriba = boton.top - alto - 4;
+											}
+											arriba = Math.max(margen, arriba);
+											this.estilo = `position: fixed; left: ${izquierda}px; top: ${arriba}px; z-index: 9999;`;
+										}
+									}"
+									@click.outside="abierto = false"
+									@keydown.escape.window="abierto = false"
+									@resize.window="abierto = false"
+									@scroll.window="abierto = false"
+									class="inline-block text-left"
+								>
+									<button x-ref="boton" type="button" @click="alternar()" :aria-expanded="abierto" aria-haspopup="true"
 										class="px-2 py-1 text-gray-500 hover:text-gray-800 hover:bg-gray-100"
 										title="Acciones del período" aria-label="Acciones del período">
 										<span class="text-lg leading-none">…</span>
 									</button>
-									<div x-show="abierto" style="display: none" class="mt-1 flex flex-col border border-gray-200 bg-white p-1 shadow-sm">
+									<div x-ref="menu" x-show="abierto" :style="estilo" style="display: none" class="flex flex-col border border-gray-200 bg-white p-1 shadow-lg">
 										<a href="{{ route('movimientos-prestaciones.create', array_filter([
 											'empleado_id' => $empleado->id,
 											'tipo' => 'anticipo',
