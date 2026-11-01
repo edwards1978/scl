@@ -256,7 +256,7 @@
 					class="px-2 py-0.5 border border-gray-300 {{ $cuenta->hasMorePages() ? 'hover:bg-gray-50' : 'pointer-events-none opacity-40' }}">→</a>
 			</div>
 			<span>Filas por página</span>
-			<select onchange="const u = new URL(window.location.href); u.searchParams.set('porPagina', this.value); u.searchParams.delete('page'); window.location.href = u.toString();"
+			<select onchange="const u = new window.URL(window.location.href); u.searchParams.set('porPagina', this.value); u.searchParams.delete('page'); window.location.href = u.toString();"
 				class="border border-gray-300 px-1.5 py-0.5 text-xs bg-white">
 				@foreach ([10, 25, 50, 100] as $n)
 					<option value="{{ $n }}" {{ $porPagina === $n ? 'selected' : '' }}>{{ $n }}</option>
@@ -453,7 +453,7 @@
 		const filtrosGuardados = leer(filtrosKey);
 		const paginaGuardada = Number.parseInt(localStorage.getItem(paginaKey) || '0', 10);
 		const uiGuardada = leer(uiKey, {});
-		const url = new URL(window.location.href);
+		const url = new window.URL(window.location.href);
 		let cambiarUrl = false;
 
 		if (! tieneFiltros && filtrosGuardados && typeof filtrosGuardados === 'object') {
@@ -470,7 +470,7 @@
 			}
 		}
 
-		if (! tienePagina && paginaGuardada > 1) {
+		if (! tienePagina && ! tieneFiltros && ! tienePorPagina && paginaGuardada > 1) {
 			url.searchParams.set('page', String(paginaGuardada));
 			cambiarUrl = true;
 		}
