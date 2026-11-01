@@ -144,8 +144,8 @@ class PrestacionesSocialesTest extends TestCase
             ->withSession(['patrono_id' => $patrono->id])
             ->get(route('prestaciones.show', $empleado->id))
             ->assertOk()
-            ->assertSee('Agregar anticipo de prestaciones')
-            ->assertSee('Registrar pago de intereses')
+            ->assertSee('Anticipo')
+            ->assertSee('Pago de intereses')
             ->assertSee('movimientos-prestaciones/crear?', false)
             ->assertSee('intereses-prestaciones/crear?', false);
     }

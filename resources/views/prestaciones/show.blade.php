@@ -223,11 +223,13 @@
 						<td class="px-3 py-2 text-right font-medium">{{ formato_monto((float) $c->saldo_final_periodo) }}</td>
 						<td class="px-2 py-2 text-center">
 							@if ($empleado->estaActivo())
-								<details class="relative inline-block text-left">
-									<summary class="list-none cursor-pointer px-2 py-1 text-gray-500 hover:text-gray-800 hover:bg-gray-100" title="Acciones del período" aria-label="Acciones del período">
+								<div x-data="{ abierto: false }" @click.outside="abierto = false" class="inline-flex flex-col items-start text-left">
+									<button type="button" @click="abierto = !abierto" :aria-expanded="abierto" aria-haspopup="true"
+										class="px-2 py-1 text-gray-500 hover:text-gray-800 hover:bg-gray-100"
+										title="Acciones del período" aria-label="Acciones del período">
 										<span class="text-lg leading-none">…</span>
-									</summary>
-									<div class="absolute right-0 z-20 mt-1 w-64 border border-gray-200 bg-white py-1 text-left shadow-lg">
+									</button>
+									<div x-show="abierto" style="display: none" class="mt-1 flex flex-col border border-gray-200 bg-white p-1 shadow-sm">
 										<a href="{{ route('movimientos-prestaciones.create', array_filter([
 											'empleado_id' => $empleado->id,
 											'tipo' => 'anticipo',
@@ -236,8 +238,8 @@
 											'monto' => $c->capital_periodo,
 											'moneda' => $moneda,
 										], fn ($valor) => $valor !== null && $valor !== '')) }}"
-											class="block px-3 py-2 text-xs text-gray-700 hover:bg-gray-50">
-											Agregar anticipo de prestaciones
+											class="whitespace-nowrap px-2 py-1 text-xs text-gray-700 hover:bg-gray-50">
+											Anticipo
 										</a>
 										@if ($modalidadDeposito === 'contabilidad')
 											<a href="{{ route('intereses-prestaciones.create', array_filter([
@@ -247,21 +249,21 @@
 												'monto' => $c->interes_pendiente_periodo,
 												'moneda' => $moneda,
 											], fn ($valor) => $valor !== null && $valor !== '')) }}"
-												class="block px-3 py-2 text-xs text-gray-700 hover:bg-gray-50">
-												Registrar pago de intereses
+												class="whitespace-nowrap px-2 py-1 text-xs text-gray-700 hover:bg-gray-50">
+												Pago de intereses
 											</a>
 										@endif
 										@if ($c->es_proyeccion)
 											<form method="POST" action="{{ route('prestaciones.proyeccion.periodo.destroy', [$empleado->id, $c->id]) }}"
 												onsubmit="return confirm('¿Eliminar el período proyectado {{ $c->periodo }}?')">
 												@csrf @method('DELETE')
-												<button type="submit" class="block w-full px-3 py-2 text-left text-xs text-red-600 hover:bg-red-50">
-													Eliminar período proyectado
+												<button type="submit" class="whitespace-nowrap px-2 py-1 text-left text-xs text-red-600 hover:bg-red-50">
+													Eliminar proyección
 												</button>
 											</form>
 										@endif
 									</div>
-								</details>
+								</div>
 							@else
 								<span class="text-gray-300">—</span>
 							@endif
