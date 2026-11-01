@@ -448,7 +448,7 @@ class PrestacionesSocialesTest extends TestCase
 
         $this->actingAs(User::factory()->create())
             ->withSession(['patrono_id' => $patrono->id])
-            ->get(route('prestaciones.show', ['empleadoId' => $empleado->id, 'porPagina' => 100]))
+            ->get(route('prestaciones.show', ['empleadoId' => $empleado->id, 'porPagina' => 60]))
             ->assertOk()
             ->assertViewHas('periodoHasta', '2026-12')
             ->assertViewHas('incluyeProyeccion', true)
@@ -550,7 +550,7 @@ class PrestacionesSocialesTest extends TestCase
 
         $this->actingAs($usuario)
             ->withSession(['patrono_id' => $patrono->id])
-            ->get(route('prestaciones.show', ['empleadoId' => $empleado->id, 'porPagina' => 100]))
+            ->get(route('prestaciones.show', ['empleadoId' => $empleado->id, 'porPagina' => 60]))
             ->assertOk()
             ->assertSee(route('prestaciones.proyeccion.periodo.destroy', [$empleado->id, $noviembre->id]), false);
 
@@ -903,7 +903,7 @@ class PrestacionesSocialesTest extends TestCase
                 'desde' => '2026-01',
                 'hasta' => '2026-10',
                 'incluir_anteriores' => 1,
-                'porPagina' => 100,
+                'porPagina' => 60,
             ]))
             ->assertOk();
 
@@ -1318,7 +1318,7 @@ class PrestacionesSocialesTest extends TestCase
 
         $this->actingAs(User::factory()->create())
             ->withSession(['patrono_id' => $patrono->id])
-            ->get(route('prestaciones.show', ['empleadoId' => $empleado->id, 'porPagina' => 100]))
+            ->get(route('prestaciones.show', ['empleadoId' => $empleado->id, 'porPagina' => 60]))
             ->assertOk()
             ->assertSee('Tiempo de servicio')
             ->assertSee('0 a · 1 m · 0 d')
@@ -1340,15 +1340,15 @@ class PrestacionesSocialesTest extends TestCase
             ->withSession(['patrono_id' => $patrono->id])
             ->get(route('prestaciones.show', [
                 'empleadoId' => $empleado->id,
-                'porPagina' => 10,
+                'porPagina' => 12,
                 'page' => 2,
             ]))
             ->assertOk()
-            ->assertViewHas('porPagina', 10)
+            ->assertViewHas('porPagina', 12)
             ->assertViewHas('cuenta', fn ($cuenta) => $cuenta->currentPage() === 2
-                && $cuenta->perPage() === 10
-                && $cuenta->getCollection()->count() === 10
-                && $cuenta->total() > 10);
+                && $cuenta->perPage() === 12
+                && $cuenta->getCollection()->count() === 12
+                && $cuenta->total() > 12);
     }
 
     public function test_la_tabla_tiene_una_sola_columna_de_capital(): void
@@ -1359,7 +1359,7 @@ class PrestacionesSocialesTest extends TestCase
 
         $respuesta = $this->actingAs(User::factory()->create())
             ->withSession(['patrono_id' => $patrono->id])
-            ->get(route('prestaciones.show', ['empleadoId' => $empleado->id, 'porPagina' => 100]))
+            ->get(route('prestaciones.show', ['empleadoId' => $empleado->id, 'porPagina' => 60]))
             ->assertOk();
 
         $this->assertSame(1, substr_count($respuesta->getContent(), 'Capital período'));

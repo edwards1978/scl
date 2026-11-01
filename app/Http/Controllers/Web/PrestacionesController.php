@@ -27,6 +27,11 @@ use PhpOffice\PhpSpreadsheet\Writer\Ods;
 
 class PrestacionesController extends Controller
 {
+    /** @var list<int> */
+    private const POR_PAGINA_OPCIONES = [6, 12, 18, 24, 30, 36, 42, 48, 54, 60];
+
+    private const POR_PAGINA_DEFAULT = 24;
+
     public function __construct(
         private PrestacionesSocialesService $service = new PrestacionesSocialesService,
     ) {}
@@ -150,13 +155,15 @@ class PrestacionesController extends Controller
             ->max('periodo');
         $maxProyeccion = now()->addMonths(12)->format('Y-m');
 
-        $porPagina = in_array($request->integer('porPagina'), [10, 25, 50, 100], true)
+        $porPagina = in_array($request->integer('porPagina'), self::POR_PAGINA_OPCIONES, true)
             ? $request->integer('porPagina')
-            : 25;
+            : self::POR_PAGINA_DEFAULT;
         $totalCuenta = $cuenta->count();
         $ultimaPagina = max(1, (int) ceil($totalCuenta / $porPagina));
         $pagina = min(max(1, $request->integer('page', 1)), $ultimaPagina);
         $cuentaCompleta = $cuenta;
+
+        $porPaginaOpciones = self::POR_PAGINA_OPCIONES;
 
         $cuenta = new LengthAwarePaginator(
             $cuentaCompleta->forPage($pagina, $porPagina)->values(),
@@ -181,7 +188,7 @@ class PrestacionesController extends Controller
             'desde', 'hasta', 'incluirAnteriores', 'hayRango', 'periodosFiltrados', 'totalPeriodos',
             'totalesPeriodo', 'periodoDesde', 'periodoHasta',
             'proyeccionHasta', 'maxProyeccion', 'incluyeProyeccion',
-            'porPagina', 'pagina', 'totalCuenta'
+            'porPagina', 'pagina', 'totalCuenta', 'porPaginaOpciones'
         ));
     }
 

@@ -266,7 +266,7 @@
 			<span>Filas por página</span>
 			<select onchange="const u = new window.URL(window.location.href); u.searchParams.set('porPagina', this.value); u.searchParams.delete('page'); window.location.href = u.toString();"
 				class="border border-gray-300 px-1.5 py-0.5 text-xs bg-white">
-				@foreach ([10, 25, 50, 100] as $n)
+				@foreach ($porPaginaOpciones as $n)
 					<option value="{{ $n }}" {{ $porPagina === $n ? 'selected' : '' }}>{{ $n }}</option>
 				@endforeach
 			</select>
@@ -454,6 +454,7 @@
 		const tieneFiltros = ['desde', 'hasta', 'incluir_anteriores'].some((clave) => params.has(clave));
 		const tienePagina = params.has('page');
 		const tienePorPagina = params.has('porPagina');
+		const opcionesPorPagina = @json($porPaginaOpciones);
 		const valoresIncluir = params.getAll('incluir_anteriores');
 		const incluirAnteriores = valoresIncluir.length
 			? valoresIncluir[valoresIncluir.length - 1] !== '0'
@@ -483,7 +484,7 @@
 			cambiarUrl = true;
 		}
 
-		if (! tienePorPagina && [10, 25, 50, 100].includes(Number(uiGuardada.porPagina))) {
+		if (! tienePorPagina && opcionesPorPagina.includes(Number(uiGuardada.porPagina))) {
 			url.searchParams.set('porPagina', String(uiGuardada.porPagina));
 			cambiarUrl = true;
 		}
@@ -513,7 +514,7 @@
 			localStorage.setItem(paginaKey, '1');
 		}
 
-		if (tienePorPagina && [10, 25, 50, 100].includes(Number(params.get('porPagina')))) {
+		if (tienePorPagina && opcionesPorPagina.includes(Number(params.get('porPagina')))) {
 			const ui = leer(uiKey, {});
 			ui.porPagina = Number(params.get('porPagina'));
 			localStorage.setItem(uiKey, JSON.stringify(ui));
