@@ -13,6 +13,7 @@ use App\Services\PrestacionesSocialesService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -149,13 +150,38 @@ class PrestacionesController extends Controller
             ->max('periodo');
         $maxProyeccion = now()->addMonths(12)->format('Y-m');
 
+        $porPagina = in_array($request->integer('porPagina'), [10, 25, 50, 100], true)
+            ? $request->integer('porPagina')
+            : 25;
+        $totalCuenta = $cuenta->count();
+        $ultimaPagina = max(1, (int) ceil($totalCuenta / $porPagina));
+        $pagina = min(max(1, $request->integer('page', 1)), $ultimaPagina);
+        $cuentaCompleta = $cuenta;
+
+        $cuenta = new LengthAwarePaginator(
+            $cuentaCompleta->forPage($pagina, $porPagina)->values(),
+            $totalCuenta,
+            $porPagina,
+            $pagina,
+            [
+                'path' => route('prestaciones.show', $empleado->id),
+                'query' => array_filter([
+                    'desde' => $desde,
+                    'hasta' => $hasta,
+                    'incluir_anteriores' => $incluirAnteriores ? 1 : 0,
+                    'porPagina' => $porPagina,
+                ], fn ($valor) => $valor !== null && $valor !== ''),
+            ]
+        );
+
         return view('prestaciones.show', compact(
             'empleado', 'cuenta', 'saldoActual', 'saldoInicialRango', 'saldoFinalRango',
             'totalDepositos', 'totalAdicionales', 'totalIntereses', 'totalAnticipos',
             'totalInteresesCapitalizados', 'totalInteresesPagados', 'interesPendiente', 'netoPeriodo',
             'desde', 'hasta', 'incluirAnteriores', 'hayRango', 'periodosFiltrados', 'totalPeriodos',
             'totalesPeriodo', 'periodoDesde', 'periodoHasta',
-            'proyeccionHasta', 'maxProyeccion', 'incluyeProyeccion'
+            'proyeccionHasta', 'maxProyeccion', 'incluyeProyeccion',
+            'porPagina', 'pagina', 'totalCuenta'
         ));
     }
 

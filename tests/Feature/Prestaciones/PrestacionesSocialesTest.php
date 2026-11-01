@@ -448,13 +448,13 @@ class PrestacionesSocialesTest extends TestCase
 
         $this->actingAs(User::factory()->create())
             ->withSession(['patrono_id' => $patrono->id])
-            ->get(route('prestaciones.show', $empleado->id))
+            ->get(route('prestaciones.show', ['empleadoId' => $empleado->id, 'porPagina' => 100]))
             ->assertOk()
             ->assertViewHas('periodoHasta', '2026-12')
             ->assertViewHas('incluyeProyeccion', true)
             ->assertViewHas(
                 'cuenta',
-                fn ($cuenta) => $cuenta->contains(fn ($fila) => (bool) $fila->es_proyeccion)
+                fn ($cuenta) => $cuenta->getCollection()->contains(fn ($fila) => (bool) $fila->es_proyeccion)
             );
     }
 
@@ -550,7 +550,7 @@ class PrestacionesSocialesTest extends TestCase
 
         $this->actingAs($usuario)
             ->withSession(['patrono_id' => $patrono->id])
-            ->get(route('prestaciones.show', $empleado->id))
+            ->get(route('prestaciones.show', ['empleadoId' => $empleado->id, 'porPagina' => 100]))
             ->assertOk()
             ->assertSee(route('prestaciones.proyeccion.periodo.destroy', [$empleado->id, $noviembre->id]), false);
 
@@ -903,11 +903,12 @@ class PrestacionesSocialesTest extends TestCase
                 'desde' => '2026-01',
                 'hasta' => '2026-10',
                 'incluir_anteriores' => 1,
+                'porPagina' => 100,
             ]))
             ->assertOk();
 
         $datos = $respuesta->viewData();
-        $ultima = $datos['cuenta']->last();
+        $ultima = $datos['cuenta']->getCollection()->last();
 
         // El resumen debe mostrar el saldo real del cierre, igual que la tabla.
         $this->assertEqualsWithDelta(
@@ -1317,7 +1318,7 @@ class PrestacionesSocialesTest extends TestCase
 
         $this->actingAs(User::factory()->create())
             ->withSession(['patrono_id' => $patrono->id])
-            ->get(route('prestaciones.show', $empleado->id))
+            ->get(route('prestaciones.show', ['empleadoId' => $empleado->id, 'porPagina' => 100]))
             ->assertOk()
             ->assertSee('Tiempo de servicio')
             ->assertSee('0 a · 1 m · 0 d')
@@ -1327,6 +1328,57 @@ class PrestacionesSocialesTest extends TestCase
             ->assertSee('10/06/2023')
             ->assertSee('11/06/2023')
             ->assertSee('10/07/2023');
+    }
+
+    public function test_la_tabla_se_pagina_y_conserva_los_totales_del_rango(): void
+    {
+        [$patrono, $empleado] = $this->crearEmpleado('2020-01-01');
+
+        app(PrestacionesSocialesService::class)->regenerar($empleado);
+
+        $this->actingAs(User::factory()->create())
+            ->withSession(['patrono_id' => $patrono->id])
+            ->get(route('prestaciones.show', [
+                'empleadoId' => $empleado->id,
+                'porPagina' => 10,
+                'page' => 2,
+            ]))
+            ->assertOk()
+            ->assertViewHas('porPagina', 10)
+            ->assertViewHas('cuenta', fn ($cuenta) => $cuenta->currentPage() === 2
+                && $cuenta->perPage() === 10
+                && $cuenta->getCollection()->count() === 10
+                && $cuenta->total() > 10);
+    }
+
+    public function test_la_tabla_tiene_una_sola_columna_de_capital(): void
+    {
+        [$patrono, $empleado] = $this->crearEmpleado('2020-01-01');
+
+        app(PrestacionesSocialesService::class)->regenerar($empleado);
+
+        $respuesta = $this->actingAs(User::factory()->create())
+            ->withSession(['patrono_id' => $patrono->id])
+            ->get(route('prestaciones.show', ['empleadoId' => $empleado->id, 'porPagina' => 100]))
+            ->assertOk();
+
+        $this->assertSame(1, substr_count($respuesta->getContent(), 'Capital período'));
+    }
+
+    public function test_el_panel_de_informacion_agrupa_los_mensajes_por_categoria(): void
+    {
+        [$patrono, $empleado] = $this->crearEmpleado();
+
+        app(PrestacionesSocialesService::class)->regenerar($empleado);
+
+        $this->actingAs(User::factory()->create())
+            ->withSession(['patrono_id' => $patrono->id])
+            ->get(route('prestaciones.show', $empleado->id))
+            ->assertOk()
+            ->assertSee('Información')
+            ->assertSee('Intereses')
+            ->assertSee('Tasa')
+            ->assertSee('Intereses no capitalizados');
     }
 
     public function test_las_columnas_de_la_tabla_siguen_el_orden_del_estado_de_cuenta(): void

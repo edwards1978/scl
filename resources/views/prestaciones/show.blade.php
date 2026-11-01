@@ -4,11 +4,79 @@
 @php
 	$moneda = $empleado->moneda;
 	$exportParams = array_filter(['empleadoId' => $empleado->id, 'desde' => $desde, 'hasta' => $hasta, 'incluir_anteriores' => $incluirAnteriores ? 1 : 0], fn ($v) => $v !== null);
+	$usuarioId = (int) (auth()->id() ?? 0);
+	$uiKey = 'scl.prestaciones.ui.'.$usuarioId;
+	$modalidadDeposito = $empleado->patrono?->deposito_tipo ?? 'contabilidad';
+	$infoMensajes = [];
+
+	if ($modalidadDeposito !== 'contabilidad') {
+		$infoMensajes[] = [
+			'categoria' => 'Intereses',
+			'texto' => 'Los intereses de esta garantía son calculados por '.($modalidadDeposito === 'fideicomiso' ? 'la entidad bancaria del fideicomiso' : 'el Fondo Nacional de Prestaciones Sociales').'. SCL no calcula intereses en esta modalidad.',
+		];
+	} elseif ($empleado->capitaliza_intereses) {
+		$infoMensajes[] = [
+			'categoria' => 'Intereses',
+			'texto' => 'Capitalización de intereses autorizada por escrito desde '.(optional($empleado->capitalizacion_autorizada_desde)->format('d/m/Y') ?? '—').'.'.($empleado->capitalizacion_documento ? ' Referencia: '.$empleado->capitalizacion_documento.'.' : ''),
+		];
+	} else {
+		$infoMensajes[] = [
+			'categoria' => 'Intereses',
+			'texto' => 'Intereses no capitalizados: se acumulan como pendientes y no generan intereses sobre intereses. Para capitalizarlos se requiere autorización escrita del trabajador.',
+		];
+	}
+
+	if ($proyeccionHasta) {
+		$infoMensajes[] = [
+			'categoria' => 'Proyección',
+			'texto' => 'Proyección guardada hasta '.$proyeccionHasta.'. Para reproyectar, use la opción del listado de prestaciones, que se aplica a todos los trabajadores activos.',
+			'eliminar_proyeccion' => true,
+		];
+	}
+
+	if ($incluyeProyeccion) {
+		$infoMensajes[] = [
+			'categoria' => 'Período',
+			'texto' => 'Incluye períodos proyectados hasta '.$proyeccionHasta.'. Las filas están marcadas como proyección. Son cifras informativas calculadas con la última tasa y el último salario; no representan un monto causado.',
+		];
+	}
+
+	$infoMensajes[] = [
+		'categoria' => 'Tasa',
+		'texto' => 'Tasa interés %: tasa anual promedio entre activa y pasiva del BCV, aplicada al cálculo del interés del período (informativa).',
+	];
 @endphp
-<div class="p-4 mx-4">
+<div
+	class="p-4 mx-4"
+	x-data="{
+		uiKey: @js($uiKey),
+		abierto: { info: false, filtros: true, totales: true },
+		init() {
+			try {
+				const guardado = JSON.parse(localStorage.getItem(this.uiKey) || '{}');
+				this.abierto.info = guardado.info === true;
+				this.abierto.filtros = guardado.filtros !== false;
+				this.abierto.totales = guardado.totales !== false;
+			} catch (e) {}
+		},
+		alternar(seccion) {
+			this.abierto[seccion] = ! this.abierto[seccion];
+			try {
+				const guardado = JSON.parse(localStorage.getItem(this.uiKey) || '{}');
+				Object.assign(guardado, this.abierto);
+				localStorage.setItem(this.uiKey, JSON.stringify(guardado));
+			} catch (e) {}
+		}
+	}"
+>
 	<div class="flex items-center justify-between mb-1 gap-2">
 		<h1 class="text-xl font-semibold">Estado de Cuenta de Prestaciones Sociales</h1>
 		<div class="flex items-center gap-2">
+			<button type="button" @click="alternar('info')" :aria-expanded="abierto.info"
+				class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-300 text-gray-600 hover:bg-gray-50">
+				Información
+				<span class="inline-flex min-w-5 items-center justify-center rounded-full bg-blue-600 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">{{ count($infoMensajes) }}</span>
+			</button>
 			<a href="{{ route('intereses-prestaciones.index', ['empleado_id' => $empleado->id]) }}" class="px-3 py-1.5 text-sm border border-gray-300 text-gray-600 hover:bg-gray-50">Pagos de intereses</a>
 			<a href="{{ route('prestaciones.index') }}" class="px-3 py-1.5 text-sm border border-gray-300 text-gray-600 hover:bg-gray-50">← Volver</a>
 		</div>
@@ -23,25 +91,38 @@
 		</div>
 	@endif
 
-	@php
-		$modalidadDeposito = $empleado->patrono?->deposito_tipo ?? 'contabilidad';
-	@endphp
-	@if ($modalidadDeposito !== 'contabilidad')
-		<div class="mb-4 p-3 bg-blue-50 border border-blue-200 text-blue-800 text-xs">
-			Los intereses de esta garantía son calculados por {{ $modalidadDeposito === 'fideicomiso' ? 'la entidad bancaria del fideicomiso' : 'el Fondo Nacional de Prestaciones Sociales' }}. SCL no calcula intereses en esta modalidad.
+	<div x-show="abierto.info" x-transition class="mb-4 border border-gray-200 bg-white">
+		<div class="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+			<h2 class="text-sm font-semibold text-gray-800">Información del estado de cuenta</h2>
+			<button type="button" @click="alternar('info')" class="text-lg leading-none text-gray-400 hover:text-gray-700" aria-label="Cerrar información">×</button>
 		</div>
-	@elseif ($empleado->capitaliza_intereses)
-		<div class="mb-4 p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs">
-			Capitalización de intereses autorizada por escrito desde {{ optional($empleado->capitalizacion_autorizada_desde)->format('d/m/Y') ?? '—' }}.
-			@if ($empleado->capitalizacion_documento) Referencia: {{ $empleado->capitalizacion_documento }}. @endif
+		<div class="divide-y divide-gray-100">
+			@foreach ($infoMensajes as $mensaje)
+				<div class="flex flex-col gap-1 px-4 py-3 text-xs text-gray-600 sm:flex-row sm:gap-3">
+					<span class="inline-flex h-fit shrink-0 items-center rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-gray-600">{{ $mensaje['categoria'] }}</span>
+					<div class="flex-1">
+						<p>{{ $mensaje['texto'] }}</p>
+						@if (! empty($mensaje['eliminar_proyeccion']) && $empleado->estaActivo())
+							<form method="POST" action="{{ route('prestaciones.proyeccion.destroy', $empleado->id) }}" class="mt-2">
+								@csrf @method('DELETE')
+								<button type="submit" class="px-2 py-1 text-xs border border-red-300 text-red-600 hover:bg-red-50">Eliminar proyección</button>
+							</form>
+						@endif
+					</div>
+				</div>
+			@endforeach
 		</div>
-	@else
-		<div class="mb-4 p-3 bg-gray-50 border border-gray-200 text-gray-600 text-xs">
-			Intereses no capitalizados: se acumulan como pendientes y no generan intereses sobre intereses. Para capitalizarlos se requiere autorización escrita del trabajador.
-		</div>
-	@endif
+	</div>
 
 	<form method="GET" action="{{ route('prestaciones.show', $empleado->id) }}" class="bg-white border border-gray-200 p-3 mb-4">
+		<div class="flex flex-wrap items-center justify-between gap-2">
+			<h2 class="text-sm font-semibold text-gray-800">Filtros del período</h2>
+			<button type="button" @click="alternar('filtros')" :aria-expanded="abierto.filtros"
+				class="px-2 py-1 text-xs border border-gray-300 text-gray-600 hover:bg-gray-50">
+				<span x-text="abierto.filtros ? 'Ocultar' : 'Mostrar'"></span>
+			</button>
+		</div>
+		<div x-show="abierto.filtros" class="mt-3">
 		@php
 			$desdeValor = old('desde', $desde);
 			$hastaValor = old('hasta', $hasta);
@@ -75,7 +156,7 @@
 				Incluir saldos acumulados anteriores
 			</label>
 			<button class="px-4 py-1.5 text-sm bg-gray-800 text-white hover:bg-gray-900">Filtrar</button>
-			<a href="{{ route('prestaciones.show', $empleado->id) }}" class="px-3 py-1.5 text-sm border border-gray-300 text-gray-600 hover:bg-gray-50">Limpiar</a>
+			<a id="limpiar-filtros" href="{{ route('prestaciones.show', $empleado->id) }}" class="px-3 py-1.5 text-sm border border-gray-300 text-gray-600 hover:bg-gray-50">Limpiar</a>
 		</div>
 		<p class="text-[11px] text-gray-400 mt-1">Formato AAAA-MM · Ejemplo: 2025-01 a 2025-06</p>
 		<p class="text-xs text-gray-500 mt-2">
@@ -86,40 +167,34 @@
 				Período completo: {{ $periodoDesde }} a {{ $periodoHasta }}.
 			@endif
 		</p>
+		</div>
+		<p x-show="!abierto.filtros" class="mt-2 text-xs text-gray-500">
+			Mostrando {{ $periodosFiltrados }} de {{ $totalPeriodos }} período(s) ·
+			{{ $periodoDesde }} a {{ $periodoHasta }}
+			@if ($hayRango)
+				· {{ $incluirAnteriores ? 'incluye saldos anteriores' : 'solo el período' }}
+			@endif
+		</p>
 	</form>
 
-	@if ($proyeccionHasta)
-		<div class="bg-white border border-gray-200 px-3 py-2 mb-4 flex flex-wrap items-center gap-3">
-			<p class="text-xs text-gray-600">
-				Proyección guardada hasta <strong>{{ $proyeccionHasta }}</strong>.
-				Para reproyectar, use la opción del listado de prestaciones, que se aplica a todos los trabajadores activos.
-			</p>
-			@if ($empleado->estaActivo())
-				<form method="POST" action="{{ route('prestaciones.proyeccion.destroy', $empleado->id) }}" class="ml-auto">
-					@csrf @method('DELETE')
-					<button class="px-3 py-1.5 text-sm border border-red-300 text-red-600 hover:bg-red-50">Eliminar proyección</button>
-				</form>
-			@endif
-		</div>
-	@endif
-
-	@if ($incluyeProyeccion)
-		<div class="mb-3 p-3 bg-blue-50 border border-blue-200 text-blue-800 text-xs">
-			Incluye períodos proyectados hasta {{ $proyeccionHasta }}. Las filas están marcadas como proyección. Son cifras informativas calculadas con la última tasa y el último salario; no representan un monto causado.
-		</div>
-	@endif
 
 	<div class="bg-white border border-gray-200 p-4 mb-4">
 		<div class="flex flex-wrap items-center justify-between gap-2 mb-3">
 			<h2 class="text-sm font-semibold text-gray-800">Totales del período</h2>
-			<div class="text-xs text-gray-500">
-				Período: <span class="font-medium text-gray-700">{{ $periodoDesde }} a {{ $periodoHasta }}</span>
-				@if ($hayRango)
-					· {{ $incluirAnteriores ? 'incluye saldos anteriores' : 'no incluye saldos anteriores' }}
-				@endif
+			<div class="flex items-center gap-2">
+				<div class="text-xs text-gray-500">
+					Período: <span class="font-medium text-gray-700">{{ $periodoDesde }} a {{ $periodoHasta }}</span>
+					@if ($hayRango)
+						· {{ $incluirAnteriores ? 'incluye saldos anteriores' : 'no incluye saldos anteriores' }}
+					@endif
+				</div>
+				<button type="button" @click="alternar('totales')" :aria-expanded="abierto.totales"
+					class="px-2 py-1 text-xs border border-gray-300 text-gray-600 hover:bg-gray-50">
+					<span x-text="abierto.totales ? 'Contraer' : 'Expandir'"></span>
+				</button>
 			</div>
 		</div>
-		<div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
+		<div x-show="abierto.totales" class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
 			<div class="border border-gray-200 p-3">
 				<p class="text-xs text-gray-500 mb-1">Saldo inicial del período</p>
 				<p class="text-base font-semibold">{{ $moneda }} {{ formato_monto($saldoInicialRango) }}</p>
@@ -157,15 +232,40 @@
 				<p class="text-base font-semibold">{{ $moneda }} {{ formato_monto($totalInteresesCapitalizados) }}</p>
 			</div>
 		</div>
-		<p class="text-xs text-gray-500 mt-3">
+		<p x-show="abierto.totales" class="text-xs text-gray-500 mt-3">
 			Los totales de movimientos son siempre del período seleccionado. El saldo inicial incluye los períodos anteriores solo si el checkbox está marcado; si no, empieza en cero.
 			El neto del período es la variación real del saldo (capital más interés pendiente); los pagos de intereses que exceden el interés pendiente y el capital disponible no se aplican al saldo.
 			Intereses pagados del período: {{ $moneda }} {{ formato_monto($totalInteresesPagados) }}.
 			La tabla inferior muestra los saldos acumulados reales de cada mes.
 		</p>
+		<p x-show="!abierto.totales" class="text-xs text-gray-500 mt-1">
+			Saldo final: <strong>{{ $moneda }} {{ formato_monto($saldoFinalRango) }}</strong>
+			· Neto: <strong>{{ $moneda }} {{ formato_monto($netoPeriodo) }}</strong>
+			· Interés pendiente: <strong>{{ $moneda }} {{ formato_monto($interesPendiente) }}</strong>
+		</p>
 	</div>
 
-	<div class="bg-white border border-gray-200 overflow-x-auto mb-4">
+	<div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+		<p class="text-xs text-gray-500">{{ $totalCuenta }} período(s) en el rango filtrado.</p>
+		<div class="flex flex-wrap items-center gap-2 text-xs text-gray-600">
+			<div class="flex items-center gap-1">
+				<a href="{{ $cuenta->previousPageUrl() ? $cuenta->previousPageUrl().'#tabla-prestaciones' : '#' }}"
+					class="px-2 py-0.5 border border-gray-300 {{ $cuenta->onFirstPage() ? 'pointer-events-none opacity-40' : 'hover:bg-gray-50' }}">←</a>
+				<span>Página {{ $cuenta->currentPage() }} de {{ $cuenta->lastPage() }}</span>
+				<a href="{{ $cuenta->nextPageUrl() ? $cuenta->nextPageUrl().'#tabla-prestaciones' : '#' }}"
+					class="px-2 py-0.5 border border-gray-300 {{ $cuenta->hasMorePages() ? 'hover:bg-gray-50' : 'pointer-events-none opacity-40' }}">→</a>
+			</div>
+			<span>Filas por página</span>
+			<select onchange="const u = new URL(window.location.href); u.searchParams.set('porPagina', this.value); u.searchParams.delete('page'); window.location.href = u.toString();"
+				class="border border-gray-300 px-1.5 py-0.5 text-xs bg-white">
+				@foreach ([10, 25, 50, 100] as $n)
+					<option value="{{ $n }}" {{ $porPagina === $n ? 'selected' : '' }}>{{ $n }}</option>
+				@endforeach
+			</select>
+		</div>
+	</div>
+
+	<div id="tabla-prestaciones" class="bg-white border border-gray-200 overflow-x-auto mb-4">
 		<table class="w-full text-sm">
 			<thead class="bg-gray-50 text-gray-600 text-xs uppercase">
 				<tr>
@@ -193,7 +293,7 @@
 			<tbody class="divide-y divide-gray-100">
 				@forelse ($cuenta as $c)
 					<tr class="hover:bg-gray-50">
-						<td class="px-3 py-2 text-center text-gray-500">{{ $loop->iteration }}</td>
+						<td class="px-3 py-2 text-center text-gray-500">{{ ($cuenta->currentPage() - 1) * $cuenta->perPage() + $loop->iteration }}</td>
 						<td class="px-3 py-2 whitespace-nowrap">{{ $c->periodo_inicio?->format('d/m/Y') }}</td>
 						<td class="px-3 py-2 whitespace-nowrap">
 							{{ $c->periodo_fin?->format('d/m/Y') }}
@@ -305,7 +405,11 @@
 			</tbody>
 		</table>
 	</div>
-	<p class="text-xs text-gray-500 mb-4">Tasa interés %: tasa anual promedio entre activa y pasiva del BCV, aplicada al cálculo del interés del período (informativa).</p>
+
+	<div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+		<p class="text-xs text-gray-500">Página {{ $cuenta->currentPage() }} de {{ $cuenta->lastPage() }}</p>
+		{{ $cuenta->links() }}
+	</div>
 
 	<div class="flex justify-end gap-2">
 		@if ($empleado->estaActivo())
@@ -319,3 +423,101 @@
 	</div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+	document.addEventListener('DOMContentLoaded', function () {
+		const empleadoId = @json((string) $empleado->id);
+		const usuarioId = @json((string) $usuarioId);
+		const filtrosKey = `scl.prestaciones.filtros.${usuarioId}.${empleadoId}`;
+		const paginaKey = `scl.prestaciones.pagina.${usuarioId}.${empleadoId}`;
+		const uiKey = `scl.prestaciones.ui.${usuarioId}`;
+
+		const leer = (clave, defecto = null) => {
+			try {
+				const valor = localStorage.getItem(clave);
+				return valor ? JSON.parse(valor) : defecto;
+			} catch (e) {
+				return defecto;
+			}
+		};
+
+		const params = new URLSearchParams(window.location.search);
+		const tieneFiltros = ['desde', 'hasta', 'incluir_anteriores'].some((clave) => params.has(clave));
+		const tienePagina = params.has('page');
+		const tienePorPagina = params.has('porPagina');
+		const valoresIncluir = params.getAll('incluir_anteriores');
+		const incluirAnteriores = valoresIncluir.length
+			? valoresIncluir[valoresIncluir.length - 1] !== '0'
+			: true;
+		const filtrosGuardados = leer(filtrosKey);
+		const paginaGuardada = Number.parseInt(localStorage.getItem(paginaKey) || '0', 10);
+		const uiGuardada = leer(uiKey, {});
+		const url = new URL(window.location.href);
+		let cambiarUrl = false;
+
+		if (! tieneFiltros && filtrosGuardados && typeof filtrosGuardados === 'object') {
+			['desde', 'hasta'].forEach((clave) => {
+				if (filtrosGuardados[clave]) {
+					url.searchParams.set(clave, filtrosGuardados[clave]);
+					cambiarUrl = true;
+				}
+			});
+
+			if (typeof filtrosGuardados.incluir_anteriores === 'boolean') {
+				url.searchParams.set('incluir_anteriores', filtrosGuardados.incluir_anteriores ? '1' : '0');
+				cambiarUrl = true;
+			}
+		}
+
+		if (! tienePagina && paginaGuardada > 1) {
+			url.searchParams.set('page', String(paginaGuardada));
+			cambiarUrl = true;
+		}
+
+		if (! tienePorPagina && [10, 25, 50, 100].includes(Number(uiGuardada.porPagina))) {
+			url.searchParams.set('porPagina', String(uiGuardada.porPagina));
+			cambiarUrl = true;
+		}
+
+		if (cambiarUrl) {
+			window.location.replace(url.toString());
+			return;
+		}
+
+		if (tieneFiltros) {
+			const filtrosAplicados = params.has('desde') || params.has('hasta') || ! incluirAnteriores;
+
+			if (filtrosAplicados) {
+				localStorage.setItem(filtrosKey, JSON.stringify({
+					desde: params.get('desde') || '',
+					hasta: params.get('hasta') || '',
+					incluir_anteriores: incluirAnteriores,
+				}));
+			} else {
+				localStorage.removeItem(filtrosKey);
+			}
+		}
+
+		if (tienePagina) {
+			localStorage.setItem(paginaKey, String(Math.max(1, Number.parseInt(params.get('page') || '1', 10) || 1)));
+		} else if (tieneFiltros || tienePorPagina) {
+			localStorage.setItem(paginaKey, '1');
+		}
+
+		if (tienePorPagina && [10, 25, 50, 100].includes(Number(params.get('porPagina')))) {
+			const ui = leer(uiKey, {});
+			ui.porPagina = Number(params.get('porPagina'));
+			localStorage.setItem(uiKey, JSON.stringify(ui));
+		}
+
+		const limpiar = document.getElementById('limpiar-filtros');
+		if (limpiar) {
+			limpiar.addEventListener('click', function () {
+				localStorage.removeItem(filtrosKey);
+				localStorage.removeItem(paginaKey);
+			});
+		}
+	});
+</script>
+@endpush

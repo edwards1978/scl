@@ -473,7 +473,7 @@ class InteresesPrestacionesTest extends TestCase
 
         $this->actingAs(User::factory()->create())
             ->withSession(['patrono_id' => $patrono->id])
-            ->get(route('prestaciones.show', $empleado->id))
+            ->get(route('prestaciones.show', ['empleadoId' => $empleado->id, 'porPagina' => 100]))
             ->assertOk()
             ->assertSee('- 10,00');
     }
