@@ -118,8 +118,12 @@
 		<div class="flex flex-wrap items-center justify-between gap-2">
 			<h2 class="text-sm font-semibold text-gray-800">Filtros del período</h2>
 			<button type="button" @click="alternar('filtros')" :aria-expanded="abierto.filtros"
-				class="px-2 py-1 text-xs border border-gray-300 text-gray-600 hover:bg-gray-50">
-				<span x-text="abierto.filtros ? 'Ocultar' : 'Mostrar'"></span>
+				:aria-label="abierto.filtros ? 'Ocultar filtros del período' : 'Mostrar filtros del período'"
+				:title="abierto.filtros ? 'Ocultar filtros' : 'Mostrar filtros'"
+				class="p-1.5 border border-gray-300 text-gray-500 hover:bg-gray-50 hover:text-gray-800">
+				<svg class="h-4 w-4 transition-transform" :style="abierto.filtros ? 'transform: rotate(180deg)' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+				</svg>
 			</button>
 		</div>
 		<div x-show="abierto.filtros" class="mt-3">
@@ -189,8 +193,12 @@
 					@endif
 				</div>
 				<button type="button" @click="alternar('totales')" :aria-expanded="abierto.totales"
-					class="px-2 py-1 text-xs border border-gray-300 text-gray-600 hover:bg-gray-50">
-					<span x-text="abierto.totales ? 'Contraer' : 'Expandir'"></span>
+					:aria-label="abierto.totales ? 'Contraer totales del período' : 'Expandir totales del período'"
+					:title="abierto.totales ? 'Contraer totales' : 'Expandir totales'"
+					class="p-1.5 border border-gray-300 text-gray-500 hover:bg-gray-50 hover:text-gray-800">
+					<svg class="h-4 w-4 transition-transform" :style="abierto.totales ? 'transform: rotate(180deg)' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+					</svg>
 				</button>
 			</div>
 		</div>
