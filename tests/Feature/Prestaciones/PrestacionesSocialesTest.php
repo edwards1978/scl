@@ -196,6 +196,55 @@ class PrestacionesSocialesTest extends TestCase
         $this->assertGreaterThan(0, (float) $respuesta['maximo']);
     }
 
+    public function test_un_movimiento_en_el_ultimo_dia_proyectado_no_agrega_otro_mes(): void
+    {
+        [$patrono, $empleado] = $this->crearEmpleado('2024-04-10');
+        $prestaciones = app(PrestacionesSocialesService::class);
+        $movimientos = app(MovimientosPrestacionesService::class);
+
+        $prestaciones->regenerar($empleado);
+        $prestaciones->proyectarHasta($empleado, '2026-12');
+
+        $ultimoDia = Carbon::parse('2027-01-09');
+        $this->assertSame('2026-12', $prestaciones->periodoDeFecha($empleado, $ultimoDia));
+
+        // La validación previa del anticipo no debe proyectar enero.
+        $prestaciones->asegurarProyeccionHasta($empleado, $ultimoDia);
+        $this->assertSame('2026-12', $this->maximoPeriodoProyectado($empleado));
+
+        $maximo = $movimientos->maximoAnticipo($empleado, $ultimoDia)['maximo'];
+        $movimientos->crear($empleado, [
+            'tipo' => MovimientoPrestaciones::TIPO_ANTICIPO,
+            'fecha' => $ultimoDia,
+            'fecha_comprobante' => Carbon::parse('2026-10-20'),
+            'monto' => min(1.0, (float) $maximo),
+            'moneda' => 'USD',
+            'motivo' => 'salud',
+        ]);
+
+        $this->assertSame('2026-12', $this->maximoPeriodoProyectado($empleado));
+    }
+
+    public function test_un_pago_de_intereses_en_el_ultimo_dia_proyectado_no_agrega_otro_mes(): void
+    {
+        [$patrono, $empleado] = $this->crearEmpleado('2024-04-10');
+        $prestaciones = app(PrestacionesSocialesService::class);
+
+        $prestaciones->regenerar($empleado);
+        $prestaciones->proyectarHasta($empleado, '2026-12');
+
+        $prestaciones->recalcularDesde($empleado, '2026-12');
+
+        $this->assertSame('2026-12', $this->maximoPeriodoProyectado($empleado));
+    }
+
+    private function maximoPeriodoProyectado(Empleado $empleado): ?string
+    {
+        return PrestacionSocial::where('empleado_id', $empleado->id)
+            ->where('es_proyeccion', true)
+            ->max('periodo');
+    }
+
     public function test_un_anticipo_futuro_se_refleja_en_la_proyeccion_sin_eliminarla(): void
     {
         [$patrono, $empleado] = $this->crearEmpleado();

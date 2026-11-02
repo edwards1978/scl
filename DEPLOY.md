@@ -191,7 +191,7 @@ Luego basta:
 php artisan test --compact
 ```
 
-Resultado esperado: **239 tests OK**. Las tablas `test_*` que quedaban en
+Resultado esperado: **241 tests OK**. Las tablas `test_*` que quedaban en
 `scl` fueron eliminadas el 29/10/2026; ya no se usan.
 
 ## 9. Verificación posterior al despliegue

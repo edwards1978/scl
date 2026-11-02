@@ -1001,7 +1001,16 @@ class PrestacionesSocialesService
      */
     public function asegurarProyeccionHasta(Empleado $empleado, CarbonInterface $fecha): int
     {
-        $mes = Carbon::instance($fecha)->startOfMonth();
+        // La fecha debe resolverse al período que la contiene, no al mes
+        // calendario: el último día de un período puede caer en el mes
+        // siguiente (por ejemplo, 09/01 pertenece al período 2026-12).
+        $periodo = $this->periodoDeFecha($empleado, $fecha);
+
+        if ($periodo === null) {
+            return 0;
+        }
+
+        $mes = periodo_a_fecha($periodo)->startOfMonth();
         $limite = Carbon::instance(now())->startOfMonth();
 
         if ($mes->lte($limite)) {
