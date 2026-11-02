@@ -25,7 +25,7 @@
 		</div>
 		<button class="px-3 py-1.5 text-sm border border-gray-300 text-gray-600 hover:bg-gray-50">Filtrar</button>
 		@if (request()->hasAny(['buscar', 'estatus']))
-			<a href="{{ route('prestaciones.index') }}" class="px-2 py-1.5 text-sm text-gray-500 hover:text-gray-700">Limpiar</a>
+			<a id="limpiar-prestaciones" href="{{ route('prestaciones.index') }}" class="px-2 py-1.5 text-sm text-gray-500 hover:text-gray-700">Limpiar</a>
 		@endif
 	</form>
 
@@ -117,3 +117,40 @@
 	@endif
 </div>
 @endsection
+
+@push('scripts')
+<script>
+	document.addEventListener('DOMContentLoaded', function () {
+		const clavePagina = @js('scl.prestaciones.index.pagina.'.(auth()->id() ?? 0));
+		const parametros = new URLSearchParams(window.location.search);
+		const tienePagina = parametros.has('page');
+		const tieneFiltros = parametros.has('buscar') || parametros.has('estatus');
+		const tienePorPagina = parametros.has('porPagina');
+
+		if (! tienePagina && ! tieneFiltros && ! tienePorPagina) {
+			const paginaGuardada = Number.parseInt(localStorage.getItem(clavePagina) || '0', 10);
+
+			if (paginaGuardada > 1) {
+				const url = new window.URL(window.location.href);
+				url.searchParams.set('page', String(paginaGuardada));
+				window.location.replace(url.toString());
+
+				return;
+			}
+		}
+
+		if (tienePagina) {
+			localStorage.setItem(clavePagina, String(Math.max(1, Number.parseInt(parametros.get('page') || '1', 10) || 1)));
+		} else if (tieneFiltros || tienePorPagina) {
+			localStorage.setItem(clavePagina, '1');
+		}
+
+		const limpiar = document.getElementById('limpiar-prestaciones');
+		if (limpiar) {
+			limpiar.addEventListener('click', function () {
+				localStorage.removeItem(clavePagina);
+			});
+		}
+	});
+</script>
+@endpush

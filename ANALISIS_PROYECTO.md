@@ -58,6 +58,7 @@ No hay empleados activos con liquidación aprobada. Las 30 proyecciones pertenec
 11. **Estado de cuenta reorganizado:** información agrupada en un panel con categorías y contador, filtros y totales plegables, tabla paginada y preferencias persistidas por usuario/trabajador según corresponda.
 12. **Retorno desde movimientos e intereses:** al crear desde un renglón de prestaciones, guardar o cancelar vuelve a la misma página y filtros del estado de cuenta.
 13. **Paginación uniforme:** los listados de patronos, empleados, sueldos, prestaciones, movimientos, intereses, vacaciones, utilidades, liquidaciones y cálculos usan un selector común de filas por página, persistido por usuario y módulo.
+14. **Página activa en prestaciones:** el listado de prestaciones restaura la última página visitada y la reinicia al cambiar filtros o filas por página.
 
 ### 0.4 Fórmulas legales: decisiones cerradas (29/10/2026)
 

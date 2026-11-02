@@ -59,7 +59,7 @@ class PrestacionesController extends Controller
     }
 
     /** Listado de empleados del patrono con su saldo de prestaciones vigente. */
-    public function index(Request $request): View
+    public function index(Request $request): View|RedirectResponse
     {
         $patrono = $this->patronoActual();
         $porPagina = (int) min(max($request->integer('porPagina', 15), 5), 100);
@@ -83,6 +83,15 @@ class PrestacionesController extends Controller
             ->orderBy('apellidos')
             ->paginate($porPagina)
             ->withQueryString();
+
+        // Si la página guardada ya no existe por cambios en los datos,
+        // redirige a la última página disponible en lugar de mostrar vacío.
+        if ($empleados->currentPage() > $empleados->lastPage() && $empleados->total() > 0) {
+            return redirect()->route('prestaciones.index', array_merge(
+                $request->except('page'),
+                ['page' => $empleados->lastPage()]
+            ));
+        }
 
         $saldos = [];
         $calculadoHasta = [];
