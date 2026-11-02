@@ -84,6 +84,26 @@ class MovimientosPrestacionesTest extends TestCase
             ->assertViewHas('totales', fn ($totales) => (float) $totales['USD'] === 100.0);
     }
 
+    public function test_permite_ordenar_por_campo_y_direccion(): void
+    {
+        [$patrono, $empleado] = $this->crearPatronoEmpleado();
+
+        $this->crearMovimiento($patrono, $empleado, MovimientoPrestaciones::TIPO_ANTICIPO, 100, 'USD');
+        $this->crearMovimiento($patrono, $empleado, MovimientoPrestaciones::TIPO_ANTICIPO, 200, 'USD');
+
+        $this->actingAs(User::factory()->create())
+            ->withSession(['patrono_id' => $patrono->id])
+            ->get(route('movimientos-prestaciones.index', [
+                'orden' => 'monto',
+                'direccion' => 'asc',
+            ]))
+            ->assertOk()
+            ->assertSee('Ordenado por')
+            ->assertSee('Monto')
+            ->assertSee('Ascendente')
+            ->assertViewHas('movimientos', fn ($movimientos) => (float) $movimientos->first()->monto === 100.0);
+    }
+
     public function test_guardar_un_movimiento_desde_prestaciones_vuelve_a_su_pagina_y_filtros(): void
     {
         [$patrono, $empleado] = $this->crearPatronoEmpleado();

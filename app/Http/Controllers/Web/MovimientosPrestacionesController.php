@@ -39,9 +39,22 @@ class MovimientosPrestacionesController extends Controller
         $patrono = $this->patronoActual();
         $porPagina = (int) min(max($request->integer('porPagina', 15), 5), 100);
 
+        $camposOrden = [
+            'fecha' => 'Fecha movimiento',
+            'fecha_comprobante' => 'Fecha comprobante',
+            'monto' => 'Monto',
+            'tipo' => 'Tipo',
+            'estatus' => 'Estatus',
+            'motivo' => 'Motivo',
+        ];
+        $orden = array_key_exists((string) $request->get('orden'), $camposOrden)
+            ? (string) $request->get('orden')
+            : 'fecha';
+        $direccion = $request->get('direccion') === 'asc' ? 'asc' : 'desc';
+
         $query = MovimientoPrestaciones::with('empleado')
             ->where('patrono_id', $patrono->id)
-            ->orderByDesc('fecha')
+            ->orderBy($orden, $direccion)
             ->orderByDesc('id');
 
         if ($empleadoId = $request->filled('empleado_id') ? (int) $request->get('empleado_id') : null) {
@@ -83,7 +96,7 @@ class MovimientosPrestacionesController extends Controller
             ->get(['id', 'nombres', 'apellidos', 'cedula']);
 
         return view('movimientos-prestaciones.index', compact(
-            'movimientos', 'empleados', 'patrono', 'porPagina', 'totales'
+            'movimientos', 'empleados', 'patrono', 'porPagina', 'totales', 'camposOrden', 'orden', 'direccion'
         ));
     }
 
