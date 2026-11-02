@@ -512,6 +512,64 @@ class InteresesPrestacionesTest extends TestCase
             ->assertSee('- 10,00');
     }
 
+    public function test_el_listado_filtra_por_fechas_exactas_y_ordena_por_monto(): void
+    {
+        [$patrono, $empleado] = $this->crearPatronoEmpleado('J-28282828-1', 'V-28282828');
+
+        PagoInteresPrestaciones::create([
+            'patrono_id' => $patrono->id,
+            'empleado_id' => $empleado->id,
+            'fecha' => '2026-10-10',
+            'fecha_comprobante' => '2026-10-11',
+            'monto' => 100,
+            'moneda' => 'USD',
+            'comprobante' => 'PAGO-100',
+        ]);
+        PagoInteresPrestaciones::create([
+            'patrono_id' => $patrono->id,
+            'empleado_id' => $empleado->id,
+            'fecha' => '2026-11-10',
+            'fecha_comprobante' => '2026-11-11',
+            'monto' => 200,
+            'moneda' => 'USD',
+            'comprobante' => 'PAGO-200',
+        ]);
+
+        $this->actingAs(User::factory()->create())
+            ->withSession(['patrono_id' => $patrono->id])
+            ->get(route('intereses-prestaciones.index', [
+                'fecha' => '2026-10-10',
+                'fecha_comprobante' => '2026-10-11',
+                'orden' => 'monto',
+                'direccion' => 'asc',
+            ]))
+            ->assertOk()
+            ->assertSee('PAGO-100')
+            ->assertDontSee('PAGO-200')
+            ->assertSee('Ascendente')
+            ->assertViewHas('pagos', fn ($pagos) => $pagos->total() === 1
+                && (float) $pagos->first()->monto === 100.0)
+            ->assertViewHas('totales', fn ($totales) => (float) $totales['USD'] === 100.0);
+    }
+
+    public function test_el_listado_ordena_por_trabajador(): void
+    {
+        [$patrono, $ana] = $this->crearPatronoEmpleado('J-29292929-1', 'V-29292929');
+        $beto = $this->crearEmpleado($patrono, 'V-30303031');
+
+        $this->crearPago($patrono, $beto, 'PAGO-BETO', '2026-10-10', 100);
+        $this->crearPago($patrono, $ana, 'PAGO-ANA', '2026-10-10', 200);
+
+        $this->actingAs(User::factory()->create())
+            ->withSession(['patrono_id' => $patrono->id])
+            ->get(route('intereses-prestaciones.index', [
+                'orden' => 'trabajador',
+                'direccion' => 'asc',
+            ]))
+            ->assertOk()
+            ->assertViewHas('pagos', fn ($pagos) => $pagos->first()->empleado_id === $ana->id);
+    }
+
     public function test_el_listado_enlaza_al_detalle_de_cada_pago(): void
     {
         [$patrono, $empleado] = $this->crearPatronoEmpleado('J-27272727-2', 'V-27272727');

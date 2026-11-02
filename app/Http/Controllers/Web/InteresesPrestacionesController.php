@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
+use App\Models\Empleado;
 use App\Models\PagoInteresPrestaciones;
 use App\Models\Patrono;
 use App\Services\PrestacionesSocialesService;
@@ -39,12 +40,38 @@ class InteresesPrestacionesController extends Controller
             'empleado_id' => ['nullable', 'integer'],
             'desde' => ['nullable', 'date'],
             'hasta' => ['nullable', 'date'],
+            'fecha' => ['nullable', 'date'],
+            'fecha_comprobante' => ['nullable', 'date'],
         ]);
 
+        $camposOrden = [
+            'fecha' => 'Fecha',
+            'fecha_comprobante' => 'Fecha comprobante',
+            'monto' => 'Monto',
+            'comprobante' => 'Comprobante',
+            'trabajador' => 'Trabajador',
+        ];
+        $orden = array_key_exists((string) $request->get('orden'), $camposOrden)
+            ? (string) $request->get('orden')
+            : 'fecha';
+        $direccion = $request->get('direccion') === 'asc' ? 'asc' : 'desc';
+
         $consulta = PagoInteresPrestaciones::with('empleado')
-            ->where('patrono_id', $patrono->id)
-            ->orderByDesc('fecha')
-            ->orderByDesc('id');
+            ->where('patrono_id', $patrono->id);
+
+        if ($orden === 'trabajador') {
+            $consulta->orderBy(
+                Empleado::select('nombres')->whereColumn('empleados.id', 'pagos_interes_prestaciones.empleado_id'),
+                $direccion
+            )->orderBy(
+                Empleado::select('apellidos')->whereColumn('empleados.id', 'pagos_interes_prestaciones.empleado_id'),
+                $direccion
+            );
+        } else {
+            $consulta->orderBy($orden, $direccion);
+        }
+
+        $consulta->orderByDesc('id');
 
         if (! empty($filtros['empleado_id'])) {
             $consulta->where('empleado_id', (int) $filtros['empleado_id']);
@@ -54,6 +81,12 @@ class InteresesPrestacionesController extends Controller
         }
         if (! empty($filtros['hasta'])) {
             $consulta->whereDate('fecha', '<=', $filtros['hasta']);
+        }
+        if (! empty($filtros['fecha'])) {
+            $consulta->whereDate('fecha', $filtros['fecha']);
+        }
+        if (! empty($filtros['fecha_comprobante'])) {
+            $consulta->whereDate('fecha_comprobante', $filtros['fecha_comprobante']);
         }
 
         $totales = (clone $consulta)
@@ -75,7 +108,7 @@ class InteresesPrestacionesController extends Controller
             : null;
 
         return view('intereses-prestaciones.index', compact(
-            'patrono', 'pagos', 'empleados', 'empleadoFiltro', 'filtros', 'totales', 'porPagina'
+            'patrono', 'pagos', 'empleados', 'empleadoFiltro', 'filtros', 'totales', 'porPagina', 'camposOrden', 'orden', 'direccion'
         ));
     }
 

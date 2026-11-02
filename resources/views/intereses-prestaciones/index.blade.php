@@ -2,7 +2,7 @@
 
 @section('content')
 @php
-	$hayFiltros = request()->hasAny(['empleado_id', 'desde', 'hasta']);
+	$hayFiltros = request()->hasAny(['empleado_id', 'desde', 'hasta', 'fecha', 'fecha_comprobante']);
 	$empleadoFiltroInactivo = $empleadoFiltro && ! $empleadoFiltro->estaActivo();
 @endphp
 <div class="p-4 mx-4">
@@ -35,6 +35,29 @@
 			<label class="block text-xs font-medium text-gray-600 mb-1">Hasta</label>
 			<input type="date" name="hasta" value="{{ $filtros['hasta'] ?? '' }}" class="border border-gray-300 px-2 py-1.5 text-sm">
 		</div>
+		<div>
+			<label class="block text-xs font-medium text-gray-600 mb-1">Fecha movimiento</label>
+			<input type="date" name="fecha" value="{{ $filtros['fecha'] ?? '' }}" class="border border-gray-300 px-2 py-1.5 text-sm">
+		</div>
+		<div>
+			<label class="block text-xs font-medium text-gray-600 mb-1">Fecha comprobante</label>
+			<input type="date" name="fecha_comprobante" value="{{ $filtros['fecha_comprobante'] ?? '' }}" class="border border-gray-300 px-2 py-1.5 text-sm">
+		</div>
+		<div>
+			<label class="block text-xs font-medium text-gray-600 mb-1">Ordenar por</label>
+			<select name="orden" onchange="this.form.submit()" class="border border-gray-300 px-2 py-1.5 text-sm bg-white">
+				@foreach ($camposOrden as $valor => $etiqueta)
+					<option value="{{ $valor }}" {{ $orden === $valor ? 'selected' : '' }}>{{ $etiqueta }}</option>
+				@endforeach
+			</select>
+		</div>
+		<div>
+			<label class="block text-xs font-medium text-gray-600 mb-1">Dirección</label>
+			<select name="direccion" onchange="this.form.submit()" class="border border-gray-300 px-2 py-1.5 text-sm bg-white">
+				<option value="asc" {{ $direccion === 'asc' ? 'selected' : '' }}>Ascendente</option>
+				<option value="desc" {{ $direccion === 'desc' ? 'selected' : '' }}>Descendente</option>
+			</select>
+		</div>
 		<button class="px-3 py-1.5 text-sm border border-gray-300 text-gray-600 hover:bg-gray-50">Filtrar</button>
 		@if ($hayFiltros)
 			<a href="{{ route('intereses-prestaciones.index') }}" class="px-2 py-1.5 text-sm text-gray-500 hover:text-gray-700">Limpiar</a>
@@ -66,7 +89,10 @@
 		</div>
 	@else
 		<div class="mb-1 flex justify-end">
-			<x-orden-indicador campo="Fecha" direccion="desc" />
+			<p class="text-xs text-gray-500">
+				Ordenado por <strong>{{ $camposOrden[$orden] }}</strong>
+				· {{ $direccion === 'asc' ? 'Ascendente' : 'Descendente' }}
+			</p>
 		</div>
 		<div class="bg-white border border-gray-200 overflow-x-auto">
 			<table class="w-full text-sm">
