@@ -104,6 +104,36 @@ class MovimientosPrestacionesTest extends TestCase
             ->assertViewHas('movimientos', fn ($movimientos) => (float) $movimientos->first()->monto === 100.0);
     }
 
+    public function test_permite_ordenar_por_trabajador(): void
+    {
+        [$patrono, $ana] = $this->crearPatronoEmpleado();
+        $beto = Empleado::create([
+            'patrono_id' => $patrono->id,
+            'nombres' => 'Beto',
+            'apellidos' => 'Zambrano',
+            'cedula' => 'V-32323233',
+            'fecha_ingreso' => '2024-01-15',
+            'tipo_contrato' => 'Indeterminado',
+            'tipo_salario' => 'Fijo',
+            'salario_inicial' => 300,
+            'moneda' => 'USD',
+            'estatus' => 'Activo',
+        ]);
+
+        $this->crearMovimiento($patrono, $beto, MovimientoPrestaciones::TIPO_ANTICIPO, 100, 'USD');
+        $this->crearMovimiento($patrono, $ana, MovimientoPrestaciones::TIPO_ANTICIPO, 200, 'USD');
+
+        $this->actingAs(User::factory()->create())
+            ->withSession(['patrono_id' => $patrono->id])
+            ->get(route('movimientos-prestaciones.index', [
+                'orden' => 'trabajador',
+                'direccion' => 'asc',
+            ]))
+            ->assertOk()
+            ->assertSee('Trabajador')
+            ->assertViewHas('movimientos', fn ($movimientos) => $movimientos->first()->empleado_id === $ana->id);
+    }
+
     public function test_guardar_un_movimiento_desde_prestaciones_vuelve_a_su_pagina_y_filtros(): void
     {
         [$patrono, $empleado] = $this->crearPatronoEmpleado();

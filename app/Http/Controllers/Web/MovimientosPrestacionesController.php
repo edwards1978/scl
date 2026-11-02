@@ -46,6 +46,7 @@ class MovimientosPrestacionesController extends Controller
             'tipo' => 'Tipo',
             'estatus' => 'Estatus',
             'motivo' => 'Motivo',
+            'trabajador' => 'Trabajador',
         ];
         $orden = array_key_exists((string) $request->get('orden'), $camposOrden)
             ? (string) $request->get('orden')
@@ -53,9 +54,21 @@ class MovimientosPrestacionesController extends Controller
         $direccion = $request->get('direccion') === 'asc' ? 'asc' : 'desc';
 
         $query = MovimientoPrestaciones::with('empleado')
-            ->where('patrono_id', $patrono->id)
-            ->orderBy($orden, $direccion)
-            ->orderByDesc('id');
+            ->where('patrono_id', $patrono->id);
+
+        if ($orden === 'trabajador') {
+            $query->orderBy(
+                Empleado::select('nombres')->whereColumn('empleados.id', 'movimientos_prestaciones.empleado_id'),
+                $direccion
+            )->orderBy(
+                Empleado::select('apellidos')->whereColumn('empleados.id', 'movimientos_prestaciones.empleado_id'),
+                $direccion
+            );
+        } else {
+            $query->orderBy($orden, $direccion);
+        }
+
+        $query->orderByDesc('id');
 
         if ($empleadoId = $request->filled('empleado_id') ? (int) $request->get('empleado_id') : null) {
             $query->where('empleado_id', $empleadoId);
