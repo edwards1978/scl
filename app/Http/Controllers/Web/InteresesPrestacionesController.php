@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\PagoInteresPrestaciones;
 use App\Models\Patrono;
 use App\Services\PrestacionesSocialesService;
+use App\Services\RetornoPrestacionesService;
 use App\Services\TasasBcvService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
@@ -25,6 +26,7 @@ class InteresesPrestacionesController extends Controller
     public function __construct(
         private PrestacionesSocialesService $prestaciones = new PrestacionesSocialesService,
         private TasasBcvService $tasas = new TasasBcvService,
+        private RetornoPrestacionesService $retorno = new RetornoPrestacionesService,
     ) {}
 
     /** Listado de pagos de intereses del patrono en contexto. */
@@ -111,7 +113,11 @@ class InteresesPrestacionesController extends Controller
                 : ($empleado?->moneda ?? 'USD'),
         ];
 
-        return view('intereses-prestaciones.create', compact('patrono', 'empleados', 'empleado', 'prefill'));
+        $volverUrl = $empleado
+            ? $this->retorno->url($request, $empleado)
+            : null;
+
+        return view('intereses-prestaciones.create', compact('patrono', 'empleados', 'empleado', 'prefill', 'volverUrl'));
     }
 
     private function fechaDePrefill(mixed $valor): ?string
@@ -207,6 +213,13 @@ class InteresesPrestacionesController extends Controller
                 ?? $fecha->format('Y-m');
             $this->prestaciones->recalcularDesde($empleado, $periodo);
         });
+
+        $volverUrl = $this->retorno->url($request, $empleado);
+
+        if ($volverUrl !== null) {
+            return redirect()->to($volverUrl)
+                ->with('success', 'Pago de intereses registrado y prestaciones recalculadas.');
+        }
 
         return redirect()->route('intereses-prestaciones.index', ['empleado_id' => $empleado->id])
             ->with('success', 'Pago de intereses registrado y prestaciones recalculadas.');

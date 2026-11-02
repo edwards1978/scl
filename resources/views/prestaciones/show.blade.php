@@ -375,6 +375,13 @@
 											'fecha_comprobante' => now()->format('Y-m-d'),
 											'monto' => $c->capital_periodo,
 											'moneda' => $moneda,
+											'origen' => 'prestaciones',
+											'volver_empleado_id' => $empleado->id,
+											'volver_page' => $cuenta->currentPage(),
+											'volver_porPagina' => $porPagina,
+											'volver_desde' => $desde,
+											'volver_hasta' => $hasta,
+											'volver_incluir_anteriores' => $incluirAnteriores ? 1 : 0,
 										], fn ($valor) => $valor !== null && $valor !== '')) }}"
 											class="whitespace-nowrap px-2 py-1 text-xs text-gray-700 hover:bg-gray-50">
 											Anticipo
@@ -386,6 +393,13 @@
 												'fecha_comprobante' => now()->format('Y-m-d'),
 												'monto' => $c->interes_pendiente_periodo,
 												'moneda' => $moneda,
+												'origen' => 'prestaciones',
+												'volver_empleado_id' => $empleado->id,
+												'volver_page' => $cuenta->currentPage(),
+												'volver_porPagina' => $porPagina,
+												'volver_desde' => $desde,
+												'volver_hasta' => $hasta,
+												'volver_incluir_anteriores' => $incluirAnteriores ? 1 : 0,
 											], fn ($valor) => $valor !== null && $valor !== '')) }}"
 												class="whitespace-nowrap px-2 py-1 text-xs text-gray-700 hover:bg-gray-50">
 												Pago de intereses

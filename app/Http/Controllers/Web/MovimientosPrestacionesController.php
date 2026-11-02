@@ -9,6 +9,7 @@ use App\Models\Empleado;
 use App\Models\MovimientoPrestaciones;
 use App\Models\Patrono;
 use App\Services\MovimientosPrestacionesService;
+use App\Services\RetornoPrestacionesService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
@@ -24,6 +25,7 @@ class MovimientosPrestacionesController extends Controller
 {
     public function __construct(
         private MovimientosPrestacionesService $service = new MovimientosPrestacionesService,
+        private RetornoPrestacionesService $retorno = new RetornoPrestacionesService,
     ) {}
 
     private function patronoActual(): Patrono
@@ -100,7 +102,11 @@ class MovimientosPrestacionesController extends Controller
                 : ($empleado?->moneda ?? 'USD'),
         ];
 
-        return view('movimientos-prestaciones.create', compact('patrono', 'empleado', 'prefill'));
+        $volverUrl = $empleado
+            ? $this->retorno->url($request, $empleado)
+            : null;
+
+        return view('movimientos-prestaciones.create', compact('patrono', 'empleado', 'prefill', 'volverUrl'));
     }
 
     private function fechaDePrefill(mixed $valor): ?string
@@ -129,6 +135,12 @@ class MovimientosPrestacionesController extends Controller
         abort_if(! $empleado->estaActivo(), 409, 'El trabajador está inactivo (ya liquidado): no se pueden efectuar nuevos cálculos.');
 
         $movimiento = $this->service->crear($empleado, $validated);
+        $volverUrl = $this->retorno->url($request, $empleado);
+
+        if ($volverUrl !== null) {
+            return redirect()->to($volverUrl)
+                ->with('success', 'Movimiento registrado correctamente.');
+        }
 
         return redirect()->route('movimientos-prestaciones.show', $movimiento)
             ->with('success', 'Movimiento registrado correctamente.');

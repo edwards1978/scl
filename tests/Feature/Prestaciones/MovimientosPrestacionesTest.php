@@ -44,6 +44,40 @@ class MovimientosPrestacionesTest extends TestCase
             ->assertViewHas('totales', fn ($totales) => (float) $totales['USD'] === 50.0);
     }
 
+    public function test_guardar_un_movimiento_desde_prestaciones_vuelve_a_su_pagina_y_filtros(): void
+    {
+        [$patrono, $empleado] = $this->crearPatronoEmpleado();
+
+        $destino = route('prestaciones.show', [
+            'empleadoId' => $empleado->id,
+            'page' => 17,
+            'porPagina' => 12,
+            'desde' => '2026-01',
+            'hasta' => '2026-10',
+            'incluir_anteriores' => 1,
+        ]);
+
+        $this->actingAs(User::factory()->create())
+            ->withSession(['patrono_id' => $patrono->id])
+            ->post(route('movimientos-prestaciones.store'), [
+                'empleado_id' => $empleado->id,
+                'tipo' => MovimientoPrestaciones::TIPO_PRESTAMO,
+                'fecha' => now()->format('Y-m-d'),
+                'fecha_comprobante' => now()->format('Y-m-d'),
+                'monto' => '10.00',
+                'moneda' => 'USD',
+                'origen' => 'prestaciones',
+                'volver_empleado_id' => $empleado->id,
+                'volver_page' => 17,
+                'volver_porPagina' => 12,
+                'volver_desde' => '2026-01',
+                'volver_hasta' => '2026-10',
+                'volver_incluir_anteriores' => 1,
+            ])
+            ->assertRedirect($destino)
+            ->assertSessionHas('success');
+    }
+
     public function test_el_formulario_precarga_los_datos_del_renglon(): void
     {
         [$patrono, $empleado] = $this->crearPatronoEmpleado();

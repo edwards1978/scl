@@ -6,6 +6,15 @@
 
 	<form method="POST" action="{{ route('movimientos-prestaciones.store') }}" class="space-y-4">
 		@csrf
+		@if ($volverUrl)
+			<input type="hidden" name="origen" value="prestaciones">
+			<input type="hidden" name="volver_empleado_id" value="{{ $prefill['empleado_id'] }}">
+			<input type="hidden" name="volver_page" value="{{ old('volver_page', request('volver_page')) }}">
+			<input type="hidden" name="volver_porPagina" value="{{ old('volver_porPagina', request('volver_porPagina')) }}">
+			<input type="hidden" name="volver_desde" value="{{ old('volver_desde', request('volver_desde')) }}">
+			<input type="hidden" name="volver_hasta" value="{{ old('volver_hasta', request('volver_hasta')) }}">
+			<input type="hidden" name="volver_incluir_anteriores" value="{{ old('volver_incluir_anteriores', request('volver_incluir_anteriores')) }}">
+		@endif
 
 		<fieldset class="bg-white border border-gray-200 p-5">
 			<legend class="text-sm font-semibold text-gray-700 px-1">Movimiento</legend>
@@ -108,7 +117,7 @@
 		</fieldset>
 
 		<div class="flex justify-end gap-2">
-			<a href="{{ route('movimientos-prestaciones.index') }}" class="px-3 py-1.5 text-sm border border-gray-300 text-gray-600 hover:bg-gray-50">Cancelar</a>
+			<a href="{{ $volverUrl ?? route('movimientos-prestaciones.index') }}" class="px-3 py-1.5 text-sm border border-gray-300 text-gray-600 hover:bg-gray-50">Cancelar</a>
 			<button type="submit" class="px-4 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700">Registrar movimiento</button>
 		</div>
 	</form>

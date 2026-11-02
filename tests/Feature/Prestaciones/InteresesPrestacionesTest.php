@@ -261,6 +261,40 @@ class InteresesPrestacionesTest extends TestCase
             ->assertSee('value="'.$empleado->id.'" selected', false);
     }
 
+    public function test_guardar_un_pago_desde_prestaciones_vuelve_a_su_pagina_y_filtros(): void
+    {
+        [$patrono, $empleado] = $this->crearPatronoEmpleado('J-15151517-1', 'V-15151517');
+        app(PrestacionesSocialesService::class)->regenerar($empleado);
+
+        $destino = route('prestaciones.show', [
+            'empleadoId' => $empleado->id,
+            'page' => 17,
+            'porPagina' => 12,
+            'desde' => '2026-01',
+            'hasta' => '2026-10',
+            'incluir_anteriores' => 1,
+        ]);
+
+        $this->actingAs(User::factory()->create())
+            ->withSession(['patrono_id' => $patrono->id])
+            ->post(route('intereses-prestaciones.store'), [
+                'empleado_id' => $empleado->id,
+                'fecha' => '2026-10-10',
+                'fecha_comprobante' => '2026-10-20',
+                'monto' => '10.00',
+                'moneda' => 'USD',
+                'origen' => 'prestaciones',
+                'volver_empleado_id' => $empleado->id,
+                'volver_page' => 17,
+                'volver_porPagina' => 12,
+                'volver_desde' => '2026-01',
+                'volver_hasta' => '2026-10',
+                'volver_incluir_anteriores' => 1,
+            ])
+            ->assertRedirect($destino)
+            ->assertSessionHas('success');
+    }
+
     public function test_el_formulario_precarga_fecha_monto_y_moneda_del_renglon(): void
     {
         [$patrono, $empleado] = $this->crearPatronoEmpleado('J-15151516-1', 'V-15151516');
