@@ -142,10 +142,7 @@
 			</table>
 		</div>
 
-		<div class="mt-3 flex justify-between items-center">
-			<div class="text-xs text-gray-500">{{ $vacaciones->total() }} registros</div>
-			{{ $vacaciones->appends(request()->except('page'))->links() }}
-		</div>
+		<x-paginador :paginador="$vacaciones" clave="vacaciones" />
 	@endif
 </div>
 @endsection

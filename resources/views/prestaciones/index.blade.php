@@ -113,9 +113,7 @@
 			</table>
 		</div>
 
-		<div class="mt-4 flex justify-end items-center">
-			{{ $empleados->links() }}
-		</div>
+		<x-paginador :paginador="$empleados" clave="prestaciones" />
 	@endif
 </div>
 @endsection

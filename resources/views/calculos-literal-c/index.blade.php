@@ -107,10 +107,7 @@
 			</table>
 		</div>
 
-		<div class="mt-4 flex justify-between items-center">
-			<div class="text-xs text-gray-500">{{ $calculos->total() }} registros</div>
-			{{ $calculos->appends(request()->except('page'))->links() }}
-		</div>
+		<x-paginador :paginador="$calculos" clave="calculos-literal-c" />
 	@endif
 </div>
 @endsection

@@ -66,20 +66,6 @@
 		@if ($sueldos->isEmpty())
 			<div class="text-center py-8 text-gray-400"><p class="text-sm">Sin sueldos registrados.</p></div>
 		@else
-			@if (method_exists($sueldos, 'hasPages'))
-				<div class="mb-2 flex justify-end items-center">
-					<div class="flex items-center gap-2 text-xs text-gray-500">
-						<span>Filas por página:</span>
-						<select onchange="window.location='{{ route('sueldos.index') }}?empleado_id={{ $empleado->id }}&porPagina='+this.value"
-							class="border border-gray-300 px-1.5 py-0.5 text-xs bg-white">
-							@foreach ([5, 10, 15, 25, 50, 100] as $n)
-								<option value="{{ $n }}" {{ $sueldos->perPage() == $n ? 'selected' : '' }}>{{ $n }}</option>
-							@endforeach
-						</select>
-					</div>
-				</div>
-			@endif
-
 			<div class="mb-1 flex justify-end">
 				<x-orden-indicador campo="Periodo" direccion="desc" />
 			</div>
@@ -115,11 +101,7 @@
 				</table>
 			</div>
 
-			@if (method_exists($sueldos, 'hasPages'))
-				<div class="mt-4 flex justify-end items-center">
-					{{ $sueldos->appends(['empleado_id' => $empleado->id, 'porPagina' => $sueldos->perPage()])->links() }}
-				</div>
-			@endif
+			<x-paginador :paginador="$sueldos" clave="sueldos" />
 		@endif
 	@endif
 </div>

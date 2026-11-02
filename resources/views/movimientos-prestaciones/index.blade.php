@@ -130,9 +130,7 @@
 			</table>
 		</div>
 
-		<div class="mt-4 flex justify-end items-center">
-			{{ $movimientos->links() }}
-		</div>
+		<x-paginador :paginador="$movimientos" clave="movimientos-prestaciones" />
 	@endif
 </div>
 @endsection

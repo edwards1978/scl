@@ -107,18 +107,7 @@
 			</table>
 		</div>
 
-		<div class="mt-4 flex items-center justify-between">
-			<div class="flex items-center gap-2 text-xs text-gray-500">
-				<span>Filas por página:</span>
-				<select onchange="window.location='{{ route('patronos.index') }}?porPagina='+this.value+'&campo={{ $campo }}&buscar='+encodeURIComponent('{{ request('buscar') }}')"
-					class="border border-gray-300 px-1.5 py-0.5 text-xs bg-white">
-					@foreach ([5, 10, 15, 25, 50, 100] as $n)
-						<option value="{{ $n }}" {{ $patronos->perPage() == $n ? 'selected' : '' }}>{{ $n }}</option>
-					@endforeach
-				</select>
-			</div>
-			{{ $patronos->appends(['porPagina' => $patronos->perPage(), 'campo' => $campo, 'buscar' => request('buscar')])->links() }}
-		</div>
+		<x-paginador :paginador="$patronos" clave="patronos" />
 	@endif
 </div>
 @endsection

@@ -158,18 +158,7 @@
 			</table>
 		</div>
 
-		<div class="mt-4 flex items-center justify-between">
-			<div class="flex items-center gap-2 text-xs text-gray-500">
-				<span>Filas por página:</span>
-				<select onchange="window.location='{{ route('empleados.index') }}?porPagina='+this.value+'&buscar='+encodeURIComponent('{{ request('buscar') }}')"
-					class="border border-gray-300 px-1.5 py-0.5 text-xs bg-white">
-					@foreach ([5, 10, 15, 25, 50, 100] as $n)
-						<option value="{{ $n }}" {{ $empleados->perPage() == $n ? 'selected' : '' }}>{{ $n }}</option>
-					@endforeach
-				</select>
-			</div>
-			{{ $empleados->appends(['porPagina' => $empleados->perPage(), 'buscar' => request('buscar')])->links() }}
-		</div>
+		<x-paginador :paginador="$empleados" clave="empleados" />
 	@endif
 </div>
 @endsection

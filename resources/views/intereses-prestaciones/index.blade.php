@@ -115,10 +115,7 @@
 			</table>
 		</div>
 
-		<div class="mt-4 flex justify-between items-center">
-			<div class="text-xs text-gray-500">{{ $pagos->total() }} registros</div>
-			{{ $pagos->appends(request()->except('page'))->links() }}
-		</div>
+		<x-paginador :paginador="$pagos" clave="intereses-prestaciones" />
 	@endif
 </div>
 @endsection

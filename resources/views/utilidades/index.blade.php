@@ -142,9 +142,7 @@
 			</table>
 		</div>
 
-		<div class="mt-4 flex justify-end items-center">
-			{{ $bonificaciones->appends(['anio' => $anio])->links() }}
-		</div>
+		<x-paginador :paginador="$bonificaciones" clave="utilidades" />
 	@endif
 </div>
 @endsection
