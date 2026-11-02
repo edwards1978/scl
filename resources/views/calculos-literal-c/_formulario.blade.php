@@ -126,7 +126,7 @@
 	</fieldset>
 
 	<div class="flex justify-end gap-2">
-		<a href="{{ $esEdicion ? route('calculos-literal-c.show', $calculo) : route('calculos-literal-c.index') }}" class="px-3 py-1.5 text-sm border border-gray-300 text-gray-600 hover:bg-gray-50">Cancelar</a>
+		<x-boton-volver :fallback="$esEdicion ? route('calculos-literal-c.show', $calculo) : route('calculos-literal-c.index')" label="Cancelar" />
 		<button type="submit" class="px-4 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700">{{ $esEdicion ? 'Guardar cambios' : 'Guardar cálculo' }}</button>
 	</div>
 </form>

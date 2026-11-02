@@ -12,7 +12,7 @@
 <div class="p-4 mx-auto max-w-4xl">
 	<div class="flex items-center justify-between mb-1">
 		<h1 class="text-xl font-semibold">Liquidación de Prestaciones</h1>
-		<a href="{{ route('liquidaciones.index') }}" class="px-3 py-1.5 text-sm border border-gray-300 text-gray-600 hover:bg-gray-50">← Volver</a>
+		<x-boton-volver :fallback="route('liquidaciones.index')" />
 	</div>
 	<p class="text-sm text-gray-600 mb-4">
 		{{ $empleado->nombre_completo }} · C.I. {{ $empleado->cedula }} · Motivo: {{ $liquidacion->labelMotivo() }}

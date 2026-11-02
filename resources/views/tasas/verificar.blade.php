@@ -31,7 +31,7 @@
 			@endif
 		</div>
 		<div>
-			<a href="{{ route('tasas.index') }}" class="px-3 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700">← Volver a tasas</a>
+			<x-boton-volver :fallback="route('tasas.index')" label="← Volver a tasas" />
 		</div>
 	</div>
 

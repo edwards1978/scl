@@ -78,7 +78,7 @@
 				<span class="inline-flex min-w-5 items-center justify-center rounded-full bg-blue-600 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">{{ count($infoMensajes) }}</span>
 			</button>
 			<a href="{{ route('intereses-prestaciones.index', ['empleado_id' => $empleado->id]) }}" class="px-3 py-1.5 text-sm border border-gray-300 text-gray-600 hover:bg-gray-50">Pagos de intereses</a>
-			<a href="{{ route('prestaciones.index') }}" class="px-3 py-1.5 text-sm border border-gray-300 text-gray-600 hover:bg-gray-50">← Volver</a>
+			<x-boton-volver :fallback="route('prestaciones.index')" />
 		</div>
 	</div>
 	<p class="text-sm text-gray-600 mb-4">

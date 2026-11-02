@@ -168,7 +168,7 @@
             </fieldset>
 
             <div class="flex justify-end gap-2">
-                <a href="{{ route('empleados.index') }}" class="px-3 py-1.5 text-sm border border-gray-300 text-gray-600 hover:bg-gray-50">Cancelar</a>
+                <x-boton-volver :fallback="route('empleados.index')" label="Cancelar" />
                 <button type="submit" wire:loading.attr="disabled" class="px-4 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
                     <span wire:loading.remove>Crear Empleado</span>
                     <span wire:loading>Guardando...</span>

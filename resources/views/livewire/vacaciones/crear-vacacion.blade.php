@@ -80,8 +80,7 @@
 		@endif
 
 		<div class="flex justify-end gap-2 pt-4 border-t border-gray-200">
-			<a href="{{ route('vacaciones.index') }}"
-				class="px-4 py-1.5 text-sm border border-gray-300 text-gray-600 hover:bg-gray-50">Cancelar</a>
+			<x-boton-volver :fallback="route('vacaciones.index')" label="Cancelar" />
 			<button type="submit" wire:loading.attr="disabled" @if (empty($preview)) disabled @endif
 				class="px-4 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
 				<span wire:loading.remove>✓ Guardar</span>

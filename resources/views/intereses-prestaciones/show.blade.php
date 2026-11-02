@@ -10,7 +10,7 @@
 		<h1 class="text-xl font-semibold">Pago de Intereses sobre Prestaciones</h1>
 		<div class="flex items-center gap-2">
 			<a href="{{ route('intereses-prestaciones.comprobante', $pago) }}" target="_blank" rel="noopener" class="px-3 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700">Comprobante PDF</a>
-			<a href="{{ route('intereses-prestaciones.index') }}" class="px-3 py-1.5 text-sm border border-gray-300 text-gray-600 hover:bg-gray-50">← Volver</a>
+			<x-boton-volver :fallback="route('intereses-prestaciones.index')" />
 		</div>
 	</div>
 	<p class="text-sm text-gray-600 mb-4">

@@ -25,7 +25,7 @@
 					<button class="px-3 py-1.5 text-sm border border-red-300 text-red-600 hover:bg-red-50">Eliminar</button>
 				</form>
 			@endif
-			<a href="{{ route('calculos-literal-c.index') }}" class="px-3 py-1.5 text-sm border border-gray-300 text-gray-600 hover:bg-gray-50">← Volver</a>
+			<x-boton-volver :fallback="route('calculos-literal-c.index')" />
 		</div>
 	</div>
 

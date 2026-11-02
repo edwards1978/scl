@@ -4,7 +4,7 @@
 <div class="p-4 mx-auto max-w-2xl">
 	<div class="flex items-center justify-between mb-1">
 		<h1 class="text-xl font-semibold">Nuevo Pago de Intereses</h1>
-		<a href="{{ route('intereses-prestaciones.index') }}" class="px-3 py-1.5 text-sm border border-gray-300 text-gray-600 hover:bg-gray-50">← Volver</a>
+		<x-boton-volver :fallback="$volverUrl ?? route('intereses-prestaciones.index')" />
 	</div>
 	<p class="text-sm text-gray-600 mb-4">
 		Intereses del Art. 143 LOTTT. El pago se aplica al interés pendiente del trabajador; el exceso reduce capital.
@@ -15,7 +15,7 @@
 			No hay trabajadores activos para registrar pagos de intereses.
 		</div>
 		<div class="flex justify-end mt-4">
-			<a href="{{ route('intereses-prestaciones.index') }}" class="px-3 py-1.5 text-sm border border-gray-300 text-gray-600 hover:bg-gray-50">Volver al listado</a>
+			<x-boton-volver :fallback="route('intereses-prestaciones.index')" label="Volver al listado" />
 		</div>
 	@else
 		<form method="POST" action="{{ route('intereses-prestaciones.store') }}" class="space-y-4">
@@ -93,7 +93,7 @@
 			</fieldset>
 
 			<div class="flex justify-end gap-2">
-				<a href="{{ $volverUrl ?? route('intereses-prestaciones.index') }}" class="px-3 py-1.5 text-sm border border-gray-300 text-gray-600 hover:bg-gray-50">Cancelar</a>
+				<x-boton-volver :fallback="$volverUrl ?? route('intereses-prestaciones.index')" label="Cancelar" />
 				<button type="submit" class="px-4 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700">Registrar pago</button>
 			</div>
 		</form>

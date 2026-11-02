@@ -570,6 +570,19 @@ class InteresesPrestacionesTest extends TestCase
             ->assertViewHas('pagos', fn ($pagos) => $pagos->first()->empleado_id === $ana->id);
     }
 
+    public function test_el_detalle_tiene_boton_volver_con_destino_de_respaldo(): void
+    {
+        [$patrono, $empleado] = $this->crearPatronoEmpleado('J-30303032-1', 'V-30303032');
+        $pago = $this->crearPago($patrono, $empleado, 'PAGO-VOLVER');
+
+        $this->actingAs(User::factory()->create())
+            ->withSession(['patrono_id' => $patrono->id])
+            ->get(route('intereses-prestaciones.show', $pago))
+            ->assertOk()
+            ->assertSee('data-volver-atras', false)
+            ->assertSee(route('intereses-prestaciones.index'), false);
+    }
+
     public function test_el_listado_enlaza_al_detalle_de_cada_pago(): void
     {
         [$patrono, $empleado] = $this->crearPatronoEmpleado('J-27272727-2', 'V-27272727');
