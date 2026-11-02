@@ -8,10 +8,10 @@
 	<div class="flex items-center justify-between mb-4">
 		<div>
 			<h1 class="text-xl font-semibold">Patronos</h1>
-			<p class="text-sm text-gray-600">
+<!-- 			<p class="text-sm text-gray-600">
 				Patrono en contexto:
 				<strong>{{ session('nombre_patrono', 'Ninguno seleccionado') }}</strong>
-			</p>
+			</p> -->
 		</div>
 		<a href="{{ route('patronos.create') }}" class="px-3 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700">+ Nuevo Patrono</a>
 	</div>
@@ -59,7 +59,7 @@
 					@foreach ($patronos as $p)
 						<tr class="hover:bg-gray-50">
 							<td class="px-4 py-2 text-xs font-mono">{{ $p->rif }}</td>
-							<td class="px-4 py-2">{{ $p->razon_social }}</td>
+							<td class="px-4 py-2">{{ trim($p->razon_social) }}</td>
 							<td class="px-4 py-2 text-xs text-gray-500">{{ $p->nombre_comercial ?? '—' }}</td>
 							<td class="px-4 py-2 text-xs">
 								{{ $p->deposito_tipo === 'contabilidad' ? 'Contabilidad' : ($p->deposito_tipo === 'fideicomiso' ? 'Fideicomiso' : 'Fondo') }}

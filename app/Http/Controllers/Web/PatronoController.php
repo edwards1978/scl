@@ -24,7 +24,7 @@ class PatronoController extends Controller
         $camposBusqueda = ['razon_social', 'rif', 'nombre_comercial'];
         $campo = in_array($request->get('campo'), $camposBusqueda) ? $request->get('campo') : 'razon_social';
 
-        $query = Patrono::orderBy('razon_social');
+        $query = Patrono::query()->orderByRaw('TRIM(razon_social) ASC')->orderBy('id');
         if ($buscar = $request->get('buscar')) {
             $query->where($campo, 'like', "%{$buscar}%");
         }

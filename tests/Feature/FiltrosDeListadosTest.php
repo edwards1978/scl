@@ -11,6 +11,25 @@ class FiltrosDeListadosTest extends TestCase
 {
     private const CLASE_CUADRO = 'mb-4 bg-white border border-gray-200 p-3 flex flex-wrap items-end gap-3';
 
+    public function test_el_listado_de_patronos_ordena_ignorando_espacios_iniciales(): void
+    {
+        Patrono::create([
+            'rif' => 'J-30303031-1',
+            'razon_social' => ' IMPORTADORA LIAN, C.A',
+            'estado' => 'Activo',
+        ]);
+        Patrono::create([
+            'rif' => 'J-30303032-1',
+            'razon_social' => 'ABOG. EDWARDS EVIAS',
+            'estado' => 'Activo',
+        ]);
+
+        $this->actingAs(User::factory()->create())
+            ->get(route('patronos.index'))
+            ->assertOk()
+            ->assertSeeInOrder(['ABOG. EDWARDS EVIAS', 'IMPORTADORA LIAN, C.A']);
+    }
+
     public function test_el_listado_de_patronos_presenta_los_filtros_en_un_cuadro(): void
     {
         $this->actingAs(User::factory()->create())
