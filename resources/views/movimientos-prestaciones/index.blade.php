@@ -41,7 +41,27 @@
 				<option value="anulado" {{ request('estatus') === 'anulado' ? 'selected' : '' }}>Anulado</option>
 			</select>
 		</div>
+		<div>
+			<label class="block text-xs font-medium text-gray-600 mb-1">Fecha movimiento</label>
+			<input type="date" name="fecha" value="{{ request('fecha') }}" class="border border-gray-300 px-2 py-1.5 text-sm">
+		</div>
+		<div>
+			<label class="block text-xs font-medium text-gray-600 mb-1">Fecha comprobante</label>
+			<input type="date" name="fecha_comprobante" value="{{ request('fecha_comprobante') }}" class="border border-gray-300 px-2 py-1.5 text-sm">
+		</div>
+		<div>
+			<label class="block text-xs font-medium text-gray-600 mb-1">Motivo</label>
+			<select name="motivo" class="border border-gray-300 px-2 py-1.5 text-sm bg-white">
+				<option value="">Todos</option>
+				<option value="vivienda" {{ request('motivo') === 'vivienda' ? 'selected' : '' }}>Vivienda</option>
+				<option value="educacion" {{ request('motivo') === 'educacion' ? 'selected' : '' }}>Educación</option>
+				<option value="salud" {{ request('motivo') === 'salud' ? 'selected' : '' }}>Salud</option>
+			</select>
+		</div>
 		<button class="px-3 py-1.5 text-sm border border-gray-300 text-gray-600 hover:bg-gray-50">Filtrar</button>
+		@if (request()->hasAny(['empleado_id', 'tipo', 'estatus', 'fecha', 'fecha_comprobante', 'motivo']))
+			<a href="{{ route('movimientos-prestaciones.index') }}" class="px-2 py-1.5 text-sm text-gray-500 hover:text-gray-700">Limpiar</a>
+		@endif
 		<div class="flex-1"></div>
 		<div class="text-xs text-gray-500">
 			Sistema de depósito: <span class="font-medium">{{ ucfirst($patrono->deposito_tipo) }}</span>

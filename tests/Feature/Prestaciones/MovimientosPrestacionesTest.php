@@ -44,6 +44,46 @@ class MovimientosPrestacionesTest extends TestCase
             ->assertViewHas('totales', fn ($totales) => (float) $totales['USD'] === 50.0);
     }
 
+    public function test_filtra_por_fecha_de_movimiento_comprobante_y_motivo(): void
+    {
+        [$patrono, $empleado] = $this->crearPatronoEmpleado();
+
+        MovimientoPrestaciones::create([
+            'patrono_id' => $patrono->id,
+            'empleado_id' => $empleado->id,
+            'tipo' => MovimientoPrestaciones::TIPO_ANTICIPO,
+            'fecha' => '2026-10-10',
+            'fecha_comprobante' => '2026-10-11',
+            'motivo' => 'salud',
+            'monto' => 100,
+            'moneda' => 'USD',
+            'estatus' => 'activo',
+        ]);
+        MovimientoPrestaciones::create([
+            'patrono_id' => $patrono->id,
+            'empleado_id' => $empleado->id,
+            'tipo' => MovimientoPrestaciones::TIPO_ANTICIPO,
+            'fecha' => '2026-11-10',
+            'fecha_comprobante' => '2026-11-11',
+            'motivo' => 'vivienda',
+            'monto' => 200,
+            'moneda' => 'USD',
+            'estatus' => 'activo',
+        ]);
+
+        $this->actingAs(User::factory()->create())
+            ->withSession(['patrono_id' => $patrono->id])
+            ->get(route('movimientos-prestaciones.index', [
+                'fecha' => '2026-10-10',
+                'fecha_comprobante' => '2026-10-11',
+                'motivo' => 'salud',
+            ]))
+            ->assertOk()
+            ->assertViewHas('movimientos', fn ($movimientos) => $movimientos->total() === 1
+                && (float) $movimientos->first()->monto === 100.0)
+            ->assertViewHas('totales', fn ($totales) => (float) $totales['USD'] === 100.0);
+    }
+
     public function test_guardar_un_movimiento_desde_prestaciones_vuelve_a_su_pagina_y_filtros(): void
     {
         [$patrono, $empleado] = $this->crearPatronoEmpleado();

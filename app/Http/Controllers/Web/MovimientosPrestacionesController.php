@@ -56,6 +56,18 @@ class MovimientosPrestacionesController extends Controller
             $query->where('estatus', $request->get('estatus'));
         }
 
+        if ($request->filled('fecha')) {
+            $query->whereDate('fecha', $request->get('fecha'));
+        }
+
+        if ($request->filled('fecha_comprobante')) {
+            $query->whereDate('fecha_comprobante', $request->get('fecha_comprobante'));
+        }
+
+        if (in_array($request->get('motivo'), MovimientoPrestaciones::MOTIVOS_ANTICIPO, true)) {
+            $query->where('motivo', $request->get('motivo'));
+        }
+
         $totales = (clone $query)
             ->reorder()
             ->toBase()
