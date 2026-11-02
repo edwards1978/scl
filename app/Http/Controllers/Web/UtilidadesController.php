@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use App\Models\BonificacionFinAno;
+use App\Models\Empleado;
 use App\Models\Patrono;
 use App\Services\UtilidadesService;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -52,6 +53,14 @@ class UtilidadesController extends Controller
 
         $query = BonificacionFinAno::with('empleado')
             ->where('patrono_id', $patrono->id)
+            ->orderBy(
+                Empleado::select('nombres')->whereColumn('empleados.id', 'bonificaciones_fin_ano.empleado_id'),
+                'asc'
+            )
+            ->orderBy(
+                Empleado::select('apellidos')->whereColumn('empleados.id', 'bonificaciones_fin_ano.empleado_id'),
+                'asc'
+            )
             ->orderByDesc('anio')
             ->orderByDesc('id');
 

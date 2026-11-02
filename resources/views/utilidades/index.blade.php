@@ -69,7 +69,7 @@
 		</div>
 	@else
 		<div class="mb-1 flex justify-end">
-			<x-orden-indicador campo="Año" direccion="desc" />
+			<x-orden-indicador campo="Nombres y Apellidos" direccion="asc" />
 		</div>
 		<div class="bg-white border border-gray-200 overflow-x-auto">
 			<table class="w-full text-sm">

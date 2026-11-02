@@ -56,6 +56,23 @@ class AprobarTodasTest extends TestCase
         $this->assertSame('calculado', $pendiente2025->fresh()->estatus);
     }
 
+    public function test_el_listado_ordena_por_nombres_y_apellidos(): void
+    {
+        $patrono = $this->crearPatrono('J-50505059-9', 'Patrono orden');
+
+        $beto = $this->crearEmpleado($patrono, 'V-50505061', 'Beto');
+        $ana = $this->crearEmpleado($patrono, 'V-50505060', 'Ana');
+
+        $this->crearBonificacion($patrono, $beto, 2026);
+        $this->crearBonificacion($patrono, $ana, 2026);
+
+        $this->actingAs(User::factory()->create())
+            ->withSession(['patrono_id' => $patrono->id])
+            ->get(route('utilidades.index', ['anio' => 2026]))
+            ->assertOk()
+            ->assertSeeInOrder(['Ana Prueba', 'Beto Prueba']);
+    }
+
     public function test_aprueba_todas_las_pendientes_de_todos_los_anios(): void
     {
         $patrono = $this->crearPatrono('J-60606060-6', 'Patrono utilidades');
