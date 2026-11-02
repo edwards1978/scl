@@ -66,8 +66,8 @@ class InteresesPrestacionesController extends Controller
         $pagos = $consulta->paginate($porPagina)->withQueryString();
 
         $empleados = $patrono->empleados()
-            ->orderBy('apellidos')
             ->orderBy('nombres')
+            ->orderBy('apellidos')
             ->get(['id', 'nombres', 'apellidos', 'cedula']);
 
         $empleadoFiltro = ! empty($filtros['empleado_id'])
