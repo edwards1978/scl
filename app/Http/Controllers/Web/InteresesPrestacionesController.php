@@ -248,7 +248,7 @@ class InteresesPrestacionesController extends Controller
 
         return Pdf::loadView('intereses-prestaciones.comprobante', compact('pago'))
             ->setPaper('letter', 'portrait')
-            ->stream($archivo);
+            ->download($archivo);
     }
 
     /** Elimina un pago de intereses y recalcula las prestaciones. */

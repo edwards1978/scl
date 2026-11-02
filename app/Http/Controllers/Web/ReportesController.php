@@ -91,6 +91,6 @@ class ReportesController extends Controller
             'estadisticas' => $estadisticas,
         ])->setPaper('letter', 'landscape');
 
-        return $pdf->stream('reporte-vacaciones-'.$patrono->razon_social.'.pdf');
+        return $pdf->download('reporte-vacaciones-'.$patrono->razon_social.'.pdf');
     }
 }

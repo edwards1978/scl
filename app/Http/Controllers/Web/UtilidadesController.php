@@ -219,7 +219,7 @@ class UtilidadesController extends Controller
             'total_deducciones' => (float) $bonificacion->total_deducciones,
             'fecha_emision' => $bonificacion->fecha_emision ?? Carbon::now(),
         ])->setPaper('letter', 'portrait')
-            ->stream("bono-fin-anio-{$empleado->nombre_completo}.pdf");
+            ->download("bono-fin-anio-{$empleado->nombre_completo}.pdf");
     }
 
     /** Elimina el cálculo de bonificación de un trabajador (individual). */

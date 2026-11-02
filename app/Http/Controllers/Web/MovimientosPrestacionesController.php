@@ -209,7 +209,7 @@ class MovimientosPrestacionesController extends Controller
 
         return Pdf::loadView('movimientos-prestaciones.comprobante', compact('movimiento'))
             ->setPaper('letter', 'portrait')
-            ->stream($archivo);
+            ->download($archivo);
     }
 
     /** Registra el pago de intereses de un movimiento. */

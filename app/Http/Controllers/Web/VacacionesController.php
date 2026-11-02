@@ -150,7 +150,7 @@ class VacacionesController extends Controller
             'total_asignaciones' => (float) $recibo->total_asignaciones,
             'total_deducciones' => (float) $recibo->total_deducciones,
         ])->setPaper('letter', 'portrait')
-            ->stream("recibo-vacaciones-{$empleado->nombre_completo}.pdf");
+            ->download("recibo-vacaciones-{$empleado->nombre_completo}.pdf");
     }
 
     /** Elimina un periodo pendiente sin recibo. */

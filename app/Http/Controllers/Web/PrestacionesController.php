@@ -688,6 +688,6 @@ class PrestacionesController extends Controller
             'proyeccionHasta' => $proyeccionHasta,
             'incluyeProyeccion' => $incluyeProyeccion,
         ])->setPaper('letter', 'landscape')
-            ->stream("estado-cuenta-prestaciones-{$empleado->nombre_completo}{$sufijo}.pdf");
+            ->download("estado-cuenta-prestaciones-{$empleado->nombre_completo}{$sufijo}.pdf");
     }
 }

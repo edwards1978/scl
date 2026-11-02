@@ -210,7 +210,7 @@ class LiquidacionController extends Controller
             'total_deducciones' => (float) $liquidacion->total_deducciones,
             'fecha_emision' => Carbon::now(),
         ])->setPaper('letter', 'portrait')
-            ->stream("liquidacion-{$empleado->nombre_completo}.pdf");
+            ->download("liquidacion-{$empleado->nombre_completo}.pdf");
     }
 
     /** Elimina una liquidación pendiente; las aprobadas deben anularse. */

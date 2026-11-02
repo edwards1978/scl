@@ -748,7 +748,7 @@ class PrestacionesSocialesTest extends TestCase
             })
             ->andReturnSelf();
         Pdf::shouldReceive('setPaper')->andReturnSelf();
-        Pdf::shouldReceive('stream')->andReturn(response('pdf'));
+        Pdf::shouldReceive('download')->andReturn(response('pdf'));
 
         $this->actingAs(User::factory()->create())
             ->withSession(['patrono_id' => $patrono->id])
@@ -781,7 +781,7 @@ class PrestacionesSocialesTest extends TestCase
             })
             ->andReturnSelf();
         Pdf::shouldReceive('setPaper')->andReturnSelf();
-        Pdf::shouldReceive('stream')->andReturn(response('pdf'));
+        Pdf::shouldReceive('download')->andReturn(response('pdf'));
 
         $this->actingAs(User::factory()->create())
             ->withSession(['patrono_id' => $patrono->id])
@@ -815,7 +815,7 @@ class PrestacionesSocialesTest extends TestCase
             })
             ->andReturnSelf();
         Pdf::shouldReceive('setPaper')->andReturnSelf();
-        Pdf::shouldReceive('stream')->andReturn(response('pdf'));
+        Pdf::shouldReceive('download')->andReturn(response('pdf'));
 
         $this->actingAs(User::factory()->create())
             ->withSession(['patrono_id' => $patrono->id])
