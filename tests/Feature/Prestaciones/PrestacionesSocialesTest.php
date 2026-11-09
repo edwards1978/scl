@@ -245,6 +245,26 @@ class PrestacionesSocialesTest extends TestCase
             ->max('periodo');
     }
 
+    public function test_la_proyeccion_incluye_el_periodo_que_empieza_despues_del_dia_actual(): void
+    {
+        [$patrono, $empleado] = $this->crearEmpleado('2025-09-20');
+        $prestaciones = app(PrestacionesSocialesService::class);
+
+        $prestaciones->regenerar($empleado);
+        $prestaciones->proyectarHasta($empleado, '2026-12');
+
+        $this->assertDatabaseHas('prestaciones_sociales', [
+            'empleado_id' => $empleado->id,
+            'periodo' => '2026-11',
+            'es_proyeccion' => 1,
+        ]);
+        $this->assertDatabaseHas('prestaciones_sociales', [
+            'empleado_id' => $empleado->id,
+            'periodo' => '2026-12',
+            'es_proyeccion' => 1,
+        ]);
+    }
+
     public function test_un_anticipo_futuro_se_refleja_en_la_proyeccion_sin_eliminarla(): void
     {
         [$patrono, $empleado] = $this->crearEmpleado();

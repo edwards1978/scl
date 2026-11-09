@@ -937,7 +937,10 @@ class PrestacionesSocialesService
     public function recalcularDesde(Empleado $empleado, string $desdePeriodo): int
     {
         $desde = periodo_a_fecha($desdePeriodo)->startOfMonth();
-        $mesActual = Carbon::instance(now())->startOfMonth();
+        $periodoActual = $this->periodoDeFecha($empleado, now());
+        $mesActual = $periodoActual
+            ? periodo_a_fecha($periodoActual)->startOfMonth()
+            : Carbon::instance(now())->startOfMonth();
 
         return DB::transaction(function () use ($empleado, $desde, $mesActual) {
             // Garantiza la base real hasta el mes actual antes de proyectar,
@@ -1011,7 +1014,10 @@ class PrestacionesSocialesService
         }
 
         $mes = periodo_a_fecha($periodo)->startOfMonth();
-        $limite = Carbon::instance(now())->startOfMonth();
+        $periodoActual = $this->periodoDeFecha($empleado, now());
+        $limite = $periodoActual
+            ? periodo_a_fecha($periodoActual)->startOfMonth()
+            : Carbon::instance(now())->startOfMonth();
 
         if ($mes->lte($limite)) {
             return 0;
@@ -1129,7 +1135,10 @@ class PrestacionesSocialesService
 
     private function proyectarEmpleado(Empleado $empleado, Carbon $hastaMes): int
     {
-        $limite = Carbon::instance(now())->startOfMonth();
+        $periodoActual = $this->periodoDeFecha($empleado, now());
+        $limite = $periodoActual
+            ? periodo_a_fecha($periodoActual)->startOfMonth()
+            : Carbon::instance(now())->startOfMonth();
 
         return DB::transaction(function () use ($empleado, $hastaMes, $limite) {
             // Asegura los períodos reales hasta el mes actual.
