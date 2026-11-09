@@ -187,13 +187,16 @@ class VacacionesController extends Controller
     {
         if (! $vacacion->puedeAnular()) {
             throw ValidationException::withMessages([
-                'accion' => 'No se puede anular: la vacación ya fue pagada o disfrutada.',
+                'accion' => 'No se puede anular: la vacación ya fue pagada.',
             ]);
         }
 
         DB::transaction(function () use ($vacacion) {
             $vacacion->recibos()->delete();
-            $vacacion->update(['estatus_calculo' => 'no_aprobada']);
+            $vacacion->update([
+                'estatus_calculo' => 'no_aprobada',
+                'estatus_vacacion' => 'pendiente',
+            ]);
         });
     }
 

@@ -66,6 +66,33 @@ class PagarYDisfrutarTest extends TestCase
         $this->assertDatabaseCount('vacaciones_recibos', 1);
     }
 
+    public function test_una_vacacion_disfrutada_puede_anularse_y_vuelve_a_pendiente(): void
+    {
+        [$patrono, $vacacion] = $this->crearEscenario();
+        $usuario = User::factory()->administrador()->create();
+
+        $this->actingAs($usuario)
+            ->withSession(['patrono_id' => $patrono->id])
+            ->put(route('vacaciones.estatus', $vacacion), ['accion' => 'pagar']);
+        $this->actingAs($usuario)
+            ->withSession(['patrono_id' => $patrono->id])
+            ->put(route('vacaciones.estatus', $vacacion), ['accion' => 'disfrutar']);
+
+        $recibo = $vacacion->recibos()->sole();
+
+        $this->actingAs($usuario)
+            ->withSession(['patrono_id' => $patrono->id])
+            ->put(route('vacaciones.estatus', $vacacion), ['accion' => 'anular'])
+            ->assertRedirect(route('vacaciones.show', $vacacion))
+            ->assertSessionHas('success');
+
+        $vacacion->refresh();
+
+        $this->assertSame('no_aprobada', $vacacion->estatus_calculo);
+        $this->assertSame('pendiente', $vacacion->estatus_vacacion);
+        $this->assertSoftDeleted('vacaciones_recibos', ['id' => $recibo->id]);
+    }
+
     public function test_el_periodo_trabajado_muestra_el_cierre_inclusivo(): void
     {
         [, $vacacion] = $this->crearEscenario();

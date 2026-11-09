@@ -64,6 +64,12 @@
 		<p class="text-xs text-gray-500 mb-4">Aún no hay recibo de pago. Apruebe y pague para generar el recibo.</p>
 	@endif
 
+	@if ($vacacion->estatus_vacacion === 'disfrutada' && $vacacion->puedeAnular())
+		<p class="mb-3 text-xs text-amber-700">
+			Esta vacación ya fue disfrutada. Al anularla se elimina el recibo emitido y el período vuelve a pendiente para su corrección.
+		</p>
+	@endif
+
 	<div class="flex gap-2 pt-3 border-t border-gray-200">
 		@can('aprobar')
 		@if ($vacacion->puedeAprobar())
@@ -86,7 +92,10 @@
 			</form>
 		@endif
 		@if ($vacacion->puedeAnular())
-			<form action="{{ route('vacaciones.estatus', $vacacion) }}" method="POST" onsubmit="return confirm('¿Anular este cálculo?')">
+			<form action="{{ route('vacaciones.estatus', $vacacion) }}" method="POST"
+				onsubmit="return confirm('{{ $vacacion->estatus_vacacion === 'disfrutada'
+					? '¿Anular esta vacación disfrutada? Se eliminará el recibo emitido y quedará pendiente.'
+					: '¿Anular este cálculo?' }}')">
 				@csrf @method('PUT')
 				<input type="hidden" name="accion" value="anular">
 				<button class="px-3 py-1.5 text-sm bg-gray-200 text-gray-600 hover:bg-gray-300">✕ Anular</button>

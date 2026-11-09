@@ -182,7 +182,7 @@ class Vacacion extends Model
 
     public function puedeAnular(): bool
     {
-        return $this->estatus_vacacion === 'pendiente'
+        return in_array($this->estatus_vacacion, ['pendiente', 'disfrutada'], true)
             && in_array($this->estatus_calculo, ['por_aprobar', 'aprobada'], true);
     }
 
